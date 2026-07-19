@@ -1,0 +1,23 @@
+# Archives / build artifacts
+*.zip
+tycoon.zip
+
+# Dependencies (none yet, but future-proof)
+node_modules/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / tool state
+.vscode/
+.idea/
+*.swp
+
+# Python cache (icon generator)
+__pycache__/
+*.pyc
+
+# Local Claude Code settings
+.claude/settings.local.json
