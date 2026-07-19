@@ -3,9 +3,14 @@
  * -------------------------------------------------------------------------
  * Cache-first for our own assets so the game launches offline. Bump
  * CACHE_NAME whenever assets change to force clients to update.
+ * The chart CDN library is cached too (best-effort at install + runtime),
+ * so the Invest tab's candlesticks work offline after the first online run.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v3'; // v3: Phase 3 (progression, prestige, events)
+const CACHE_NAME = 'tycoon-v4'; // v4: Phase 4 (investing tab + market sim)
+
+// TradingView Lightweight Charts — must match the <script src> in index.html.
+const CDN_CHART_LIB = 'https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
 
 const ASSETS = [
   'index.html',
@@ -14,22 +19,31 @@ const ASSETS = [
   'js/format.js',
   'js/data/businesses.js',
   'js/data/progression.js',
+  'js/data/markets.js',
   'js/state.js',
   'js/engine.js',
   'js/mechanics.js',
   'js/progression.js',
-  'js/profile.js',
+  'js/market.js',
   'js/tap.js',
   'js/businesses.js',
+  'js/invest.js',
   'js/ui.js',
+  'js/profile.js',
   'js/main.js',
   'icons/icon.svg',
 ];
 
-// Precache the app shell on install.
+// Precache the app shell; the CDN lib is best-effort (its failure must
+// never block installing the game shell).
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(async (cache) => {
+        await cache.addAll(ASSETS);
+        try { await cache.add(CDN_CHART_LIB); } catch (e) { /* offline first run */ }
+      })
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -57,7 +71,10 @@ self.addEventListener('fetch', (event) => {
       if (cached) return cached;
       return fetch(event.request)
         .then((resp) => {
-          if (resp && resp.status === 200 && resp.type === 'basic') {
+          // Cache same-origin assets AND the CORS-served chart library.
+          const cacheable = resp && resp.status === 200 &&
+            (resp.type === 'basic' || resp.type === 'cors');
+          if (cacheable) {
             const copy = resp.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }

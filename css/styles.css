@@ -457,3 +457,57 @@ html, body {
 .ach-name { font-weight: 800; font-size: 13px; margin-top: 6px; }
 .ach-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .ach-reward { font-size: 11px; color: var(--gold); font-weight: 700; margin-top: 6px; }
+
+/* ---------------------------------------------------------- Phase 4 */
+/* Portfolio header numbers */
+.pf-numbers { text-align: right; }
+.pf-value { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pf-pl { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.invest-filters { margin-bottom: 14px; }
+
+/* Asset list rows */
+.asset-list { display: flex; flex-direction: column; }
+.asset-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left; cursor: pointer;
+  color: var(--text); font-family: inherit;
+}
+.asset-row:active { transform: scale(0.985); }
+.asset-name-wrap { flex: 1; min-width: 0; }
+.asset-sym { font-weight: 800; font-size: 14px; }
+.asset-name { font-size: 11px; color: var(--muted); text-transform: capitalize; }
+.asset-price-wrap { text-align: right; }
+.asset-price { font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
+.asset-change { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.div-tag {
+  font-size: 9px; font-weight: 800; color: var(--gold);
+  border: 1px solid var(--gold-deep); border-radius: 6px;
+  padding: 1px 4px; vertical-align: 2px; margin-left: 3px;
+}
+
+/* Detail view */
+.back-link {
+  background: none; border: none; color: var(--gold);
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  padding: 0 0 12px; font-family: inherit;
+}
+.detail-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.detail-price-row { display: flex; align-items: baseline; gap: 12px; margin: 6px 0 10px; }
+.detail-price {
+  font-size: 30px; font-weight: 800; color: var(--gold);
+  font-variant-numeric: tabular-nums; text-shadow: 0 0 16px var(--gold-glow);
+}
+.detail-change { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Chart container */
+.chart-box {
+  height: 260px; margin-bottom: 12px;
+  background: var(--bg-elev); border: 1px solid var(--line);
+  border-radius: var(--radius); overflow: hidden; position: relative;
+}
+.chart-fallback {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 13px; text-align: center; padding: 20px;
+}

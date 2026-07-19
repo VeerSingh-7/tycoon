@@ -391,5 +391,7 @@ const Mechanics = (() => {
     return h && h.action ? !!h.action(def, mState(def.id), act, arg) : false;
   }
 
-  return { incomeMultiplier, tick, applyOffline, panelHTML, action };
+  // oilPrice is exported so the Market (Phase 4 Crude Oil asset) can share
+  // the exact same price cycle the Oil & Gas / Transport businesses use.
+  return { incomeMultiplier, tick, applyOffline, panelHTML, action, oilPrice };
 })();

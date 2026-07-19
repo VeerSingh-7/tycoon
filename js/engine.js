@@ -319,4 +319,6 @@ function tick() {
   if (typeof Mechanics !== 'undefined') Mechanics.tick(dt);
   // Progression housekeeping (random events, achievement checks).
   if (typeof Progression !== 'undefined') Progression.tick();
+  // Market simulation (price steps, candles, dividends).
+  if (typeof Market !== 'undefined') Market.tick(dt);
 }

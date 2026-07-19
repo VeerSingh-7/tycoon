@@ -10,7 +10,7 @@ const UI = (() => {
   const TAB_DEFS = [
     { id: 'home',    label: 'Home',     icon: '🏠', render: renderHome },
     { id: 'business', label: 'Business', icon: '🏢', render: (el) => Businesses.mount(el) },
-    { id: 'invest',  label: 'Invest',   icon: '📈', render: (el) => comingSoon(el, 'Invest', 'Trading floor: candlestick charts, live prices, stocks, crypto & commodities.') },
+    { id: 'invest',  label: 'Invest',   icon: '📈', render: (el) => Invest.mount(el) },
     { id: 'assets',  label: 'Assets',   icon: '💎', render: (el) => comingSoon(el, 'Assets', 'Real estate empire + luxury collection (cars, jets, boats, jewellery).') },
     { id: 'profile', label: 'Profile',  icon: '👤', render: (el) => Profile.mount(el) },
   ];
@@ -109,6 +109,7 @@ const UI = (() => {
     if (activeTab === 'business') throttled('biz', 500, () => Businesses.render());
     if (activeTab === 'home') throttled('home', 500, () => Tap.refresh());
     if (activeTab === 'profile') throttled('profile', 2000, () => Profile.render());
+    if (activeTab === 'invest') throttled('invest', 1000, () => Invest.refresh());
 
     requestAnimationFrame(animateBalance);
   }

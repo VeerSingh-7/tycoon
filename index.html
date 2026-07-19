@@ -37,16 +37,24 @@
     <nav id="bottomNav" class="bottom-nav"></nav>
   </div>
 
+  <!-- Chart library (CDN, cached by the service worker for offline).
+       async so a slow network never blocks game boot; invest.js degrades
+       gracefully until it arrives. -->
+  <script async src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+
   <!-- Scripts: order matters (dependencies load before consumers) -->
   <script src="js/format.js"></script>
   <script src="js/data/businesses.js"></script>
   <script src="js/data/progression.js"></script>
+  <script src="js/data/markets.js"></script>
   <script src="js/state.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/mechanics.js"></script>
   <script src="js/progression.js"></script>
+  <script src="js/market.js"></script>
   <script src="js/tap.js"></script>
   <script src="js/businesses.js"></script>
+  <script src="js/invest.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/profile.js"></script>
   <script src="js/main.js"></script>

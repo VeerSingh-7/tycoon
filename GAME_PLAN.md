@@ -192,7 +192,24 @@ Active clicking · passive business income · dividends · rent · trading profi
   → Business Magnate (9) → Tycoon (11) → Mogul (13) → Titan (15) → Business Legend (18).
 - Save **v3** (v2 saves migrate in place, no reset).
 
-### 9.9 Pacing targets
+### 9.9 Investing (Phase 4)
+- **Sim:** 1 price step/sec — lognormal step with bull/bear regime drift
+  (redrawn every 2–8 min in ±maxDrift), rare 2–4× volatility spikes (30–90s),
+  rare crashes/rallies (~1 per 40 min, up to ±shockMax over 12s), gentle mean
+  reversion + clamps [0.05×, 50×] of base so the sim stays stable forever.
+- **Risk ladder (per-sec vol):** gold 0.0008 · blue-chip stocks 0.0012–0.0018 ·
+  growth stocks 0.003 · crypto 0.006–0.012. Crypto shocks up to ±35%.
+- **Crude Oil** is not simulated — it IS `Mechanics.oilPrice()` × $80, the same
+  cycle Oil & Gas and Transport react to (buy oil to hedge your fuel costs).
+- **Spread:** buy +0.5% / sell −0.5% of mid — trading has a cost; no free flips.
+- **Dividends:** stocks only, every 5 min, 0.12–0.40% of position value
+  (missed payouts catch up on return, capped at 2h).
+- **Earnings rule:** dividends and *realized profits* count as earnings
+  (XP/Legacy); losses are real, deposits/wash-trades grant nothing.
+- **Candles:** 10s and 1m timeframes, 90 bars kept per asset, persisted.
+- Save **v4** (migrates in place — no progress wiped).
+
+### 9.10 Pacing targets
 - First business ≈ 15–30 min in; first hour ends around a few hundred $/s.
 - Always a goal 2–10 min away (next level, milestone, named upgrade, hire, unlock).
 - Trillions reached only in the late game (Sports/Airline top upgrades are $1.25T/$25T).
@@ -242,10 +259,12 @@ Stats, filters, and sorting throughout.
   full gain preview before confirming.
 - Profile tab: title, level, rep, multiplier breakdown, lifetime stats, Legacy screen.
 
-### Phase 4 — Investing
-- Trading screen, candlestick charts, live prices.
-- Market trends/cycles, stocks + dividends, crypto, commodities.
-- Portfolio, watchlists, filters.
+### ✅ Phase 4 — Investing *(built — numbers in §9.9)*
+- Trading 212–style Invest tab: candlestick charts (TradingView Lightweight
+  Charts via CDN, service-worker cached for offline), 10s/1m timeframes.
+- Organic-but-stable market sim: regimes, vol spikes, crashes/rallies.
+- 6 parody stocks with dividends, 3 crypto, 3 commodities — Crude Oil shares
+  the businesses' oil price. Buy/Sell with 0.5% spread; portfolio P/L in $ and %.
 
 ### Phase 5 — Real Estate & Luxury
 - Property types with rent + appreciation + ROI.
@@ -338,13 +357,16 @@ tycoon/
     ├── format.js         # money/number formatter (K/M/B/T…)
     ├── data/
     │   ├── businesses.js  # DATA-DRIVEN business definitions (add new = add object)
-    │   └── progression.js # titles, achievements, events, prestige tuning (Phase 3)
+    │   ├── progression.js # titles, achievements, events, prestige tuning (Phase 3)
+    │   └── markets.js     # tradeable assets + market tuning (Phase 4)
     ├── state.js          # game state, save/load, offline calc, addEarnings()
     ├── engine.js         # economy formulas + tick loop (constants mirror §9)
     ├── mechanics.js      # per-business mini-mechanic handlers (Phase 2)
     ├── progression.js    # rep/achievements/events/booster/prestige engine (Phase 3)
+    ├── market.js         # price sim, candles, dividends, trading (Phase 4)
     ├── tap.js            # tap loop + floating effects + booster
     ├── businesses.js     # business tab rendering + buy/upgrade logic
+    ├── invest.js         # Invest tab: charts, trading screen, portfolio (Phase 4)
     ├── ui.js             # nav / tab switching / shell / toasts
     ├── profile.js        # Profile tab: identity, stats, Legacy, achievements
     └── main.js           # bootstrap wiring

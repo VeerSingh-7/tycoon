@@ -9,7 +9,8 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v2: Phase 2 economy rebalance — old v1 saves are reset (numbers changed
 // completely, a fresh start is intended).
 // v3: Phase 3 progression fields added — v2 saves migrate WITHOUT reset.
-const SAVE_VERSION = 3;
+// v4: Phase 4 investing (portfolio + market state) — migrates in place too.
+const SAVE_VERSION = 4;
 
 // Offline earnings: pay 100% for a window, avoiding both "free idle game" and
 // the genre's usual stingy offline rates. Phase 1 cap = 2 hours (raised later).
@@ -38,6 +39,10 @@ function defaultState() {
     effects: [],           // active timed effects [{id, kind, mult, endsAt}]
     nextEventAt: 0,        // wall-clock ms of the next random event
     boosterReadyAt: 0,     // wall-clock ms when the booster is off cooldown
+
+    /* Phase 4 — investing */
+    portfolio: {},         // assetId -> { shares, cost } (cost = total $ basis)
+    market: null,          // full market state; created lazily by Market.ensure()
 
     lastSaved: nowSeconds(),
   };
@@ -114,6 +119,11 @@ function migrate(loaded) {
     loaded.runEarned = loaded.totalEarned || 0;
     loaded.version = 3;
   }
+  // v3 -> v4: portfolio/market fields default via the merge in loadGame();
+  // nothing to transform — progress is fully kept.
+  if (loaded.version < 4) {
+    loaded.version = 4;
+  }
   return loaded;
 }
 
@@ -136,6 +146,8 @@ function applyOfflineEarnings() {
   // Let mechanics apply offline time too (bank vault interest compounds;
   // project/build timers use wall-clock so they progress on their own).
   if (typeof Mechanics !== 'undefined') Mechanics.applyOffline(capped);
+  // Markets kept moving while you were away (coarse catch-up, capped).
+  if (typeof Market !== 'undefined') Market.applyOffline(elapsed);
 
   if (earned <= 0) return null;
 
