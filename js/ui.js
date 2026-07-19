@@ -11,7 +11,7 @@ const UI = (() => {
     { id: 'home',    label: 'Home',     icon: '🏠', render: renderHome },
     { id: 'business', label: 'Business', icon: '🏢', render: (el) => Businesses.mount(el) },
     { id: 'invest',  label: 'Invest',   icon: '📈', render: (el) => Invest.mount(el) },
-    { id: 'assets',  label: 'Assets',   icon: '💎', render: (el) => comingSoon(el, 'Assets', 'Real estate empire + luxury collection (cars, jets, boats, jewellery).') },
+    { id: 'assets',  label: 'Assets',   icon: '💎', render: (el) => AssetsTab.mount(el) },
     { id: 'profile', label: 'Profile',  icon: '👤', render: (el) => Profile.mount(el) },
   ];
 
@@ -99,7 +99,7 @@ const UI = (() => {
       displayedBalance += diff * 0.18; // easing factor
     }
     if (balanceEl) balanceEl.textContent = formatMoney(displayedBalance);
-    if (incomeEl) incomeEl.textContent = formatRate(totalBusinessIncomePerSec());
+    if (incomeEl) incomeEl.textContent = formatRate(totalPassiveIncomePerSec());
 
     // Player level badge (levels come from lifetime earnings — engine.js).
     const badge = document.getElementById('levelBadge');
@@ -110,6 +110,7 @@ const UI = (() => {
     if (activeTab === 'home') throttled('home', 500, () => Tap.refresh());
     if (activeTab === 'profile') throttled('profile', 2000, () => Profile.render());
     if (activeTab === 'invest') throttled('invest', 1000, () => Invest.refresh());
+    if (activeTab === 'assets') throttled('assets', 2000, () => AssetsTab.render());
 
     requestAnimationFrame(animateBalance);
   }

@@ -209,7 +209,24 @@ Active clicking · passive business income · dividends · rent · trading profi
 - **Candles:** 10s and 1m timeframes, 90 bars kept per asset, persisted.
 - Save **v4** (migrates in place — no progress wiped).
 
-### 9.10 Pacing targets
+### 9.10 Real Estate & Luxury (Phase 5)
+- **Real estate (own multiples):** Apartment $75K/$30s · Villa $400K/$130s ·
+  Mansion $2.5M/$650s · Commercial Tower $15M/$3.2Ks · Country Estate $100M/$17Ks.
+  Rent joins passive income and is scaled by the global multiplier.
+- **Appreciation:** market value = price × (1+apprPerDay)^days since the save's
+  asset epoch — 2%/day (low tier) to 4%/day (top tier). Buy early = cheaper.
+- **Selling:** market value minus **3% fee**; only profit over average cost
+  counts as earnings (same anti-wash rule as trading).
+- **Luxury:** 26 collectibles in 9 sets (starter/sports/classic/super/hyper
+  cars, helicopters, boats, jets, jewellery). Completing a set grants a
+  permanent income bonus ×1.02–×1.08 (all sets ≈ ×1.55 combined).
+- **Images:** every item auto-loads `img/assets/<id>.png` when present;
+  coloured placeholder until then.
+- **Chart note:** the Invest tab's candlesticks are OUR OWN canvas renderer
+  (js/chart.js) — zero external dependencies, fully offline.
+- Save **v5** (migrates in place — no progress wiped).
+
+### 9.11 Pacing targets
 - First business ≈ 15–30 min in; first hour ends around a few hundred $/s.
 - Always a goal 2–10 min away (next level, milestone, named upgrade, hire, unlock).
 - Trillions reached only in the late game (Sports/Airline top upgrades are $1.25T/$25T).
@@ -266,9 +283,10 @@ Stats, filters, and sorting throughout.
 - 6 parody stocks with dividends, 3 crypto, 3 commodities — Crude Oil shares
   the businesses' oil price. Buy/Sell with 0.5% spread; portfolio P/L in $ and %.
 
-### Phase 5 — Real Estate & Luxury
-- Property types with rent + appreciation + ROI.
-- Luxury collection with set bonuses.
+### ✅ Phase 5 — Real Estate & Luxury *(built — numbers in §9.10; incl. custom canvas chart replacing the TradingView CDN)*
+- Assets tab: 5 property tiers (rent + appreciation + ROI + 3%-fee sells, own multiples).
+- 26-item luxury collection in 9 sets with permanent set bonuses; drop-in images.
+- Invest charts now self-drawn on canvas — zero third-party dependencies.
 
 ### Phase 6 — Banking & Economy Tuning
 - Deposits, loans, interest, taxes & penalties.
@@ -355,21 +373,26 @@ tycoon/
 ├── icons/                # PWA icons
 └── js/
     ├── format.js         # money/number formatter (K/M/B/T…)
+    ├── chart.js          # our own canvas candlestick chart (no libraries)
     ├── data/
     │   ├── businesses.js  # DATA-DRIVEN business definitions (add new = add object)
     │   ├── progression.js # titles, achievements, events, prestige tuning (Phase 3)
-    │   └── markets.js     # tradeable assets + market tuning (Phase 4)
+    │   ├── markets.js     # tradeable assets + market tuning (Phase 4)
+    │   └── assets.js      # real estate + luxury collection data (Phase 5)
     ├── state.js          # game state, save/load, offline calc, addEarnings()
     ├── engine.js         # economy formulas + tick loop (constants mirror §9)
     ├── mechanics.js      # per-business mini-mechanic handlers (Phase 2)
     ├── progression.js    # rep/achievements/events/booster/prestige engine (Phase 3)
     ├── market.js         # price sim, candles, dividends, trading (Phase 4)
+    ├── assets.js         # rent, appreciation, luxury sets engine (Phase 5)
     ├── tap.js            # tap loop + floating effects + booster
     ├── businesses.js     # business tab rendering + buy/upgrade logic
     ├── invest.js         # Invest tab: charts, trading screen, portfolio (Phase 4)
+    ├── assetstab.js      # Assets tab: real estate + luxury UI (Phase 5)
     ├── ui.js             # nav / tab switching / shell / toasts
     ├── profile.js        # Profile tab: identity, stats, Legacy, achievements
     └── main.js           # bootstrap wiring
+(img/assets/           # drop <id>.png here to replace item placeholders)
 ```
 
 **Key extensibility decisions:**

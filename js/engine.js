@@ -134,6 +134,13 @@ function totalBusinessIncomePerSec() {
   return total;
 }
 
+/** ALL passive income/sec: businesses + real-estate rent (Phase 5). */
+function totalPassiveIncomePerSec() {
+  let total = totalBusinessIncomePerSec();
+  if (typeof Assets !== 'undefined') total += Assets.rentPerSec();
+  return total;
+}
+
 /* ------------------------------------------------------------------ *
  * Player level, reputation & business slots
  * ------------------------------------------------------------------ */
@@ -310,7 +317,7 @@ function tick() {
   const dt = (now - _lastTick) / 1000; // seconds
   _lastTick = now;
 
-  const income = totalBusinessIncomePerSec() * dt;
+  const income = totalPassiveIncomePerSec() * dt;
   if (income > 0) {
     addEarnings(income);
   }

@@ -506,8 +506,32 @@ html, body {
   background: var(--bg-elev); border: 1px solid var(--line);
   border-radius: var(--radius); overflow: hidden; position: relative;
 }
-.chart-fallback {
-  position: absolute; inset: 0;
+
+/* ---------------------------------------------------------- Phase 5 */
+/* Item visual: coloured placeholder that a drop-in image covers */
+.asset-visual {
+  position: relative; height: 96px; border-radius: 12px;
+  background: linear-gradient(160deg, var(--ph, #1e2430) 0%, var(--bg-elev-2) 100%);
   display: flex; align-items: center; justify-content: center;
-  color: var(--muted); font-size: 13px; text-align: center; padding: 20px;
+  overflow: hidden; margin-bottom: 10px;
 }
+.asset-visual-icon { font-size: 40px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.45)); }
+.asset-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; z-index: 1;
+}
+.owned-badge {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  background: rgba(13,15,20,0.8); border: 1px solid var(--gold-deep);
+  color: var(--gold); font-size: 12px; font-weight: 800;
+  border-radius: 10px; padding: 3px 8px;
+}
+.asset-card .asset-body .mult-row { padding: 3px 0; }
+.asset-card .chip-row { margin-top: 10px; }
+
+/* Luxury grid cards */
+.lux-visual { height: 72px; margin-bottom: 8px; }
+.lux-visual .asset-visual-icon { font-size: 30px; }
+.lux-card .btn { margin-top: 8px; width: 100%; }
+.lux-set-head { margin-top: 18px; margin-bottom: 10px; }
+.lux-set-title { font-size: 16px; }

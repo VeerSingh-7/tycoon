@@ -3,21 +3,16 @@
  * -------------------------------------------------------------------------
  * Two views inside the tab:
  *   list   — portfolio summary, group filters, live asset rows
- *   detail — big price, candlestick chart (TradingView Lightweight Charts,
- *            loaded from CDN + cached by the service worker), timeframe
- *            toggle, position card, Buy/Sell with spread
- *
- * The chart library is optional at runtime: if the CDN script hasn't loaded
- * (first-ever visit while offline), the tab still works — prices, trading
- * and portfolio all function; the chart area shows a note and recovers
- * automatically once the library is available.
+ *   detail — big price, candlestick chart (our own canvas renderer in
+ *            js/chart.js — no external libraries, works fully offline),
+ *            timeframe toggle, position card, Buy/Sell with spread
  * ========================================================================= */
 
 const Invest = (() => {
   // View state survives tab switches so you come back to the same screen.
   const view = { mode: 'list', filter: 'all', assetId: null, tf: 10 };
   let container = null;
-  let chart = null, series = null, chartAsset = null, chartTf = null;
+  let chart = null, chartAsset = null, chartTf = null;
 
   const GROUPS = [
     { id: 'all', label: 'All' },
@@ -187,34 +182,16 @@ const Invest = (() => {
   function initChart() {
     const el = document.getElementById('invChart');
     if (!el) return;
-    if (typeof LightweightCharts === 'undefined') {
-      el.innerHTML = '<div class="chart-fallback">📉 Chart library loading… trading works meanwhile.</div>';
-      chart = null;
-      return;
-    }
     el.innerHTML = '';
-    chart = LightweightCharts.createChart(el, {
-      autoSize: true,
-      layout: { background: { color: 'transparent' }, textColor: '#8a93a6', fontSize: 11 },
-      grid: { vertLines: { color: '#1e2430' }, horzLines: { color: '#1e2430' } },
-      timeScale: { timeVisible: true, secondsVisible: true, borderColor: '#262d3a' },
-      rightPriceScale: { borderColor: '#262d3a' },
-      crosshair: { mode: 0 },
-    });
-    series = chart.addCandlestickSeries({
-      upColor: '#3ddc84', downColor: '#ff5d5d',
-      wickUpColor: '#3ddc84', wickDownColor: '#ff5d5d',
-      borderVisible: false,
-    });
+    chart = new CandleChart(el);
     chartAsset = view.assetId;
     chartTf = view.tf;
-    series.setData(Market.candles(view.assetId, view.tf));
-    chart.timeScale().scrollToRealTime();
+    chart.setData(Market.candles(view.assetId, view.tf));
   }
 
   function destroyChart() {
-    if (chart) { try { chart.remove(); } catch (e) { /* container already gone */ } }
-    chart = null; series = null; chartAsset = null; chartTf = null;
+    if (chart) { try { chart.destroy(); } catch (e) { /* container already gone */ } }
+    chart = null; chartAsset = null; chartTf = null;
   }
 
   /* ------------------------------- Refresh -------------------------------- */
@@ -260,15 +237,15 @@ const Invest = (() => {
       pos.dataset.tick = '1';
     }
 
-    // Chart: recreate if the library just arrived or asset/tf changed,
-    // else push only the newest candle (cheap).
-    if (!chart && typeof LightweightCharts !== 'undefined') initChart();
-    if (chart && (chartAsset !== view.assetId || chartTf !== view.tf)) {
-      series.setData(Market.candles(view.assetId, view.tf));
+    // Chart: full reload on asset/timeframe change, else push only the
+    // newest candle (cheap single-canvas redraw).
+    if (!chart) initChart();
+    else if (chartAsset !== view.assetId || chartTf !== view.tf) {
+      chart.setData(Market.candles(view.assetId, view.tf));
       chartAsset = view.assetId; chartTf = view.tf;
-    } else if (series) {
+    } else {
       const list = Market.candles(view.assetId, view.tf);
-      if (list.length) series.update(list[list.length - 1]);
+      if (list.length) chart.update(list[list.length - 1]);
     }
   }
 

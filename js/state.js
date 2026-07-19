@@ -10,7 +10,8 @@ const SAVE_KEY = 'tycoon_save_v1';
 // completely, a fresh start is intended).
 // v3: Phase 3 progression fields added — v2 saves migrate WITHOUT reset.
 // v4: Phase 4 investing (portfolio + market state) — migrates in place too.
-const SAVE_VERSION = 4;
+// v5: Phase 5 assets (real estate + luxury) — migrates in place too.
+const SAVE_VERSION = 5;
 
 // Offline earnings: pay 100% for a window, avoiding both "free idle game" and
 // the genre's usual stingy offline rates. Phase 1 cap = 2 hours (raised later).
@@ -43,6 +44,9 @@ function defaultState() {
     /* Phase 4 — investing */
     portfolio: {},         // assetId -> { shares, cost } (cost = total $ basis)
     market: null,          // full market state; created lazily by Market.ensure()
+
+    /* Phase 5 — real estate & luxury */
+    assets: null,          // { epoch, estate:{}, luxury:{} }; lazy via Assets.ensure()
 
     lastSaved: nowSeconds(),
   };
@@ -124,6 +128,10 @@ function migrate(loaded) {
   if (loaded.version < 4) {
     loaded.version = 4;
   }
+  // v4 -> v5: assets field defaults via the merge; progress fully kept.
+  if (loaded.version < 5) {
+    loaded.version = 5;
+  }
   return loaded;
 }
 
@@ -140,7 +148,7 @@ function applyOfflineEarnings() {
   if (elapsed < 5) return null; // ignore quick reloads
 
   const capped = Math.min(elapsed, OFFLINE_CAP_SECONDS);
-  const rate = totalBusinessIncomePerSec(); // engine.js
+  const rate = totalPassiveIncomePerSec(); // engine.js (businesses + rent)
   const earned = rate * capped;
 
   // Let mechanics apply offline time too (bank vault interest compounds;

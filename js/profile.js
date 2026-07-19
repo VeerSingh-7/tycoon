@@ -62,6 +62,7 @@ const Profile = (() => {
         <div class="mult-row"><span>♻️ Legacy (${state.legacyPoints} pts)</span><b>×${Progression.legacyMultiplier().toFixed(2)}</b></div>
         <div class="mult-row"><span>⭐ Reputation (${Progression.reputation()} pts)</span><b>×${Progression.repMultiplier().toFixed(2)}</b></div>
         <div class="mult-row"><span>🏆 Achievements</span><b>×${Progression.achievementMultiplier().toFixed(2)}</b></div>
+        <div class="mult-row"><span>💎 Luxury sets</span><b>×${Assets.luxuryMultiplier().toFixed(2)}</b></div>
         ${effectRows}
         <div class="mult-row mult-total"><span>Total</span><b class="gold">×${Progression.globalIncomeMultiplier().toFixed(2)}</b></div>
       </div>`;

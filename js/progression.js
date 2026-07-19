@@ -107,9 +107,11 @@ const Progression = (() => {
     return 1 + state.legacyPoints * PROG.LEGACY_MULT_PER_POINT;
   }
 
-  /** Applied by engine.js to all business net income. */
+  /** Applied by engine.js to all business net income (and estate rent). */
   function globalIncomeMultiplier() {
-    return repMultiplier() * achievementMultiplier() * legacyMultiplier() * effectMultiplier('income');
+    // Luxury set bonuses (Phase 5) join the product when Assets is loaded.
+    const lux = typeof Assets !== 'undefined' ? Assets.luxuryMultiplier() : 1;
+    return repMultiplier() * achievementMultiplier() * legacyMultiplier() * lux * effectMultiplier('income');
   }
 
   /** Applied by engine.js to tap earnings ("Gone Viral" event). */
