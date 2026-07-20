@@ -222,6 +222,10 @@ Active clicking · passive business income · dividends · rent · trading profi
   1-month change, inline chart, stats, buyout/manage, pinned Buy/Sell), fullscreen
   chart with 1D/1W/1M/3M/1Y/Max, and a Buy/Sell **trade ticket** (slider + quick %
   → Review order). Our own dark+gold canvas candlesticks (no chart library).
+- **Logos:** every asset gets a procedural SVG identity (js/logos.js) — ~19
+  geometric symbols + monogram letterforms, 14 curated gradients, all picked
+  deterministically from the name and cached as strings. Hand-swap any logo by
+  dropping `img/logos/<id>.png` in (404s are remembered per session).
 - **Spread:** buy +0.5% / sell −0.5%. **Dividends/coupons** every 5 min on stocks,
   bonds, REITs & property. **Earnings rule:** dividends + realized profits count
   toward XP/Legacy; losses are real.
@@ -393,6 +397,7 @@ tycoon/
 └── js/
     ├── format.js         # money/number formatter (K/M/B/T…)
     ├── chart.js          # our own canvas candlestick chart (no libraries)
+    ├── logos.js          # procedural SVG stock logos (symbols + monograms)
     ├── data/
     │   ├── businesses.js  # DATA-DRIVEN business definitions (add new = add object)
     │   ├── progression.js # titles, achievements, events, prestige tuning (Phase 3)

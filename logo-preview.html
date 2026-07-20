@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tycoon — Logo Preview (dev)</title>
+<!-- Dev-only page: renders every procedural logo so you can judge them at a
+     glance and decide which to hand-swap via img/logos/<id>.png. Not part of
+     the app shell / service-worker cache. -->
+<style>
+  body { background:#0d0f14; color:#eef1f6; font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+         margin:0; padding:24px; }
+  h1 { font-size:18px; color:#f5c451; letter-spacing:1px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#8a93a6; margin:26px 2px 10px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:14px; }
+  .cell { text-align:center; }
+  .cell .logo-tile { width:64px; height:64px; position:relative; display:inline-block; }
+  .cell .logo-tile svg { width:100%; height:100%; display:block; }
+  .cell .logo-tile img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:24%; }
+  .nm { font-size:10px; color:#8a93a6; margin-top:5px; word-break:break-word; }
+</style>
+</head>
+<body>
+<h1>TYCOON · procedural logo preview</h1>
+<div id="root"></div>
+<script src="js/data/markets.js"></script>
+<script src="js/data/stocks.js"></script>
+<script src="js/logos.js"></script>
+<script>
+  const root = document.getElementById('root');
+  for (const g of MARKET_GROUPS) {
+    const items = ASSET_DEFS.filter((d) => d.group === g.id);
+    if (!items.length) continue;
+    root.insertAdjacentHTML('beforeend', `<h2>${g.icon} ${g.label} (${items.length})</h2>
+      <div class="grid">${items.map((d) =>
+        `<div class="cell">${Logos.tile(d)}<div class="nm">${d.name}</div></div>`).join('')}</div>`);
+  }
+</script>
+</body>
+</html>

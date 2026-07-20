@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v6'; // v6: Invest overhaul (procedural markets, buyouts)
+const CACHE_NAME = 'tycoon-v7'; // v7: procedural stock logo system
 
 const ASSETS = [
   'index.html',
@@ -15,6 +15,7 @@ const ASSETS = [
   'css/styles.css',
   'js/format.js',
   'js/chart.js',
+  'js/logos.js',
   'js/data/businesses.js',
   'js/data/progression.js',
   'js/data/markets.js',

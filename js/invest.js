@@ -106,10 +106,10 @@ const Invest = (() => {
     const h = Market.holding(def.id);
     return `
       <button class="card asset-row" data-act="open" data-id="${def.id}">
-        <div class="asset-tick">${def.ticker}</div>
+        ${Logos.tile(def)}
         <div class="asset-name-wrap">
           <div class="asset-sym">${def.name}${h.shares > 0 ? ' <span class="hold-dot">●</span>' : ''}</div>
-          <div class="asset-name">${def.group === 'stock' ? def.sector : def.group}${h.shares > 0 ? ` · ${fmtShares(h.shares)}` : ''}</div>
+          <div class="asset-name">${def.ticker} · ${def.group === 'stock' ? def.sector : def.group}${h.shares > 0 ? ` · ${fmtShares(h.shares)}` : ''}</div>
         </div>
         <div class="asset-price-wrap">
           <div class="asset-price" data-price="${def.id}">${formatMoney(p)}</div>
@@ -129,9 +129,9 @@ const Invest = (() => {
     container.innerHTML = `
       <button class="back-link" data-act="back">‹ Markets</button>
       <div class="detail-head">
-        <div class="asset-tick lg">${def.ticker}</div>
+        ${Logos.tile(def, 'lg')}
         <div><div class="asset-sym big">${def.name}</div>
-          <div class="asset-name">${def.group === 'stock' ? def.sector + ' · stock' : def.group}${def.unit ? ' · ' + def.unit : ''}</div></div>
+          <div class="asset-name">${def.ticker} · ${def.group === 'stock' ? def.sector + ' · stock' : def.group}${def.unit ? ' · ' + def.unit : ''}</div></div>
       </div>
       <div class="detail-price-row">
         <div class="detail-price" id="invPrice">${formatMoney(Market.price(def.id))}</div>
@@ -277,6 +277,7 @@ const Invest = (() => {
     ov.className = 'overlay fs-overlay';
     ov.innerHTML = `
       <div class="fs-head">
+        ${Logos.tile(def)}
         <div><div class="asset-sym big">${def.name}</div><div class="asset-name">${def.ticker}</div></div>
         <div class="fs-price" id="fsPrice">${formatMoney(Market.price(def.id))}</div>
         <button class="btn btn-sm" id="fsClose">✕</button>
@@ -325,7 +326,7 @@ const Invest = (() => {
       const quick = [10, 25, 50, 100];
       ov.innerHTML = `
         <div class="modal ticket">
-          <div class="ticket-head"><span class="${side === 'buy' ? 'gold' : ''}">${side === 'buy' ? 'Buy' : 'Sell'} ${def.name}</span>
+          <div class="ticket-head"><span class="ticket-title ${side === 'buy' ? 'gold' : ''}">${Logos.tile(def, 'sm')} ${side === 'buy' ? 'Buy' : 'Sell'} ${def.name}</span>
             <button class="btn btn-sm" id="tkClose">✕</button></div>
           <div class="ticket-price">${formatMoney(c.px)} <span class="muted">${side === 'buy' ? 'ask' : 'bid'}</span></div>
           <input type="range" min="0" max="100" value="${Math.round(st.pct * 100)}" class="slider" id="tkSlider">
