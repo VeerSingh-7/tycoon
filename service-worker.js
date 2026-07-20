@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v5'; // v5: Phase 5 (assets tab) + custom canvas chart
+const CACHE_NAME = 'tycoon-v6'; // v6: Invest overhaul (procedural markets, buyouts)
 
 const ASSETS = [
   'index.html',
@@ -18,6 +18,7 @@ const ASSETS = [
   'js/data/businesses.js',
   'js/data/progression.js',
   'js/data/markets.js',
+  'js/data/stocks.js',
   'js/data/assets.js',
   'js/state.js',
   'js/engine.js',

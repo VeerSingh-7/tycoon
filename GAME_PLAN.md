@@ -192,22 +192,41 @@ Active clicking · passive business income · dividends · rent · trading profi
   → Business Magnate (9) → Tycoon (11) → Mogul (13) → Titan (15) → Business Legend (18).
 - Save **v3** (v2 saves migrate in place, no reset).
 
-### 9.9 Investing (Phase 4)
-- **Sim:** 1 price step/sec — lognormal step with bull/bear regime drift
-  (redrawn every 2–8 min in ±maxDrift), rare 2–4× volatility spikes (30–90s),
-  rare crashes/rallies (~1 per 40 min, up to ±shockMax over 12s), gentle mean
-  reversion + clamps [0.05×, 50×] of base so the sim stays stable forever.
-- **Risk ladder (per-sec vol):** gold 0.0008 · blue-chip stocks 0.0012–0.0018 ·
-  growth stocks 0.003 · crypto 0.006–0.012. Crypto shocks up to ±35%.
-- **Crude Oil** is not simulated — it IS `Mechanics.oilPrice()` × $80, the same
-  cycle Oil & Gas and Transport react to (buy oil to hedge your fuel costs).
-- **Spread:** buy +0.5% / sell −0.5% of mid — trading has a cost; no free flips.
-- **Dividends:** stocks only, every 5 min, 0.12–0.40% of position value
-  (missed payouts catch up on return, capped at 2h).
-- **Earnings rule:** dividends and *realized profits* count as earnings
-  (XP/Legacy); losses are real, deposits/wash-trades grant nothing.
-- **Candles:** 10s and 1m timeframes, 90 bars kept per asset, persisted.
-- Save **v4** (migrates in place — no progress wiped).
+### 9.9 Investing (Phase 4 — overhauled to a full trading app)
+- **Procedural price model (the scalable core):** every price is a *pure
+  deterministic function of absolute wall-clock time*,
+  `priceAt = refPrice × exp(clampedTrend) × exp(vol·fbm(seed,t)) × managerFactor`.
+  Trend is anchored to a FIXED epoch (2025-01-01), so historical candles stay
+  stable as real time passes. Multi-octave fractal noise (periods 730→0.4 days
+  + a fast live tick) makes regimes, volatility and crashes *emerge* — no stored
+  random walk, nothing stepped per tick.
+- **Why:** supports ~170 assets on a phone. The markets list just re-reads
+  `priceAt(now)`; candle history is generated on demand back to each company's
+  founding date; only the OPEN asset runs the full chart.
+- **Roster (~170):** 101 fictional parody stocks (obvious fakes — Mango Inc,
+  Googol, Tezla, Toyoda, Envidia, Macrosoft… — no real names/tickers) across 16
+  sectors, plus crypto, precious/industrial metals, energy, agriculture, softs,
+  livestock, forestry, gemstones, and financial assets (cash, savings, bonds,
+  T-bills, REITs, property). All data-driven in `data/markets.js` + `data/stocks.js`.
+- **Risk ladder (vol scale):** cash 0 · bonds/T-bills 0.002–0.006 · gold 0.010 ·
+  blue-chips 0.013–0.022 · growth/semis 0.030–0.050 · crypto 0.09–0.13.
+- **Per-stock stats (all procedural from a seed):** market cap, company value,
+  P/E, EPS, dividend yield, avg volume, shares available, cost to buy out.
+- **Company buyout:** own ≥50% of a stock's shares → **Manage** panel with four
+  plain-English decisions — Invest in growth (permanent upward drift), Pay
+  yourself (cash now, 5-min cooldown), Cut costs (+10% price for 5 min), Expand
+  (permanent company-value rise). Effects feed back into `priceAt`.
+- **Crude Oil** is still `Mechanics.oilPrice()` × $80 — the same cycle Oil & Gas
+  and Transport react to. Cash is flat; Savings grows smoothly.
+- **UI:** markets list (grouped + filter chips), asset detail (big price, today &
+  1-month change, inline chart, stats, buyout/manage, pinned Buy/Sell), fullscreen
+  chart with 1D/1W/1M/3M/1Y/Max, and a Buy/Sell **trade ticket** (slider + quick %
+  → Review order). Our own dark+gold canvas candlesticks (no chart library).
+- **Spread:** buy +0.5% / sell −0.5%. **Dividends/coupons** every 5 min on stocks,
+  bonds, REITs & property. **Earnings rule:** dividends + realized profits count
+  toward XP/Legacy; losses are real.
+- Save **v6** — market state is regenerable so it's rebuilt; **portfolio holdings,
+  cash and all progress are kept** (migrates in place).
 
 ### 9.10 Real Estate & Luxury (Phase 5)
 - **Real estate (own multiples):** Apartment $75K/$30s · Villa $400K/$130s ·
@@ -276,7 +295,7 @@ Stats, filters, and sorting throughout.
   full gain preview before confirming.
 - Profile tab: title, level, rep, multiplier breakdown, lifetime stats, Legacy screen.
 
-### ✅ Phase 4 — Investing *(built — numbers in §9.9)*
+### ✅ Phase 4 — Investing *(built + overhauled into a full trading app — see §9.9)*
 - Trading 212–style Invest tab: candlestick charts (TradingView Lightweight
   Charts via CDN, service-worker cached for offline), 10s/1m timeframes.
 - Organic-but-stable market sim: regimes, vol spikes, crashes/rallies.
@@ -377,17 +396,18 @@ tycoon/
     ├── data/
     │   ├── businesses.js  # DATA-DRIVEN business definitions (add new = add object)
     │   ├── progression.js # titles, achievements, events, prestige tuning (Phase 3)
-    │   ├── markets.js     # tradeable assets + market tuning (Phase 4)
+    │   ├── markets.js     # market config + commodity/financial roster (Phase 4)
+    │   ├── stocks.js      # ~101 parody company roster (Phase 4 overhaul)
     │   └── assets.js      # real estate + luxury collection data (Phase 5)
     ├── state.js          # game state, save/load, offline calc, addEarnings()
     ├── engine.js         # economy formulas + tick loop (constants mirror §9)
     ├── mechanics.js      # per-business mini-mechanic handlers (Phase 2)
     ├── progression.js    # rep/achievements/events/booster/prestige engine (Phase 3)
-    ├── market.js         # price sim, candles, dividends, trading (Phase 4)
+    ├── market.js         # procedural prices, candles, stats, trading, buyouts (Phase 4)
     ├── assets.js         # rent, appreciation, luxury sets engine (Phase 5)
     ├── tap.js            # tap loop + floating effects + booster
     ├── businesses.js     # business tab rendering + buy/upgrade logic
-    ├── invest.js         # Invest tab: charts, trading screen, portfolio (Phase 4)
+    ├── invest.js         # Invest tab: list, detail, fullscreen, trade ticket, manage (Phase 4)
     ├── assetstab.js      # Assets tab: real estate + luxury UI (Phase 5)
     ├── ui.js             # nav / tab switching / shell / toasts
     ├── profile.js        # Profile tab: identity, stats, Legacy, achievements

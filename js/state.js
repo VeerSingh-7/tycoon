@@ -11,7 +11,9 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v3: Phase 3 progression fields added — v2 saves migrate WITHOUT reset.
 // v4: Phase 4 investing (portfolio + market state) — migrates in place too.
 // v5: Phase 5 assets (real estate + luxury) — migrates in place too.
-const SAVE_VERSION = 5;
+// v6: Invest overhaul — procedural market; regenerate market state, KEEP
+//     portfolio holdings (ids preserved). Migrates in place, no progress lost.
+const SAVE_VERSION = 6;
 
 // Offline earnings: pay 100% for a window, avoiding both "free idle game" and
 // the genre's usual stingy offline rates. Phase 1 cap = 2 hours (raised later).
@@ -131,6 +133,13 @@ function migrate(loaded) {
   // v4 -> v5: assets field defaults via the merge; progress fully kept.
   if (loaded.version < 5) {
     loaded.version = 5;
+  }
+  // v5 -> v6: the market model changed from stored random walks to procedural
+  // prices. Drop the old regenerable market state; KEEP portfolio holdings
+  // (asset ids are preserved), cash, and everything else.
+  if (loaded.version < 6) {
+    loaded.market = null;
+    loaded.version = 6;
   }
   return loaded;
 }

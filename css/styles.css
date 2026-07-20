@@ -507,6 +507,94 @@ html, body {
   border-radius: var(--radius); overflow: hidden; position: relative;
 }
 
+/* ------------------------------------------- Invest overhaul (Phase 4.2) */
+/* Ticker badge */
+.asset-tick {
+  min-width: 48px; height: 40px; padding: 0 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 10px;
+  font-weight: 800; font-size: 12px; color: var(--gold); letter-spacing: 0.5px; flex-shrink: 0;
+}
+.asset-tick.lg { min-width: 60px; height: 50px; font-size: 15px; }
+.hold-dot { color: var(--gold); font-size: 9px; vertical-align: 2px; }
+.pf-card { cursor: pointer; }
+
+/* Category headers in the grouped list */
+.mkt-group-head {
+  font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--muted); margin: 16px 2px 8px;
+}
+.mkt-group-head .muted { font-weight: 600; }
+
+/* Detail: big name + today/month change pills */
+.asset-sym.big { font-size: 19px; }
+.change-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.chg-pill {
+  flex: 1; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+  padding: 8px 12px; font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums;
+}
+.chg-pill span { display: block; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; }
+
+/* Timeframe chip row */
+.tf-row { margin-bottom: 14px; }
+.tf-chip { padding: 6px 12px; }
+
+/* Pinned Buy/Sell bar */
+.trade-spacer { height: 76px; }
+.trade-bar {
+  position: fixed; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); left: 50%;
+  transform: translateX(-50%); width: 100%; max-width: 480px;
+  display: flex; gap: 10px; padding: 12px 16px;
+  background: linear-gradient(0deg, var(--bg) 60%, transparent);
+  z-index: 25;
+}
+.trade-btn { flex: 1; padding: 14px; font-size: 16px; }
+
+/* Buyout + manage */
+.buyout-card, .manage-card { border-color: var(--gold-deep); }
+.manage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.manage-btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  text-align: left; padding: 12px; height: auto; line-height: 1.3;
+}
+.manage-btn b { font-size: 13px; }
+.manage-btn small { font-size: 10px; color: var(--muted); font-weight: 600; }
+.manage-btn:disabled small { color: var(--muted); }
+
+/* Trade ticket */
+.ticket { max-width: 360px; text-align: left; }
+.ticket-head { display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+.ticket-price { font-size: 24px; font-weight: 800; color: var(--gold); margin-bottom: 14px; font-variant-numeric: tabular-nums; }
+.ticket-quick { margin: 12px 0; }
+.ticket-readout { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0 16px; }
+.ticket-readout div { display: flex; flex-direction: column; }
+.ticket-readout span { font-size: 11px; }
+.ticket-readout b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.review-list { background: var(--bg-elev-2); border-radius: 12px; padding: 10px 14px; margin: 8px 0 16px; }
+
+/* Range slider — dark + gold */
+.slider {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+  background: var(--bg-elev-2); border-radius: 6px; outline: none; margin: 8px 0;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep)); cursor: pointer;
+  border: 2px solid var(--bg); box-shadow: 0 0 10px var(--gold-glow);
+}
+.slider::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--bg);
+  background: var(--gold); cursor: pointer;
+}
+
+/* Fullscreen chart */
+.fs-overlay { flex-direction: column; padding: 16px; align-items: stretch; justify-content: flex-start; }
+.fs-head { display: flex; align-items: center; gap: 12px; padding-top: env(safe-area-inset-top); }
+.fs-head > div:first-child { flex: 1; }
+.fs-price { font-size: 20px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+.fs-chart { flex: 1; min-height: 0; margin: 12px 0; background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.fs-tf { justify-content: center; }
+
 /* ---------------------------------------------------------- Phase 5 */
 /* Item visual: coloured placeholder that a drop-in image covers */
 .asset-visual {

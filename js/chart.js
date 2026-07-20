@@ -147,15 +147,25 @@ class CandleChart {
     ctx.fillStyle = this.COL.live;
     ctx.fillText(this.fmtPrice(live), PAD_L + plotW + 6, ly);
 
-    // Time labels: first / middle / last candle.
+    // Time labels: first / middle / last candle. Auto-pick clock vs date
+    // based on how much time each candle spans (short TF = time, long = date).
     ctx.fillStyle = this.COL.axis;
     ctx.textBaseline = 'alphabetic';
+    const spanSec = data.length > 1 ? data[n - 1].time - data[0].time : 0;
+    const useDate = spanSec >= 3 * 86400; // ≥ ~3 days of history → show dates
     const stamps = [[0, 'left'], [Math.floor(n / 2), 'center'], [n - 1, 'right']];
     for (const [i, align] of stamps) {
-      const t = new Date(data[i].time * 1000);
-      const label = t.toTimeString().slice(0, 8);
       ctx.textAlign = align;
-      ctx.fillText(label, PAD_L + xStep * (i + 0.5), h - 6);
+      ctx.fillText(this.stamp(data[i].time, useDate), PAD_L + xStep * (i + 0.5), h - 6);
     }
+  }
+
+  /** Format an x-axis timestamp as a clock time or a date. */
+  stamp(sec, useDate) {
+    const d = new Date(sec * 1000);
+    if (!useDate) return d.toTimeString().slice(0, 5); // HH:MM
+    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+    // Include the year on long spans so Max charts read as history.
+    return `${d.getDate()} ${mon} '${String(d.getFullYear()).slice(2)}`;
   }
 }
