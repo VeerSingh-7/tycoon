@@ -33,20 +33,41 @@ const MARKET = {
   ],
 };
 
-// Filter chips / category headers in the Markets list.
+// Category headers in the Markets list (commodity sub-groups + top levels).
 const MARKET_GROUPS = [
-  { id: 'stock',      label: 'Stocks',      icon: '📈' },
-  { id: 'crypto',     label: 'Crypto',      icon: '🪙' },
-  { id: 'precious',   label: 'Precious',    icon: '🥇' },
-  { id: 'industrial', label: 'Metals',      icon: '🔩' },
-  { id: 'energy',     label: 'Energy',      icon: '⚡' },
-  { id: 'agri',       label: 'Agriculture', icon: '🌾' },
-  { id: 'softs',      label: 'Softs',       icon: '☕' },
-  { id: 'livestock',  label: 'Livestock',   icon: '🐄' },
-  { id: 'forestry',   label: 'Forestry',    icon: '🌲' },
-  { id: 'gems',       label: 'Gems',        icon: '💠' },
-  { id: 'financial',  label: 'Financial',   icon: '🏦' },
+  { id: 'stock',      label: 'Stocks',            icon: '📈' },
+  { id: 'crypto',     label: 'Crypto',            icon: '🪙' },
+  { id: 'precious',   label: 'Precious Metals',   icon: '🥇' },
+  { id: 'industrial', label: 'Industrial Metals', icon: '🔩' },
+  { id: 'energy',     label: 'Energy',            icon: '⚡' },
+  { id: 'agri',       label: 'Agriculture',       icon: '🌾' },
+  { id: 'softs',      label: 'Soft Commodities',  icon: '☕' },
+  { id: 'livestock',  label: 'Livestock',         icon: '🐄' },
+  { id: 'forestry',   label: 'Forestry',          icon: '🌲' },
+  { id: 'gems',       label: 'Gemstones',         icon: '💠' },
+  { id: 'financial',  label: 'Financial',         icon: '🏦' },
 ];
+
+// The eight commodity sub-groups, in display order.
+const COMMODITY_GROUP_IDS = ['precious', 'industrial', 'energy', 'agri', 'softs', 'livestock', 'forestry', 'gems'];
+
+// Stock sectors → tidy display sections (collapsible headers in the list).
+// Every SECTOR_PROFILES key maps to exactly one section.
+const STOCK_SECTIONS = [
+  { id: 'sec_tech',     label: 'Technology',          icon: '💻', sectors: ['tech', 'media', 'telecom'] },
+  { id: 'sec_semi',     label: 'Semiconductors',      icon: '🔬', sectors: ['semi'] },
+  { id: 'sec_fin',      label: 'Banks & Finance',     icon: '🏦', sectors: ['bank', 'fintech'] },
+  { id: 'sec_health',   label: 'Healthcare & Pharma', icon: '💊', sectors: ['pharma'] },
+  { id: 'sec_energy',   label: 'Energy',              icon: '⚡', sectors: ['energy', 'utility'] },
+  { id: 'sec_consumer', label: 'Consumer & Retail',   icon: '🛍️', sectors: ['consumer', 'retail', 'luxury'] },
+  { id: 'sec_auto',     label: 'Autos',               icon: '🚗', sectors: ['auto'] },
+  { id: 'sec_aero',     label: 'Aerospace & Defence', icon: '🚀', sectors: ['aerospace'] },
+  { id: 'sec_industrial', label: 'Industrials',       icon: '🏗️', sectors: ['industrial', 'materials'] },
+];
+const SECTOR_TO_SECTION = STOCK_SECTIONS.reduce((m, s) => {
+  for (const k of s.sectors) m[k] = s.id;
+  return m;
+}, {});
 
 // Stock sector profiles → drift (annual trend), vol (noise scale), P/E range,
 // dividend range (fraction paid per 5-min interval), price-to-book range.
@@ -140,17 +161,18 @@ const COMMODITY_DEFS = [
   { id: 'rubies',    name: 'Rubies',    ticker: 'RBY', group: 'gems', refPrice: 5000, vol: 0.015, unit: 'per ct' },
   { id: 'sapphires', name: 'Sapphires', ticker: 'SPH', group: 'gems', refPrice: 3800, vol: 0.015, unit: 'per ct' },
 
-  // Financial assets (fictional issuers)
-  { id: 'cash',            name: 'Cash',              ticker: 'CASH', group: 'financial', refPrice: 1.00,  vol: 0, flat: true, unit: 'per unit' },
-  { id: 'savings',         name: 'Savings Account',   ticker: 'SAV',  group: 'financial', refPrice: 1.00,  vol: 0, savings: true, drift: 0.03, unit: 'per unit' },
-  { id: 'bonds',           name: 'Bonds',             ticker: 'BND',  group: 'financial', refPrice: 100,   vol: 0.004, divYield: 0.0010, unit: 'per note' },
-  { id: 'gov_bonds',       name: 'Government Bonds',   ticker: 'GVT',  group: 'financial', refPrice: 100,   vol: 0.003, divYield: 0.0008, issuer: 'Republic of Aurelia', unit: 'per note' },
-  { id: 'corp_bonds',      name: 'Corporate Bonds',   ticker: 'CRP',  group: 'financial', refPrice: 101,   vol: 0.006, divYield: 0.0013, issuer: 'Veranda Capital', unit: 'per note' },
-  { id: 'tbills',          name: 'Treasury Bills',    ticker: 'TBL',  group: 'financial', refPrice: 99.5,  vol: 0.002, divYield: 0.0005, issuer: 'Aurelia Treasury', unit: 'per bill' },
-  { id: 'reit_beacon',     name: 'Beacon REIT',       ticker: 'BCN',  group: 'financial', refPrice: 55,    vol: 0.020, divYield: 0.0030, drift: 0.03, unit: 'per share' },
-  { id: 'reit_meridian',   name: 'Meridian Property Fund', ticker: 'MPF', group: 'financial', refPrice: 42, vol: 0.018, divYield: 0.0028, drift: 0.03, unit: 'per share' },
-  { id: 'commercial_prop', name: 'Commercial Property', ticker: 'CMP', group: 'financial', refPrice: 250,  vol: 0.012, divYield: 0.0022, drift: 0.02, unit: 'index' },
-  { id: 'residential_prop',name: 'Residential Property',ticker: 'RES', group: 'financial', refPrice: 180,  vol: 0.012, divYield: 0.0020, drift: 0.025, unit: 'index' },
+  // Financial assets (fictional issuers). `fin` splits them into the
+  // "Savings & Bonds" vs "Property" filter chips.
+  { id: 'cash',            name: 'Cash',              ticker: 'CASH', group: 'financial', fin: 'savings', refPrice: 1.00,  vol: 0, flat: true, unit: 'per unit' },
+  { id: 'savings',         name: 'Savings Account',   ticker: 'SAV',  group: 'financial', fin: 'savings', refPrice: 1.00,  vol: 0, savings: true, drift: 0.03, unit: 'per unit' },
+  { id: 'bonds',           name: 'Bonds',             ticker: 'BND',  group: 'financial', fin: 'savings', refPrice: 100,   vol: 0.004, divYield: 0.0010, unit: 'per note' },
+  { id: 'gov_bonds',       name: 'Government Bonds',   ticker: 'GVT',  group: 'financial', fin: 'savings', refPrice: 100,   vol: 0.003, divYield: 0.0008, issuer: 'Republic of Aurelia', unit: 'per note' },
+  { id: 'corp_bonds',      name: 'Corporate Bonds',   ticker: 'CRP',  group: 'financial', fin: 'savings', refPrice: 101,   vol: 0.006, divYield: 0.0013, issuer: 'Veranda Capital', unit: 'per note' },
+  { id: 'tbills',          name: 'Treasury Bills',    ticker: 'TBL',  group: 'financial', fin: 'savings', refPrice: 99.5,  vol: 0.002, divYield: 0.0005, issuer: 'Aurelia Treasury', unit: 'per bill' },
+  { id: 'reit_beacon',     name: 'Beacon REIT',       ticker: 'BCN',  group: 'financial', fin: 'property', refPrice: 55,    vol: 0.020, divYield: 0.0030, drift: 0.03, unit: 'per share' },
+  { id: 'reit_meridian',   name: 'Meridian Property Fund', ticker: 'MPF', group: 'financial', fin: 'property', refPrice: 42, vol: 0.018, divYield: 0.0028, drift: 0.03, unit: 'per share' },
+  { id: 'commercial_prop', name: 'Commercial Property', ticker: 'CMP', group: 'financial', fin: 'property', refPrice: 250,  vol: 0.012, divYield: 0.0022, drift: 0.02, unit: 'index' },
+  { id: 'residential_prop',name: 'Residential Property',ticker: 'RES', group: 'financial', fin: 'property', refPrice: 180,  vol: 0.012, divYield: 0.0020, drift: 0.025, unit: 'index' },
 
   // Crypto (kept from the original roster; high volatility, no dividends)
   { id: 'bitcorn',  name: 'Bitcorn',  ticker: 'BTC', group: 'crypto', refPrice: 65000, vol: 0.090, drift: 0.10, unit: 'per coin' },

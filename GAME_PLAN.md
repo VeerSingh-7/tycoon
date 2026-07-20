@@ -226,6 +226,13 @@ Active clicking · passive business income · dividends · rent · trading profi
   geometric symbols + monogram letterforms, 14 curated gradients, all picked
   deterministically from the name and cached as strings. Hand-swap any logo by
   dropping `img/logos/<id>.png` in (404s are remembered per session).
+- **List organisation:** search bar (name/ticker) → filter chips (All, Stocks,
+  Crypto, Commodities, Property, Savings & Bonds, ★ Watchlist, Holdings) →
+  sort control (Top Movers by |Δ%| / A–Z / Price) → collapsible sections:
+  stocks in 9 sectors (Technology … Industrials via SECTOR_TO_SECTION),
+  commodities in 8 sub-groups. Stock sectors start collapsed (tidy index).
+  Watchlist stars persist in the save (**v7**, migrates in place). Live price
+  patching only touches rows on screen (IntersectionObserver).
 - **Spread:** buy +0.5% / sell −0.5%. **Dividends/coupons** every 5 min on stocks,
   bonds, REITs & property. **Earnings rule:** dividends + realized profits count
   toward XP/Legacy; losses are real.

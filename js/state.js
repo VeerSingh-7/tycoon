@@ -13,7 +13,8 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v5: Phase 5 assets (real estate + luxury) — migrates in place too.
 // v6: Invest overhaul — procedural market; regenerate market state, KEEP
 //     portfolio holdings (ids preserved). Migrates in place, no progress lost.
-const SAVE_VERSION = 6;
+// v7: markets watchlist added — migrates in place, no progress lost.
+const SAVE_VERSION = 7;
 
 // Offline earnings: pay 100% for a window, avoiding both "free idle game" and
 // the genre's usual stingy offline rates. Phase 1 cap = 2 hours (raised later).
@@ -49,6 +50,7 @@ function defaultState() {
 
     /* Phase 5 — real estate & luxury */
     assets: null,          // { epoch, estate:{}, luxury:{} }; lazy via Assets.ensure()
+    watchlist: {},         // assetId -> true (starred in the Markets list)
 
     lastSaved: nowSeconds(),
   };
@@ -140,6 +142,10 @@ function migrate(loaded) {
   if (loaded.version < 6) {
     loaded.market = null;
     loaded.version = 6;
+  }
+  // v6 -> v7: watchlist field defaults via the merge; progress fully kept.
+  if (loaded.version < 7) {
+    loaded.version = 7;
   }
   return loaded;
 }
