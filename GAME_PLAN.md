@@ -192,7 +192,7 @@ Active clicking · passive business income · dividends · rent · trading profi
   → Business Magnate (9) → Tycoon (11) → Mogul (13) → Titan (15) → Business Legend (18).
 - Save **v3** (v2 saves migrate in place, no reset).
 
-### 9.9 Investing (Phase 4 — overhauled to a full trading app)
+### 9.9 Investing (Phase 4 — full trading app: stocks + crypto)
 - **Procedural price model (the scalable core):** every price is a *pure
   deterministic function of absolute wall-clock time*,
   `priceAt = refPrice × exp(clampedTrend) × exp(vol·fbm(seed,t)) × managerFactor`.
@@ -200,44 +200,48 @@ Active clicking · passive business income · dividends · rent · trading profi
   stable as real time passes. Multi-octave fractal noise (periods 730→0.4 days
   + a fast live tick) makes regimes, volatility and crashes *emerge* — no stored
   random walk, nothing stepped per tick.
-- **Why:** supports ~170 assets on a phone. The markets list just re-reads
-  `priceAt(now)`; candle history is generated on demand back to each company's
+- **Why:** supports 100+ assets on a phone. The markets list just re-reads
+  `priceAt(now)`; candle history is generated on demand back to each asset's
   founding date; only the OPEN asset runs the full chart.
-- **Roster (~170):** 101 fictional parody stocks (obvious fakes — Mango Inc,
-  Googol, Tezla, Toyoda, Envidia, Macrosoft… — no real names/tickers) across 16
-  sectors, plus crypto, precious/industrial metals, energy, agriculture, softs,
-  livestock, forestry, gemstones, and financial assets (cash, savings, bonds,
-  T-bills, REITs, property). All data-driven in `data/markets.js` + `data/stocks.js`.
-- **Risk ladder (vol scale):** cash 0 · bonds/T-bills 0.002–0.006 · gold 0.010 ·
-  blue-chips 0.013–0.022 · growth/semis 0.030–0.050 · crypto 0.09–0.13.
-- **Per-stock stats (all procedural from a seed):** market cap, company value,
-  P/E, EPS, dividend yield, avg volume, shares available, cost to buy out.
-- **Company buyout:** own ≥50% of a stock's shares → **Manage** panel with four
-  plain-English decisions — Invest in growth (permanent upward drift), Pay
-  yourself (cash now, 5-min cooldown), Cut costs (+10% price for 5 min), Expand
-  (permanent company-value rise). Effects feed back into `priceAt`.
-- **Crude Oil** is still `Mechanics.oilPrice()` × $80 — the same cycle Oil & Gas
-  and Transport react to. Cash is flat; Savings grows smoothly.
-- **UI:** markets list (grouped + filter chips), asset detail (big price, today &
-  1-month change, inline chart, stats, buyout/manage, pinned Buy/Sell), fullscreen
-  chart with 1D/1W/1M/3M/1Y/Max, and a Buy/Sell **trade ticket** (slider + quick %
-  → Review order). Our own dark+gold canvas candlesticks (no chart library).
+- **Roster (STOCKS + CRYPTO only):** 101 fictional parody stocks (obvious fakes
+  — Mango Inc, Googol, Tezla, Toyoda, Envidia, Macrosoft… — no real names or
+  tickers) across 16 sectors, plus **18 parody coins** (Bitcorn, Ethereal,
+  Dogecorn, Solami, Frogcoin, SafeMoonshot…) with explicit supplies and varied
+  risk. Commodities/financial assets were removed as tradeables; **the oil price
+  the Oil & Gas / Transport businesses use lives in `Mechanics.oilPrice()` and
+  is unaffected.** All data-driven in `data/markets.js` + `data/stocks.js`.
+- **Risk ladder (vol scale):** blue-chip stocks 0.013–0.022 · growth/semis
+  0.030–0.050 · blue-chip crypto 0.09–0.11 · meme coins 0.13–0.18.
+- **Per-asset stats (procedural from a seed):** market cap + cost to buy out for
+  everything; stocks add company value, P/E, EPS, dividend yield, avg volume,
+  shares available; coins show supply, coins available, founding year.
+- **100% OWNERSHIP (companies AND coins):** buy shares/coins until you hold
+  **100% of the supply** (purchases are capped there) — then it is fully yours:
+  it pays **owner income of 0.2% of market cap per 5-min interval** and unlocks
+  the **Manage** panel — four plain-English levers (stocks: Invest in growth /
+  Pay yourself / Cut costs / Expand; coins: Upgrade the network / Mint yourself
+  coins / Burn supply / Major exchange listing). Effects feed back into
+  `priceAt`. No partial "control" tier — one simple goal: reach 100%.
+- **Charts, Trading-212 style:** detail pages show a smooth **line/area chart**
+  (gold line, soft gradient fill, glowing live dot); the ⛶ fullscreen button
+  opens the **candlestick view** (thin 1.25px wicks, bodies capped at 11px with
+  clean gaps, green up / red down). Timeframes on both: **1s · 1min · 15min ·
+  1H · 1D · 1W · 1 Month · 1Y · Max** (Max reaches the founding date).
 - **Logos:** every asset gets a procedural SVG identity (js/logos.js) — ~19
   geometric symbols + monogram letterforms, 14 curated gradients, all picked
   deterministically from the name and cached as strings. Hand-swap any logo by
   dropping `img/logos/<id>.png` in (404s are remembered per session).
 - **List organisation:** search bar (name/ticker) → filter chips (All, Stocks,
-  Crypto, Commodities, Property, Savings & Bonds, ★ Watchlist, Holdings) →
-  sort control (Top Movers by |Δ%| / A–Z / Price) → collapsible sections:
-  stocks in 9 sectors (Technology … Industrials via SECTOR_TO_SECTION),
-  commodities in 8 sub-groups. Stock sectors start collapsed (tidy index).
-  Watchlist stars persist in the save (**v7**, migrates in place). Live price
-  patching only touches rows on screen (IntersectionObserver).
-- **Spread:** buy +0.5% / sell −0.5%. **Dividends/coupons** every 5 min on stocks,
-  bonds, REITs & property. **Earnings rule:** dividends + realized profits count
-  toward XP/Legacy; losses are real.
-- Save **v6** — market state is regenerable so it's rebuilt; **portfolio holdings,
-  cash and all progress are kept** (migrates in place).
+  Crypto, ★ Watchlist, Holdings) → sort control (Top Movers by |Δ%| / A–Z /
+  Price) → collapsible sections: stocks in 9 sectors (Technology … Industrials
+  via SECTOR_TO_SECTION) + a Crypto section. Stock sectors start collapsed
+  (tidy index). Watchlist stars persist in the save. Live price patching only
+  touches rows on screen (IntersectionObserver).
+- **Spread:** buy +0.5% / sell −0.5%. **Dividends** every 5 min on stocks that
+  pay them (+ owner income on fully-owned assets). **Earnings rule:** dividends,
+  owner income + realized profits count toward XP/Legacy; losses are real.
+- Save **v8** — migrates in place; holdings in removed assets are refunded at
+  full cost basis, so no progress or value is ever lost.
 
 ### 9.10 Real Estate & Luxury (Phase 5)
 - **Real estate (own multiples):** Apartment $75K/$30s · Villa $400K/$130s ·

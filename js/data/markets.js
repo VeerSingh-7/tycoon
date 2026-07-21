@@ -1,14 +1,16 @@
 /* =========================================================================
- * data/markets.js — Phase 4 (overhauled) DATA: market config + non-stock roster
+ * data/markets.js — Invest DATA: market config, sections, crypto roster
  * -------------------------------------------------------------------------
- * Prices are PROCEDURAL (see js/market.js `priceAt`): every asset here is a
- * light data object; price, candle history, % change and stats are generated
- * on demand from a deterministic noise function of wall-clock time. That lets
- * us carry ~170 assets on a phone and draw history back to any founding date
- * without storing per-asset candle state.
+ * The Invest tab trades STOCKS and CRYPTO only. (The oil price the Oil & Gas
+ * and Transport businesses react to lives in js/mechanics.js — it was never
+ * part of this file's data and is unaffected.)
  *
- * Stocks live in js/data/stocks.js (a compact parody roster); their per-asset
- * numbers derive from SECTOR_PROFILES below. Adding an asset = adding a row.
+ * Prices are PROCEDURAL (js/market.js `priceAt`): every asset is a light
+ * data object; price, candle history, % change and stats are generated on
+ * demand from a deterministic noise function of wall-clock time.
+ *
+ * Stocks live in js/data/stocks.js; their numbers derive from
+ * SECTOR_PROFILES below. Adding an asset = adding a row.
  * ========================================================================= */
 
 const MARKET = {
@@ -17,39 +19,33 @@ const MARKET = {
   DAY: 86400,
   YEAR: 31557600,
   SPREAD: 0.005,          // buy +0.5% / sell −0.5% of mid — trading has a cost
-  DIV_INTERVAL_SEC: 300,  // dividends / coupons every 5 minutes
+  DIV_INTERVAL_SEC: 300,  // dividends / owner income every 5 minutes
   DIV_MAX_CATCHUP: 24,    // cap missed payouts on return (2h)
+  OWNER_INCOME_RATE: 0.002, // fully-owned company/coin pays 0.2% of its market
+                            // cap per interval (~payback in a couple of days)
   CANDLE_SAMPLES: 6,      // intra-candle samples for wick high/low
   MAX_CANDLES: 140,       // hard cap per chart (phone performance)
   DEFAULT_TF: '1D',
-  // Chart timeframes. bucket/span in seconds; Max spans founding→now.
+  // Chart timeframes (both views). bucket/span in seconds; labels are
+  // deliberately unambiguous ("1min" vs "1 Month"). Max spans founding→now.
   TIMEFRAMES: [
-    { id: '1D', label: '1D', bucket: 900,    span: 86400 },
-    { id: '1W', label: '1W', bucket: 7200,   span: 604800 },
-    { id: '1M', label: '1M', bucket: 28800,  span: 2592000 },
-    { id: '3M', label: '3M', bucket: 86400,  span: 7776000 },
-    { id: '1Y', label: '1Y', bucket: 345600, span: 31557600 },
-    { id: 'Max', label: 'Max', bucket: null, span: null },
+    { id: '1s',  label: '1s',      bucket: 1,      span: 100 },
+    { id: '1m',  label: '1min',    bucket: 60,     span: 5400 },
+    { id: '15m', label: '15min',   bucket: 900,    span: 81000 },
+    { id: '1H',  label: '1H',      bucket: 3600,   span: 324000 },
+    { id: '1D',  label: '1D',      bucket: 900,    span: 86400 },
+    { id: '1W',  label: '1W',      bucket: 7200,   span: 604800 },
+    { id: '1Mo', label: '1 Month', bucket: 28800,  span: 2592000 },
+    { id: '1Y',  label: '1Y',      bucket: 345600, span: 31557600 },
+    { id: 'Max', label: 'Max',     bucket: null,   span: null },
   ],
 };
 
-// Category headers in the Markets list (commodity sub-groups + top levels).
+// Top-level asset groups (only these two are tradeable now).
 const MARKET_GROUPS = [
-  { id: 'stock',      label: 'Stocks',            icon: '📈' },
-  { id: 'crypto',     label: 'Crypto',            icon: '🪙' },
-  { id: 'precious',   label: 'Precious Metals',   icon: '🥇' },
-  { id: 'industrial', label: 'Industrial Metals', icon: '🔩' },
-  { id: 'energy',     label: 'Energy',            icon: '⚡' },
-  { id: 'agri',       label: 'Agriculture',       icon: '🌾' },
-  { id: 'softs',      label: 'Soft Commodities',  icon: '☕' },
-  { id: 'livestock',  label: 'Livestock',         icon: '🐄' },
-  { id: 'forestry',   label: 'Forestry',          icon: '🌲' },
-  { id: 'gems',       label: 'Gemstones',         icon: '💠' },
-  { id: 'financial',  label: 'Financial',         icon: '🏦' },
+  { id: 'stock',  label: 'Stocks', icon: '📈' },
+  { id: 'crypto', label: 'Crypto', icon: '🪙' },
 ];
-
-// The eight commodity sub-groups, in display order.
-const COMMODITY_GROUP_IDS = ['precious', 'industrial', 'energy', 'agri', 'softs', 'livestock', 'forestry', 'gems'];
 
 // Stock sectors → tidy display sections (collapsible headers in the list).
 // Every SECTOR_PROFILES key maps to exactly one section.
@@ -90,92 +86,30 @@ const SECTOR_PROFILES = {
   luxury:     { drift: 0.09, vol: 0.024, pe: [20, 38], div: [0.008, 0.020],  pb: [4, 10] },
 };
 
-/* ----------------------- Non-stock roster (explicit) --------------------- */
-// Fields: id, name, ticker, group, refPrice (~present price at EPOCH), vol
-// (noise scale), drift (annual, optional), unit (display), and flags:
-//   oilLinked — price = Mechanics.oilPrice() × refPrice (shared with businesses)
-//   flat      — constant price (Cash)
-//   savings   — smooth interest curve, no noise
-//   divYield  — coupon/rent paid per interval (bonds, REITs, property)
-//   issuer    — flavour text for bonds
+/* ------------------------------ Crypto ---------------------------------- */
+// All fictional parody coins. `supply` is the total coin supply — buy 100%
+// of it and the coin is fully YOURS (owner income + Manage panel), exactly
+// like buying out a company. Risk ladder: vol 0.09 (blue-chip) → 0.18 (degen).
+// Market caps span ~$0.5B (attainable) to ~$1.4T (endgame trophy).
 
-const COMMODITY_DEFS = [
-  // Precious metals
-  { id: 'gold',      name: 'Gold',       ticker: 'XAU', group: 'precious', refPrice: 2400,  vol: 0.010, drift: 0.02, unit: 'per oz' },
-  { id: 'silver',    name: 'Silver',     ticker: 'XAG', group: 'precious', refPrice: 30,    vol: 0.020, unit: 'per oz' },
-  { id: 'platinum',  name: 'Platinum',   ticker: 'XPT', group: 'precious', refPrice: 980,   vol: 0.016, unit: 'per oz' },
-  { id: 'palladium', name: 'Palladium',  ticker: 'XPD', group: 'precious', refPrice: 1000,  vol: 0.022, unit: 'per oz' },
-
-  // Industrial metals
-  { id: 'copper',    name: 'Copper',     ticker: 'HG',  group: 'industrial', refPrice: 4.3,   vol: 0.020, unit: 'per lb' },
-  { id: 'aluminium', name: 'Aluminium',  ticker: 'ALI', group: 'industrial', refPrice: 2.5,   vol: 0.018, unit: 'per kg' },
-  { id: 'nickel',    name: 'Nickel',     ticker: 'NIK', group: 'industrial', refPrice: 18000, vol: 0.030, unit: 'per ton' },
-  { id: 'zinc',      name: 'Zinc',       ticker: 'ZNC', group: 'industrial', refPrice: 2.85,  vol: 0.022, unit: 'per kg' },
-  { id: 'lead',      name: 'Lead',       ticker: 'PBX', group: 'industrial', refPrice: 2.1,   vol: 0.020, unit: 'per kg' },
-  { id: 'tin',       name: 'Tin',        ticker: 'TIN', group: 'industrial', refPrice: 31000, vol: 0.028, unit: 'per ton' },
-  { id: 'iron_ore',  name: 'Iron Ore',   ticker: 'IRN', group: 'industrial', refPrice: 110,   vol: 0.030, unit: 'per ton' },
-  { id: 'steel',     name: 'Steel',      ticker: 'STL', group: 'industrial', refPrice: 720,   vol: 0.020, unit: 'per ton' },
-  { id: 'lithium',   name: 'Lithium',    ticker: 'LIT', group: 'industrial', refPrice: 15000, vol: 0.050, unit: 'per ton' },
-  { id: 'cobalt',    name: 'Cobalt',     ticker: 'COB', group: 'industrial', refPrice: 27000, vol: 0.040, unit: 'per ton' },
-
-  // Energy
-  { id: 'oil',         name: 'Crude Oil',   ticker: 'CL',  group: 'energy', refPrice: 80,  oilLinked: true, unit: 'per bbl' },
-  { id: 'brent',       name: 'Brent Oil',   ticker: 'BRN', group: 'energy', refPrice: 84,  vol: 0.030, unit: 'per bbl' },
-  { id: 'natural_gas', name: 'Natural Gas', ticker: 'NG',  group: 'energy', refPrice: 2.8, vol: 0.060, unit: 'per MMBtu' },
-  { id: 'coal',        name: 'Coal',        ticker: 'COA', group: 'energy', refPrice: 130, vol: 0.030, unit: 'per ton' },
-  { id: 'uranium',     name: 'Uranium',     ticker: 'URA', group: 'energy', refPrice: 90,  vol: 0.035, unit: 'per lb' },
-  { id: 'electricity', name: 'Electricity', ticker: 'ELC', group: 'energy', refPrice: 60,  vol: 0.050, unit: 'per MWh' },
-
-  // Agriculture
-  { id: 'wheat',    name: 'Wheat',    ticker: 'WHT', group: 'agri', refPrice: 6.2, vol: 0.025, unit: 'per bu' },
-  { id: 'corn',     name: 'Corn',     ticker: 'CRN', group: 'agri', refPrice: 4.3, vol: 0.025, unit: 'per bu' },
-  { id: 'rice',     name: 'Rice',     ticker: 'RIC', group: 'agri', refPrice: 17,  vol: 0.020, unit: 'per cwt' },
-  { id: 'soybeans', name: 'Soybeans', ticker: 'SOY', group: 'agri', refPrice: 12,  vol: 0.022, unit: 'per bu' },
-  { id: 'oats',     name: 'Oats',     ticker: 'OAT', group: 'agri', refPrice: 3.6, vol: 0.028, unit: 'per bu' },
-  { id: 'barley',   name: 'Barley',   ticker: 'BLY', group: 'agri', refPrice: 5.5, vol: 0.025, unit: 'per bu' },
-  { id: 'canola',   name: 'Canola',   ticker: 'CAN', group: 'agri', refPrice: 620, vol: 0.024, unit: 'per ton' },
-
-  // Soft commodities
-  { id: 'coffee',       name: 'Coffee',       ticker: 'KC',  group: 'softs', refPrice: 2.4,  vol: 0.035, unit: 'per lb' },
-  { id: 'cocoa',        name: 'Cocoa',        ticker: 'CC',  group: 'softs', refPrice: 7000, vol: 0.050, unit: 'per ton' },
-  { id: 'sugar',        name: 'Sugar',        ticker: 'SB',  group: 'softs', refPrice: 0.22, vol: 0.030, unit: 'per lb' },
-  { id: 'cotton',       name: 'Cotton',       ticker: 'CT',  group: 'softs', refPrice: 0.72, vol: 0.028, unit: 'per lb' },
-  { id: 'orange_juice', name: 'Orange Juice', ticker: 'OJ',  group: 'softs', refPrice: 3.8,  vol: 0.040, unit: 'per lb' },
-  { id: 'rubber',       name: 'Rubber',       ticker: 'RUB', group: 'softs', refPrice: 1.7,  vol: 0.030, unit: 'per kg' },
-  { id: 'tobacco',      name: 'Tobacco',      ticker: 'TOB', group: 'softs', refPrice: 3.2,  vol: 0.020, unit: 'per lb' },
-
-  // Livestock
-  { id: 'cattle',    name: 'Cattle',    ticker: 'LC',  group: 'livestock', refPrice: 1.85, vol: 0.020, unit: 'per lb' },
-  { id: 'lean_hogs', name: 'Lean Hogs', ticker: 'HE',  group: 'livestock', refPrice: 0.9,  vol: 0.028, unit: 'per lb' },
-  { id: 'sheep',     name: 'Sheep',     ticker: 'SHP', group: 'livestock', refPrice: 5.5,  vol: 0.025, unit: 'per kg' },
-  { id: 'poultry',   name: 'Poultry',   ticker: 'PLT', group: 'livestock', refPrice: 1.2,  vol: 0.020, unit: 'per lb' },
-
-  // Forestry
-  { id: 'timber', name: 'Timber', ticker: 'TMB', group: 'forestry', refPrice: 380, vol: 0.020, unit: 'per m³' },
-  { id: 'lumber', name: 'Lumber', ticker: 'LBS', group: 'forestry', refPrice: 550, vol: 0.030, unit: 'per 1k bf' },
-  { id: 'pulp',   name: 'Pulp',   ticker: 'PLP', group: 'forestry', refPrice: 900, vol: 0.022, unit: 'per ton' },
-
-  // Gemstones
-  { id: 'diamonds',  name: 'Diamonds',  ticker: 'DMD', group: 'gems', refPrice: 6500, vol: 0.012, drift: 0.02, unit: 'per ct' },
-  { id: 'emeralds',  name: 'Emeralds',  ticker: 'EMR', group: 'gems', refPrice: 4200, vol: 0.015, unit: 'per ct' },
-  { id: 'rubies',    name: 'Rubies',    ticker: 'RBY', group: 'gems', refPrice: 5000, vol: 0.015, unit: 'per ct' },
-  { id: 'sapphires', name: 'Sapphires', ticker: 'SPH', group: 'gems', refPrice: 3800, vol: 0.015, unit: 'per ct' },
-
-  // Financial assets (fictional issuers). `fin` splits them into the
-  // "Savings & Bonds" vs "Property" filter chips.
-  { id: 'cash',            name: 'Cash',              ticker: 'CASH', group: 'financial', fin: 'savings', refPrice: 1.00,  vol: 0, flat: true, unit: 'per unit' },
-  { id: 'savings',         name: 'Savings Account',   ticker: 'SAV',  group: 'financial', fin: 'savings', refPrice: 1.00,  vol: 0, savings: true, drift: 0.03, unit: 'per unit' },
-  { id: 'bonds',           name: 'Bonds',             ticker: 'BND',  group: 'financial', fin: 'savings', refPrice: 100,   vol: 0.004, divYield: 0.0010, unit: 'per note' },
-  { id: 'gov_bonds',       name: 'Government Bonds',   ticker: 'GVT',  group: 'financial', fin: 'savings', refPrice: 100,   vol: 0.003, divYield: 0.0008, issuer: 'Republic of Aurelia', unit: 'per note' },
-  { id: 'corp_bonds',      name: 'Corporate Bonds',   ticker: 'CRP',  group: 'financial', fin: 'savings', refPrice: 101,   vol: 0.006, divYield: 0.0013, issuer: 'Veranda Capital', unit: 'per note' },
-  { id: 'tbills',          name: 'Treasury Bills',    ticker: 'TBL',  group: 'financial', fin: 'savings', refPrice: 99.5,  vol: 0.002, divYield: 0.0005, issuer: 'Aurelia Treasury', unit: 'per bill' },
-  { id: 'reit_beacon',     name: 'Beacon REIT',       ticker: 'BCN',  group: 'financial', fin: 'property', refPrice: 55,    vol: 0.020, divYield: 0.0030, drift: 0.03, unit: 'per share' },
-  { id: 'reit_meridian',   name: 'Meridian Property Fund', ticker: 'MPF', group: 'financial', fin: 'property', refPrice: 42, vol: 0.018, divYield: 0.0028, drift: 0.03, unit: 'per share' },
-  { id: 'commercial_prop', name: 'Commercial Property', ticker: 'CMP', group: 'financial', fin: 'property', refPrice: 250,  vol: 0.012, divYield: 0.0022, drift: 0.02, unit: 'index' },
-  { id: 'residential_prop',name: 'Residential Property',ticker: 'RES', group: 'financial', fin: 'property', refPrice: 180,  vol: 0.012, divYield: 0.0020, drift: 0.025, unit: 'index' },
-
-  // Crypto (kept from the original roster; high volatility, no dividends)
-  { id: 'bitcorn',  name: 'Bitcorn',  ticker: 'BTC', group: 'crypto', refPrice: 65000, vol: 0.090, drift: 0.10, unit: 'per coin' },
-  { id: 'ethereal', name: 'Ethereal', ticker: 'ETH', group: 'crypto', refPrice: 3200,  vol: 0.105, drift: 0.12, unit: 'per coin' },
-  { id: 'dogecorn', name: 'Dogecorn', ticker: 'DOGE',group: 'crypto', refPrice: 0.12,  vol: 0.130, drift: 0.05, unit: 'per coin' },
+const CRYPTO_DEFS = [
+  // id            name             ticker   refPrice   supply    vol    drift  founded
+  { id: 'bitcorn',   name: 'Bitcorn',      ticker: 'BTC',  group: 'crypto', refPrice: 65000,     supply: 2.1e7,   vol: 0.090, drift: 0.10, founded: 2009, unit: 'per coin' },
+  { id: 'ethereal',  name: 'Ethereal',     ticker: 'ETH',  group: 'crypto', refPrice: 3200,      supply: 1.2e8,   vol: 0.105, drift: 0.12, founded: 2015, unit: 'per coin' },
+  { id: 'litebit',   name: 'Litebit',      ticker: 'LTB',  group: 'crypto', refPrice: 80,        supply: 8.4e7,   vol: 0.095, drift: 0.04, founded: 2011, unit: 'per coin' },
+  { id: 'ripplet',   name: 'Ripplet',      ticker: 'RPL',  group: 'crypto', refPrice: 0.55,      supply: 5.5e10,  vol: 0.100, drift: 0.05, founded: 2012, unit: 'per coin' },
+  { id: 'dogecorn',  name: 'Dogecorn',     ticker: 'DOGE', group: 'crypto', refPrice: 0.12,      supply: 1.4e11,  vol: 0.130, drift: 0.05, founded: 2013, unit: 'per coin' },
+  { id: 'moonero',   name: 'Moonero',      ticker: 'XMN',  group: 'crypto', refPrice: 160,       supply: 1.8e7,   vol: 0.100, drift: 0.06, founded: 2014, unit: 'per coin' },
+  { id: 'stellarium',name: 'Stellarium',   ticker: 'SLM',  group: 'crypto', refPrice: 0.10,      supply: 3.0e10,  vol: 0.100, drift: 0.04, founded: 2014, unit: 'per coin' },
+  { id: 'cardino',   name: 'Cardino',      ticker: 'ADA',  group: 'crypto', refPrice: 0.45,      supply: 3.5e10,  vol: 0.110, drift: 0.06, founded: 2017, unit: 'per coin' },
+  { id: 'tronny',    name: 'Tronny',       ticker: 'TRN',  group: 'crypto', refPrice: 0.12,      supply: 8.8e10,  vol: 0.100, drift: 0.06, founded: 2017, unit: 'per coin' },
+  { id: 'chainlynx', name: 'Chainlynx',    ticker: 'LYNX', group: 'crypto', refPrice: 14,        supply: 1.0e9,   vol: 0.110, drift: 0.07, founded: 2017, unit: 'per coin' },
+  { id: 'uniswoop',  name: 'Uniswoop',     ticker: 'SWP',  group: 'crypto', refPrice: 8,         supply: 1.0e9,   vol: 0.120, drift: 0.07, founded: 2018, unit: 'per coin' },
+  { id: 'cosmix',    name: 'Cosmix',       ticker: 'CSX',  group: 'crypto', refPrice: 7,         supply: 3.9e8,   vol: 0.110, drift: 0.06, founded: 2019, unit: 'per coin' },
+  { id: 'solami',    name: 'Solami',       ticker: 'SOL',  group: 'crypto', refPrice: 150,       supply: 4.6e8,   vol: 0.115, drift: 0.13, founded: 2020, unit: 'per coin' },
+  { id: 'polkadotty',name: 'Polkadotty',   ticker: 'DOTY', group: 'crypto', refPrice: 6.5,       supply: 1.4e9,   vol: 0.110, drift: 0.06, founded: 2020, unit: 'per coin' },
+  { id: 'avalunch',  name: 'Avalunch',     ticker: 'AVAX', group: 'crypto', refPrice: 30,        supply: 4.4e8,   vol: 0.120, drift: 0.08, founded: 2020, unit: 'per coin' },
+  { id: 'shibanovu', name: 'Shiba Novu',   ticker: 'SHNV', group: 'crypto', refPrice: 0.00002,   supply: 5.89e14, vol: 0.140, drift: 0.05, founded: 2020, unit: 'per coin' },
+  { id: 'safemoonshot', name: 'SafeMoonshot', ticker: 'SAFE', group: 'crypto', refPrice: 0.000004, supply: 9.99e14, vol: 0.180, drift: 0.03, founded: 2021, unit: 'per coin' },
+  { id: 'frogcoin',  name: 'Frogcoin',     ticker: 'FROG', group: 'crypto', refPrice: 0.0000012, supply: 4.2e14,  vol: 0.160, drift: 0.06, founded: 2023, unit: 'per coin' },
 ];

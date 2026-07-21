@@ -123,6 +123,6 @@ const STOCK_DEFS = STOCK_ROSTER.map(([id, name, ticker, sector, refPrice, founde
   id, name, ticker, symbol: ticker, group: 'stock', sector, refPrice, founded,
 }));
 
-// The full tradeable universe (non-stocks + stocks) + id lookup.
-const ASSET_DEFS = COMMODITY_DEFS.concat(STOCK_DEFS);
+// The full tradeable universe (crypto + stocks) + id lookup.
+const ASSET_DEFS = CRYPTO_DEFS.concat(STOCK_DEFS);
 const ASSET_BY_ID = ASSET_DEFS.reduce((m, a) => { m[a.id] = a; return m; }, {});

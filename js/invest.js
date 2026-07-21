@@ -39,17 +39,14 @@ const Invest = (() => {
   /* ------------------------- Chips / filters ----------------------------- */
 
   const CHIPS = [
-    { id: 'all',      label: 'All',            icon: '🌐' },
-    { id: 'stock',    label: 'Stocks',         icon: '📈' },
-    { id: 'crypto',   label: 'Crypto',         icon: '🪙' },
-    { id: 'commod',   label: 'Commodities',    icon: '🌾' },
-    { id: 'property', label: 'Property',       icon: '🏢' },
-    { id: 'savings',  label: 'Savings & Bonds', icon: '🏦' },
-    { id: 'watch',    label: 'Watchlist',      icon: '★' },
-    { id: 'held',     label: 'Holdings',       icon: '💼' },
+    { id: 'all',    label: 'All',       icon: '🌐' },
+    { id: 'stock',  label: 'Stocks',    icon: '📈' },
+    { id: 'crypto', label: 'Crypto',    icon: '🪙' },
+    { id: 'watch',  label: 'Watchlist', icon: '★' },
+    { id: 'held',   label: 'Holdings',  icon: '💼' },
   ];
   // Chips whose result set is small → flat list, no section headers.
-  const FLAT_CHIPS = new Set(['crypto', 'property', 'savings', 'watch', 'held']);
+  const FLAT_CHIPS = new Set(['crypto', 'watch', 'held']);
 
   const SORTS = [
     { id: 'movers', label: '🔥 Top Movers' },
@@ -59,15 +56,12 @@ const Invest = (() => {
 
   function matchChip(def) {
     switch (view.chip) {
-      case 'all':      return true;
-      case 'stock':    return def.group === 'stock';
-      case 'crypto':   return def.group === 'crypto';
-      case 'commod':   return COMMODITY_GROUP_IDS.includes(def.group);
-      case 'property': return def.fin === 'property';
-      case 'savings':  return def.fin === 'savings';
-      case 'watch':    return !!state.watchlist[def.id];
-      case 'held':     return Market.holding(def.id).shares > 0;
-      default:         return true;
+      case 'all':    return true;
+      case 'stock':  return def.group === 'stock';
+      case 'crypto': return def.group === 'crypto';
+      case 'watch':  return !!state.watchlist[def.id];
+      case 'held':   return Market.holding(def.id).shares > 0;
+      default:       return true;
     }
   }
 
@@ -195,29 +189,14 @@ const Invest = (() => {
     return arr;
   }
 
-  /** Ordered sections for the current chip ('all', 'stock' or 'commod'). */
+  /** Ordered sections for the current chip ('all' or 'stock'). */
   function buildSections(data) {
     const out = [];
-    const wantStocks = view.chip === 'all' || view.chip === 'stock';
-    const wantCommod = view.chip === 'all' || view.chip === 'commod';
-
-    if (wantStocks) {
-      for (const sec of STOCK_SECTIONS) {
-        out.push({ ...sec, items: data.filter((x) => x.d.group === 'stock' && SECTOR_TO_SECTION[x.d.sector] === sec.id) });
-      }
+    for (const sec of STOCK_SECTIONS) {
+      out.push({ ...sec, items: data.filter((x) => x.d.group === 'stock' && SECTOR_TO_SECTION[x.d.sector] === sec.id) });
     }
     if (view.chip === 'all') {
       out.push({ id: 'sec_crypto', label: 'Crypto', icon: '🪙', items: data.filter((x) => x.d.group === 'crypto') });
-    }
-    if (wantCommod) {
-      for (const gid of COMMODITY_GROUP_IDS) {
-        const g = MARKET_GROUPS.find((x) => x.id === gid);
-        out.push({ id: 'g_' + gid, label: g.label, icon: g.icon, items: data.filter((x) => x.d.group === gid) });
-      }
-    }
-    if (view.chip === 'all') {
-      out.push({ id: 'sec_prop', label: 'Property', icon: '🏢', items: data.filter((x) => x.d.fin === 'property') });
-      out.push({ id: 'sec_sav', label: 'Savings & Bonds', icon: '🏦', items: data.filter((x) => x.d.fin === 'savings') });
     }
     return out.filter((s) => s.items.length > 0);
   }
@@ -295,12 +274,15 @@ const Invest = (() => {
       </div>
       <div class="change-row" id="invChanges">${changesHTML(def)}</div>
 
-      <div class="chart-box" data-act="fullscreen" id="invChart"></div>
+      <div class="chart-wrap">
+        <div class="chart-box" data-act="fullscreen" id="invChart"></div>
+        <button class="fs-btn" data-act="fullscreen" aria-label="Fullscreen candlestick chart">⛶</button>
+      </div>
       <div class="chip-row tf-row" id="tfRow">${tfChipsHTML()}</div>
 
       ${holdingHTML}
       <div class="card">${statsHTML(def, s)}</div>
-      ${buyoutHTML(def, s)}
+      ${ownershipHTML(def, s)}
       <div class="trade-spacer"></div>
       <div class="trade-bar">
         <button class="btn btn-gold trade-btn" data-act="buy">Buy</button>
@@ -349,61 +331,81 @@ const Invest = (() => {
   function statsHTML(def, s) {
     const rows = [];
     rows.push(['Volatility', Math.min(99, s.volPct).toFixed(0) + '%']);
+    rows.push(['Market cap', formatMoney(s.marketCap)]);
     if (def.group === 'stock') {
-      rows.push(['Market cap', formatMoney(s.marketCap)]);
       rows.push(['Company value', formatMoney(s.companyValue)]);
       rows.push(['Avg volume', formatNumber(s.avgVolume) + ' /day']);
       rows.push(['P/E ratio', s.pe.toFixed(1)]);
       rows.push(['Dividend yield', (Math.min(8, s.divYield * 500)).toFixed(2) + '%']);
-      rows.push(['Shares available', formatNumber(s.sharesAvailable)]);
-      rows.push(['Cost to buy out', formatMoney(s.costToBuyOut)]);
+      rows.push(['Shares available', formatNumber(s.available)]);
     } else {
-      if (def.unit) rows.push(['Priced', def.unit]);
-      if (s.divYield) rows.push(['Yield', (Math.min(8, s.divYield * 500)).toFixed(2) + '%']);
-      if (def.issuer) rows.push(['Issuer', def.issuer]);
-      rows.push(['Category', (MARKET_GROUPS.find((g) => g.id === def.group) || {}).label || def.group]);
+      rows.push(['Coin supply', formatNumber(s.supply)]);
+      rows.push(['Coins available', formatNumber(s.available)]);
+      rows.push(['Around since', s.founded]);
     }
+    rows.push(['Cost to buy out', formatMoney(s.costToBuyOut)]);
     return `<div class="card-title">Stats</div><div class="stat-grid">${
       rows.map(([k, v]) => `<div class="stat-cell"><span class="muted">${k}</span><b>${v}</b></div>`).join('')
     }</div>`;
   }
 
-  /* ------------------------- Buyout / Manage ----------------------------- */
+  /* ---------------------- 100% Ownership / Manage ------------------------ */
 
-  function buyoutHTML(def, s) {
-    if (def.group !== 'stock') return '';
-    const frac = Market.controlFrac(def.id);
-    if (frac >= 0.5) return manageHTML(def, s, frac);
-    const pct = (frac * 100);
+  // Same four levers for companies and coins — different, friendly wording.
+  const MANAGE_LABELS = {
+    stock: {
+      growth:   ['📈', 'Invest in growth', 'price trends up over time'],
+      dividend: ['💵', 'Pay yourself', 'cash now'],
+      cutcosts: ['✂️', 'Cut costs', '+10% price for 5 min'],
+      expand:   ['🏗️', 'Expand', 'raises company value'],
+    },
+    crypto: {
+      growth:   ['⚙️', 'Upgrade the network', 'price trends up over time'],
+      dividend: ['🪙', 'Mint yourself coins', 'cash now'],
+      cutcosts: ['🔥', 'Burn supply', '+10% price for 5 min'],
+      expand:   ['🌐', 'Major exchange listing', 'raises coin value'],
+    },
+  };
+
+  function ownershipHTML(def, s) {
+    const frac = Market.ownedFrac(def.id);
+    if (Market.isOwned(def.id)) return manageHTML(def, s);
+    const pct = frac * 100;
+    const thing = def.group === 'crypto' ? 'coin' : 'company';
+    const units = def.group === 'crypto' ? 'coins' : 'shares';
+    const restCost = s.available * Market.buyPrice(def.id);
     return `
       <div class="card buyout-card">
-        <div class="card-title">🏛️ Take over ${def.name}</div>
-        <div class="card-sub">Own <b>50%</b> of shares to control the company and unlock strategic decisions.</div>
-        <div class="mult-row"><span>You own</span><b>${pct.toFixed(2)}% of shares</b></div>
-        <div class="mult-row"><span>Cost to buy the whole company</span><b class="gold">${formatMoney(s.costToBuyOut)}</b></div>
-        <div class="progress"><div class="progress-fill" style="width:${Math.min(100, pct * 2)}%"></div></div>
-        <div class="progress-caption">${pct >= 50 ? 'Controlled!' : `${pct.toFixed(1)}% / 50% to control`}</div>
+        <div class="card-title">${def.group === 'crypto' ? '🪙' : '🏛️'} Own ${def.name}</div>
+        <div class="card-sub">Buy ${units} until you own <b>100%</b> — then it's fully yours:
+          it pays you income every 5 minutes and you make the big decisions.</div>
+        <div class="mult-row"><span>You own</span><b>${pct.toFixed(2)}%</b></div>
+        <div class="mult-row"><span>Buy the rest (use Buy → MAX)</span><b class="gold">${formatMoney(restCost)}</b></div>
+        <div class="progress"><div class="progress-fill" style="width:${Math.min(100, pct)}%"></div></div>
+        <div class="progress-caption">${pct.toFixed(1)}% / 100% owned · pays ${formatMoney(s.marketCap * MARKET.OWNER_INCOME_RATE)} per 5 min once yours</div>
       </div>`;
   }
 
-  function manageHTML(def, s, frac) {
+  function manageHTML(def, s) {
+    const L = MANAGE_LABELS[def.group] || MANAGE_LABELS.stock;
     const m = Market.mgmtState(def.id);
     const now = Date.now();
     const divCd = m.lastDivAt && now - m.lastDivAt < 300000;
     const cutActive = m.boostUntil && now < m.boostUntil;
+    const btn = (action, disabled, costText) => {
+      const [icon, title, effect] = L[action];
+      return `<button class="btn manage-btn" data-act="manage" data-action="${action}" ${disabled ? 'disabled' : ''}>
+        ${icon} <b>${title}</b><small>${costText} · ${effect}</small></button>`;
+    };
     return `
       <div class="card manage-card">
-        <div class="card-title">👑 Manage ${def.name} <span class="owned-badge">${(frac * 100).toFixed(0)}% owned</span></div>
-        <div class="card-sub">You control the company. Make a call:</div>
+        <div class="card-title">👑 ${def.name} <span class="owned-badge">100% yours</span></div>
+        <div class="card-sub">Pays you ${formatMoney(s.marketCap * MARKET.OWNER_INCOME_RATE)} every 5 min. Make a call:</div>
         <div class="manage-grid">
-          <button class="btn manage-btn" data-act="manage" data-action="growth">
-            📈 <b>Invest in growth</b><small>Costs ${formatMoney(s.marketCap * 0.05)} · price trends up over time</small></button>
-          <button class="btn manage-btn" data-act="manage" data-action="dividend" ${divCd ? 'disabled' : ''}>
-            💵 <b>Pay yourself</b><small>${divCd ? 'On cooldown' : 'Cash now: ' + formatMoney(s.marketCap * 0.02)}</small></button>
-          <button class="btn manage-btn" data-act="manage" data-action="cutcosts" ${cutActive ? 'disabled' : ''}>
-            ✂️ <b>Cut costs</b><small>${cutActive ? 'Boost active' : '+10% price for 5 min'}</small></button>
-          <button class="btn manage-btn" data-act="manage" data-action="expand">
-            🏗️ <b>Expand</b><small>Costs ${formatMoney(s.marketCap * 0.10)} · raises company value</small></button>
+          ${btn('growth', false, 'Costs ' + formatMoney(s.marketCap * 0.05))}
+          ${btn('dividend', divCd, divCd ? 'On cooldown' : 'Get ' + formatMoney(s.marketCap * 0.02))}
+          ${btn('cutcosts', cutActive, cutActive ? 'Boost active' : 'Free')}
+          ${btn('expand', false, 'Costs ' + formatMoney(s.marketCap * 0.10))}
         </div>
       </div>`;
   }
@@ -419,7 +421,8 @@ const Invest = (() => {
   function initInlineChart() {
     const el = document.getElementById('invChart');
     if (!el) return;
-    chart = new CandleChart(el);
+    // Detail pages use the friendly line/area view; candles live fullscreen.
+    chart = new CandleChart(el, { mode: 'line' });
     chartAsset = view.assetId; chartTf = view.tf;
     chart.setData(Market.candles(view.assetId, view.tf));
   }
@@ -445,7 +448,7 @@ const Invest = (() => {
     `;
     document.body.appendChild(ov);
     const chEl = ov.querySelector('#fsChart');
-    fs = { chart: new CandleChart(chEl), tf: view.tf, priceEl: ov.querySelector('#fsPrice') };
+    fs = { chart: new CandleChart(chEl, { mode: 'candles' }), tf: view.tf, priceEl: ov.querySelector('#fsPrice') };
     fs.chart.setData(Market.candles(view.assetId, fs.tf));
     ov.querySelector('#fsClose').addEventListener('click', () => { ov.remove(); fs = null; });
     ov.querySelectorAll('[data-fstf]').forEach((b) => b.addEventListener('click', () => {

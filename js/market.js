@@ -1,6 +1,6 @@
 /* =========================================================================
- * market.js — Phase 4 (overhauled) engine: procedural prices, stats,
- *             candles, trading, dividends, company buyouts
+ * market.js — Invest engine: procedural prices, stats, candles, trading,
+ *             dividends, and 100% ownership of companies & coins
  * -------------------------------------------------------------------------
  * PROCEDURAL MODEL — every price is a deterministic function of absolute
  * wall-clock time:
@@ -9,18 +9,19 @@
  *       × exp( clampedTrend )            long-run growth from a FIXED epoch
  *       × exp( vol · fbm(seed, t) )      organic multi-scale wiggle (regimes,
  *                                        vol spikes, crashes all emerge here)
- *       × managerFactor(asset, t)        player buyout decisions
+ *       × managerFactor(asset, t)        the owner's Manage decisions
  *
- * Because it's a pure function of t (not of a stored random walk), we can:
- *   - read any asset's current price cheaply for the 170-row list,
- *   - generate candle history back to any founding date on demand,
- *   - run the FULL chart only for the asset that's open — nothing is stepped
- *     per tick, so 170 assets cost nothing when you're not looking at them.
+ * Because it's a pure function of t (not a stored random walk) we can read
+ * any price cheaply for the list, generate candle history back to each
+ * asset's founding date on demand, and never step anything per tick.
  *
- * Crude Oil is special-cased to Mechanics.oilPrice() so it shares the exact
- * cycle the Oil & Gas and Transport businesses react to. Cash is flat;
- * Savings grows smoothly. Trading semantics (spread, cost basis, profit-only
- * earnings, dividends) match the previous phase.
+ * OWNERSHIP — one simple goal: buy shares/coins until you hold 100% of the
+ * supply. At 100% the company/coin is fully YOURS: it pays owner income
+ * every payout interval and unlocks the Manage decisions. Buying is capped
+ * at the supply so you can never hold more than 100%.
+ *
+ * (The oil price used by the Oil & Gas / Transport businesses lives in
+ * js/mechanics.js and is untouched — oil is just no longer tradeable.)
  * ========================================================================= */
 
 const Market = (() => {
@@ -69,7 +70,7 @@ const Market = (() => {
 
   /* ---------------------------- Asset params ----------------------------- */
 
-  /** Resolve (and cache) an asset's drift / vol / founding / stat seeds. */
+  /** Resolve (and cache) an asset's drift / vol / supply / founding / seeds. */
   function params(def) {
     if (paramCache[def.id]) return paramCache[def.id];
     const seed = hashStr(def.id);
@@ -85,25 +86,31 @@ const Market = (() => {
         pe: pick(3, prof.pe),
         divYield: pick(4, prof.div),
         pb: pick(5, prof.pb),
-        shares: Math.round(Math.pow(10, mag)),
-        floatFrac: 0.45 + srand(seed, 8) * 0.4,
+        supply: Math.round(Math.pow(10, mag)),   // shares outstanding
         volTurnover: 0.003 + srand(seed, 7) * 0.006,
         foundingSec: Date.UTC(def.founded, 0, 1) / 1000,
       };
     } else {
+      // Crypto: supply and founding come straight from the data row.
       p = {
         seed,
         drift: def.drift || 0,
         vol: def.vol || 0,
-        divYield: def.divYield || 0,
-        foundingSec: EPOCH - 60 * YEAR, // long backstory for Max charts
+        divYield: 0, // coins pay nothing — until you own them outright
+        supply: def.supply || 0,
+        foundingSec: def.founded ? Date.UTC(def.founded, 0, 1) / 1000 : EPOCH - 20 * YEAR,
       };
     }
     paramCache[def.id] = p;
     return p;
   }
 
-  /* ------------------------- Manager (buyout) fx ------------------------- */
+  /** Total shares (stock) or coins (crypto) in existence. */
+  function supplyOf(def) {
+    return params(def).supply;
+  }
+
+  /* ------------------------- Owner (manage) fx --------------------------- */
 
   function mgmtOf(id) {
     ensure();
@@ -118,7 +125,7 @@ const Market = (() => {
     const m = state.market && state.market.mgmt[def.id];
     if (!m) return 1;
     let f = 1 + (m.valueBoost || 0);
-    if (m.boostUntil && WALL() < m.boostUntil) f *= 1.10; // "cut costs" window
+    if (m.boostUntil && WALL() < m.boostUntil) f *= 1.10; // "cut costs / burn" window
     return f;
   }
 
@@ -126,13 +133,6 @@ const Market = (() => {
 
   /** Price of an asset at absolute time t (seconds). Pure + deterministic. */
   function priceAt(def, t) {
-    if (def.flat) return def.refPrice;
-    if (def.savings) {
-      return def.refPrice * Math.exp((params(def).drift) * (t - EPOCH) / YEAR);
-    }
-    if (def.oilLinked && typeof Mechanics !== 'undefined') {
-      return def.refPrice * Mechanics.oilPrice(Math.max(0, nowSec() - t));
-    }
     const p = params(def);
     // Trend clamped so century-old firms aren't astronomically priced and
     // history reads as a gentle climb, not a hockey stick.
@@ -197,19 +197,13 @@ const Market = (() => {
   function staticStats(def) {
     if (statCache[def.id]) return statCache[def.id];
     const p = params(def);
-    const s = { group: def.group };
+    const s = { group: def.group, supply: p.supply, founded: def.founded };
+    s.volPct = (p.vol || 0) * 100 * 12; // rough annualised volatility %
     if (def.group === 'stock') {
-      s.shares = p.shares;
       s.pe = p.pe;
       s.divYield = p.divYield;
       s.pb = p.pb;
-      s.volPct = p.vol * 100 * 12;           // rough annualised volatility %
-      s.avgVolume = Math.round(p.shares * p.volTurnover);
-      s.publicShares = Math.round(p.shares * p.floatFrac);
-      s.founded = def.founded;
-    } else {
-      s.volPct = (p.vol || 0) * 100 * 12;
-      s.divYield = p.divYield;
+      s.avgVolume = Math.round(p.supply * p.volTurnover);
     }
     statCache[def.id] = s;
     return s;
@@ -220,14 +214,14 @@ const Market = (() => {
     const def = ASSET_BY_ID[id];
     const s = Object.assign({}, staticStats(def));
     const px = price(id);
+    const owned = holding(id).shares;
+    s.marketCap = px * s.supply;
+    s.costToBuyOut = s.marketCap;
+    s.available = Math.max(0, s.supply - owned);
+    s.ownedShares = owned;
     if (def.group === 'stock') {
-      s.marketCap = px * s.shares;
-      s.companyValue = s.marketCap / s.pb;   // ~book value
+      s.companyValue = s.marketCap / s.pb; // ~book value
       s.eps = px / s.pe;
-      s.costToBuyOut = s.marketCap;
-      const owned = holding(id).shares;
-      s.sharesAvailable = Math.max(0, s.publicShares - owned);
-      s.ownedShares = owned;
     }
     return s;
   }
@@ -240,12 +234,23 @@ const Market = (() => {
     return state.portfolio[id];
   }
 
+  /**
+   * Spend `cash` on an asset at the ask. Capped at 100% of the supply —
+   * you can never hold more of a company/coin than exists.
+   */
   function buy(id, cash) {
-    cash = Math.min(cash, state.balance);
-    if (cash < 0.01) return false;
+    const def = ASSET_BY_ID[id];
     const h = holding(id);
+    const cap = supplyOf(def);
+    const remaining = Math.max(0, cap - h.shares);
+    if (remaining <= 0) return false;
+    const ask = buyPrice(id);
+    cash = Math.min(cash, state.balance, remaining * ask);
+    if (cash < 0.01) return false;
     state.balance -= cash;
-    h.shares += cash / buyPrice(id);
+    h.shares += cash / ask;
+    // Snap float dust so "buy MAX" lands exactly on 100%.
+    if (cap - h.shares < cap * 1e-9) h.shares = cap;
     h.cost += cash;
     saveGame();
     return true;
@@ -278,25 +283,32 @@ const Market = (() => {
     return { value, cost, pl: value - cost, plPct: cost > 0 ? ((value - cost) / cost) * 100 : 0 };
   }
 
-  /* ------------------------- Company buyouts ----------------------------- */
+  /* ----------------------- 100% ownership & manage ----------------------- */
 
-  /** Fraction of a company the player owns (share count / shares outstanding). */
-  function controlFrac(id) {
+  /** Fraction of the company/coin the player holds (0..1). */
+  function ownedFrac(id) {
     const def = ASSET_BY_ID[id];
-    if (def.group !== 'stock') return 0;
-    return holding(id).shares / staticStats(def).shares;
+    const cap = supplyOf(def);
+    return cap > 0 ? holding(id).shares / cap : 0;
   }
-  function isControlled(id) { return controlFrac(id) >= 0.5; }
+
+  /** True only at 100% — then it's fully yours. */
+  function isOwned(id) {
+    return ownedFrac(id) >= 0.999999;
+  }
 
   /**
-   * Apply a "Manage company" decision (owner-only). Returns {ok, msg}.
+   * Apply a Manage decision (100% owners only). Returns {ok, msg}.
    *   growth   — invest cash → permanent upward price drift
    *   dividend — pay yourself cash now (5-min cooldown), slight value dip
-   *   cutcosts — short 10% price boost for 5 min (10-min cooldown)
-   *   expand   — invest cash → permanent company-value (price) increase
+   *   cutcosts — short +10% price window for 5 min (10-min cooldown)
+   *   expand   — invest cash → permanent value increase
+   * Same four levers for companies and coins (UI words them differently).
    */
   function manage(id, action) {
-    if (!isControlled(id)) return { ok: false, msg: 'You need to own 50% of the company first.' };
+    const def = ASSET_BY_ID[id];
+    const thing = def.group === 'crypto' ? 'coin' : 'company';
+    if (!isOwned(id)) return { ok: false, msg: `You need to own 100% of the ${thing} first.` };
     const s = stats(id);
     const m = mgmtOf(id);
     const now = WALL();
@@ -307,28 +319,28 @@ const Market = (() => {
       state.balance -= cost;
       m.growth = Math.min(0.4, (m.growth || 0) + 0.03);
       saveGame();
-      return { ok: true, msg: `Invested ${formatMoney(cost)}. Share price will trend upward.` };
+      return { ok: true, msg: `Invested ${formatMoney(cost)}. The price will trend upward.` };
     }
     if (action === 'dividend') {
       if (m.lastDivAt && now - m.lastDivAt < 300000) {
-        return { ok: false, msg: `Dividend on cooldown (${formatDuration((300000 - (now - m.lastDivAt)) / 1000)}).` };
+        return { ok: false, msg: `On cooldown (${formatDuration((300000 - (now - m.lastDivAt)) / 1000)}).` };
       }
       const payout = s.marketCap * 0.02;
       m.lastDivAt = now;
       m.valueBoost = Math.max(-0.3, (m.valueBoost || 0) - 0.01); // stripping weakens it slightly
       addEarnings(payout);
       saveGame();
-      return { ok: true, msg: `Paid yourself ${formatMoney(payout)} in dividends.` };
+      return { ok: true, msg: `Paid yourself ${formatMoney(payout)}.` };
     }
     if (action === 'cutcosts') {
-      if (m.boostUntil && now < m.boostUntil) return { ok: false, msg: 'Cost-cutting already in effect.' };
+      if (m.boostUntil && now < m.boostUntil) return { ok: false, msg: 'Boost already in effect.' };
       if (m.cutCooldown && now < m.cutCooldown) {
-        return { ok: false, msg: `Cost-cutting on cooldown (${formatDuration((m.cutCooldown - now) / 1000)}).` };
+        return { ok: false, msg: `On cooldown (${formatDuration((m.cutCooldown - now) / 1000)}).` };
       }
       m.boostUntil = now + 300000;   // +10% for 5 min
       m.cutCooldown = now + 600000;  // 10-min cooldown
       saveGame();
-      return { ok: true, msg: 'Costs cut — share price boosted 10% for 5 minutes.' };
+      return { ok: true, msg: 'Price boosted 10% for 5 minutes.' };
     }
     if (action === 'expand') {
       const cost = s.marketCap * 0.10;
@@ -336,14 +348,14 @@ const Market = (() => {
       state.balance -= cost;
       m.valueBoost = (m.valueBoost || 0) + 0.15;
       saveGame();
-      return { ok: true, msg: `Expanded operations. Company value rose ${formatMoney(cost * 1.5)}.` };
+      return { ok: true, msg: `Value permanently increased.` };
     }
     return { ok: false, msg: 'Unknown action.' };
   }
 
   function mgmtState(id) { return (state.market && state.market.mgmt[id]) || {}; }
 
-  /* ------------------------------ Dividends ------------------------------ */
+  /* ---------------------- Dividends & owner income ------------------------ */
 
   function payDueDividends() {
     ensure();
@@ -351,10 +363,13 @@ const Market = (() => {
     let total = 0, intervals = 0;
     while (now >= state.market.nextDivAt && intervals < MARKET.DIV_MAX_CATCHUP) {
       for (const def of ASSET_DEFS) {
-        const dy = params(def).divYield;
-        if (!dy) continue;
         const h = state.portfolio[def.id];
-        if (h && h.shares > 0) total += h.shares * price(def.id) * dy;
+        if (!h || h.shares <= 0) continue;
+        // Regular stock dividends on whatever you hold…
+        const dy = params(def).divYield;
+        if (dy) total += h.shares * price(def.id) * dy;
+        // …plus owner income when the whole thing is yours (stock OR coin).
+        if (isOwned(def.id)) total += price(def.id) * supplyOf(def) * MARKET.OWNER_INCOME_RATE;
       }
       state.market.nextDivAt += MARKET.DIV_INTERVAL_SEC * 1000;
       intervals++;
@@ -362,7 +377,7 @@ const Market = (() => {
     if (now >= state.market.nextDivAt) state.market.nextDivAt = now + MARKET.DIV_INTERVAL_SEC * 1000;
     if (total > 0) {
       addEarnings(total);
-      if (typeof UI !== 'undefined') UI.showToast(`💰 <b>Income paid</b><br>+${formatMoney(total)} in dividends & coupons.`);
+      if (typeof UI !== 'undefined') UI.showToast(`💰 <b>Income paid</b><br>+${formatMoney(total)} from dividends & owned assets.`);
       saveGame();
     }
   }
@@ -377,17 +392,19 @@ const Market = (() => {
   }
 
   // Prices are pure functions of time — nothing to step. Tick only handles
-  // dividend payouts (cheap; runs at most a few times a minute).
+  // payouts (cheap; runs at most a few times a minute).
   function tick() { payDueDividends(); }
 
-  // Offline: prices already "moved" (function of t); just pay missed coupons.
+  // Offline: prices already "moved" (function of t); just pay missed income.
   function applyOffline() { payDueDividends(); }
 
   return {
     ensure, tick, applyOffline,
     price, priceAt, buyPrice, sellPrice, changePct, candles,
     holding, buy, sell, portfolioSummary,
-    stats, params, groups: MARKET_GROUPS, timeframes: MARKET.TIMEFRAMES,
-    controlFrac, isControlled, manage, mgmtState,
+    stats, params, supplyOf, timeframes: MARKET.TIMEFRAMES,
+    ownedFrac, isOwned, manage, mgmtState,
+    // Back-compat aliases (older callers/tests used "control" wording).
+    controlFrac: ownedFrac, isControlled: isOwned,
   };
 })();

@@ -1,34 +1,39 @@
 /* =========================================================================
- * chart.js — Self-contained HTML5-canvas candlestick chart (no libraries)
+ * chart.js — Self-contained HTML5-canvas price chart (no libraries)
  * -------------------------------------------------------------------------
- * Replaces the TradingView CDN dependency: zero external code, fully
- * offline. API kept minimal for invest.js:
+ * Two modes, Trading-212 style:
+ *   'line'    — smooth gold price line with a soft gradient area fill and a
+ *               glowing live dot (the friendly default on detail pages)
+ *   'candles' — professional candlesticks for the big fullscreen view:
+ *               thin 1.25px wicks, capped body width with clean gaps,
+ *               green up / red down, clear price axis
  *
- *   const chart = new CandleChart(containerEl);
+ * API (used by invest.js):
+ *   const chart = new CandleChart(containerEl, { mode: 'line' });
  *   chart.setData(candles);   // [{time, open, high, low, close}, ...] asc
  *   chart.update(candle);     // replace last (same time) or append (newer)
  *   chart.destroy();
  *
- * Rendering: each candle = high–low wick line + open–close body rect,
- * green up / red down. The price axis auto-scales to the visible range
- * (with padding), a dashed gold line marks the live price, and the canvas
- * is devicePixelRatio-aware so it stays crisp on phones.
+ * The price axis auto-scales to the visible range and the canvas is
+ * devicePixelRatio-aware so it stays crisp on phones.
  * ========================================================================= */
 
 class CandleChart {
-  constructor(container) {
+  constructor(container, opts = {}) {
     this.container = container;
+    this.mode = opts.mode || 'candles';
     this.canvas = document.createElement('canvas');
     this.canvas.style.cssText = 'width:100%;height:100%;display:block;';
     container.appendChild(this.canvas);
     this.ctx = this.canvas.getContext('2d');
     this.candles = [];
-    this.maxBars = 90;
+    this.maxBars = 140;
 
     // Theme (matches css/styles.css palette).
     this.COL = {
       up: '#3ddc84', down: '#ff5d5d',
-      grid: '#1e2430', axis: '#8a93a6', live: '#f5c451',
+      grid: '#1e2430', axis: '#8a93a6',
+      line: '#f5c451', fillTop: 'rgba(245,196,81,0.26)', fillBot: 'rgba(245,196,81,0)',
     };
   }
 
@@ -55,12 +60,13 @@ class CandleChart {
     this.candles = [];
   }
 
-  /** Compact price label; more decimals for penny assets like Dogecorn. */
+  /** Compact price label; more decimals for micro-priced meme coins. */
   fmtPrice(p) {
     if (p >= 10000) return formatNumber(p, 2);
     if (p >= 100) return p.toFixed(1);
     if (p >= 1) return p.toFixed(2);
-    return p.toFixed(4);
+    if (p >= 0.01) return p.toFixed(4);
+    return p.toPrecision(2);
   }
 
   draw() {
@@ -70,7 +76,6 @@ class CandleChart {
     const h = this.container.clientHeight;
     if (w === 0 || h === 0 || this.candles.length === 0) return;
 
-    // Crisp rendering on high-DPI screens.
     if (this.canvas.width !== w * dpr || this.canvas.height !== h * dpr) {
       this.canvas.width = w * dpr;
       this.canvas.height = h * dpr;
@@ -85,17 +90,29 @@ class CandleChart {
     const data = this.candles;
     const n = data.length;
 
-    // Auto-scale the price axis to the visible range (+5% padding).
+    // Auto-scale to the visible range (+5% padding). The line view only
+    // needs closes; candles need the full high/low span.
     let min = Infinity, max = -Infinity;
     for (const c of data) {
-      if (c.low < min) min = c.low;
-      if (c.high > max) max = c.high;
+      const lo = this.mode === 'line' ? c.close : c.low;
+      const hi = this.mode === 'line' ? c.close : c.high;
+      if (lo < min) min = lo;
+      if (hi > max) max = hi;
     }
     const pad = (max - min) * 0.05 || max * 0.01 || 1;
     min -= pad; max += pad;
     const y = (p) => PAD_T + ((max - p) / (max - min)) * plotH;
+    const x = (i) => PAD_L + (plotW / n) * (i + 0.5);
 
-    // Horizontal gridlines + price labels.
+    this.drawGrid(ctx, w, h, PAD_L, plotW, min, max, y);
+    if (this.mode === 'line') this.drawLine(ctx, data, x, y, PAD_T, plotH, PAD_L, plotW);
+    else this.drawCandles(ctx, data, x, y, plotW / n, PAD_L, plotW);
+    this.drawTimeAxis(ctx, data, x, h);
+  }
+
+  /* ------------------------- Shared chrome ------------------------- */
+
+  drawGrid(ctx, w, h, PAD_L, plotW, min, max, y) {
     ctx.font = '10px -apple-system, sans-serif';
     ctx.textBaseline = 'middle';
     const GRID_LINES = 4;
@@ -112,60 +129,123 @@ class CandleChart {
       ctx.textAlign = 'left';
       ctx.fillText(this.fmtPrice(p), PAD_L + plotW + 6, gy);
     }
+  }
 
-    // Candles: wick (high–low) + body (open–close).
-    const xStep = plotW / n;
-    const bodyW = Math.max(2, xStep * 0.65);
+  drawTimeAxis(ctx, data, x, h) {
+    const n = data.length;
+    ctx.fillStyle = this.COL.axis;
+    ctx.textBaseline = 'alphabetic';
+    const spanSec = n > 1 ? data[n - 1].time - data[0].time : 0;
+    const useDate = spanSec >= 3 * 86400;      // days of history → dates
+    const useSecs = !useDate && spanSec < 600; // sub-10-min windows → HH:MM:SS
+    const stamps = [[0, 'left'], [Math.floor(n / 2), 'center'], [n - 1, 'right']];
+    for (const [i, align] of stamps) {
+      ctx.textAlign = align;
+      ctx.fillText(this.stamp(data[i].time, useDate, useSecs), x(i), h - 6);
+    }
+  }
+
+  stamp(sec, useDate, useSecs) {
+    const d = new Date(sec * 1000);
+    if (!useDate) return d.toTimeString().slice(0, useSecs ? 8 : 5);
+    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+    return `${d.getDate()} ${mon} '${String(d.getFullYear()).slice(2)}`;
+  }
+
+  /* ------------------------- Line / area mode ------------------------ */
+
+  drawLine(ctx, data, x, y, PAD_T, plotH, PAD_L, plotW) {
+    const n = data.length;
+
+    // Smooth path through the closes (quadratic midpoint smoothing).
+    const path = () => {
+      ctx.beginPath();
+      ctx.moveTo(x(0), y(data[0].close));
+      for (let i = 1; i < n; i++) {
+        const mx = (x(i - 1) + x(i)) / 2;
+        const my = (y(data[i - 1].close) + y(data[i].close)) / 2;
+        ctx.quadraticCurveTo(x(i - 1), y(data[i - 1].close), mx, my);
+      }
+      ctx.lineTo(x(n - 1), y(data[n - 1].close));
+    };
+
+    // Soft gradient area under the line.
+    const grad = ctx.createLinearGradient(0, PAD_T, 0, PAD_T + plotH);
+    grad.addColorStop(0, this.COL.fillTop);
+    grad.addColorStop(1, this.COL.fillBot);
+    path();
+    ctx.lineTo(x(n - 1), PAD_T + plotH);
+    ctx.lineTo(x(0), PAD_T + plotH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // The line itself.
+    path();
+    ctx.strokeStyle = this.COL.line;
+    ctx.lineWidth = 2.25;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Glowing live dot + gold price tag on the axis.
+    const lx = x(n - 1), ly = y(data[n - 1].close);
+    ctx.save();
+    ctx.shadowColor = this.COL.line;
+    ctx.shadowBlur = 9;
+    ctx.fillStyle = this.COL.line;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = this.COL.line;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.fmtPrice(data[n - 1].close), PAD_L + plotW + 6, ly);
+  }
+
+  /* --------------------------- Candle mode --------------------------- */
+
+  drawCandles(ctx, data, x, y, xStep, PAD_L, plotW) {
+    const n = data.length;
+    // Realistic proportions: bodies capped at 11px with a clear gap,
+    // wicks a thin hairline — never chunky, whatever the bar count.
+    const bodyW = Math.max(1.5, Math.min(xStep * 0.72, 11));
+
     for (let i = 0; i < n; i++) {
       const c = data[i];
-      const cx = PAD_L + xStep * (i + 0.5);
+      const cx = x(i);
       const col = c.close >= c.open ? this.COL.up : this.COL.down;
 
+      // Wick: thin high–low hairline.
       ctx.strokeStyle = col;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.25;
       ctx.beginPath();
       ctx.moveTo(cx, y(c.high));
       ctx.lineTo(cx, y(c.low));
       ctx.stroke();
 
+      // Body: filled open–close rectangle.
       const top = y(Math.max(c.open, c.close));
       const bot = y(Math.min(c.open, c.close));
       ctx.fillStyle = col;
       ctx.fillRect(cx - bodyW / 2, top, bodyW, Math.max(1, bot - top));
     }
 
-    // Dashed live-price line + gold label on the axis.
+    // Dashed live-price line + gold tag on the axis.
     const live = data[n - 1].close;
     const ly = y(live);
-    ctx.strokeStyle = this.COL.live;
+    ctx.strokeStyle = this.COL.line;
     ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(PAD_L, ly);
     ctx.lineTo(PAD_L + plotW, ly);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = this.COL.live;
+    ctx.fillStyle = this.COL.line;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
     ctx.fillText(this.fmtPrice(live), PAD_L + plotW + 6, ly);
-
-    // Time labels: first / middle / last candle. Auto-pick clock vs date
-    // based on how much time each candle spans (short TF = time, long = date).
-    ctx.fillStyle = this.COL.axis;
-    ctx.textBaseline = 'alphabetic';
-    const spanSec = data.length > 1 ? data[n - 1].time - data[0].time : 0;
-    const useDate = spanSec >= 3 * 86400; // ≥ ~3 days of history → show dates
-    const stamps = [[0, 'left'], [Math.floor(n / 2), 'center'], [n - 1, 'right']];
-    for (const [i, align] of stamps) {
-      ctx.textAlign = align;
-      ctx.fillText(this.stamp(data[i].time, useDate), PAD_L + xStep * (i + 0.5), h - 6);
-    }
-  }
-
-  /** Format an x-axis timestamp as a clock time or a date. */
-  stamp(sec, useDate) {
-    const d = new Date(sec * 1000);
-    if (!useDate) return d.toTimeString().slice(0, 5); // HH:MM
-    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
-    // Include the year on long spans so Max charts read as history.
-    return `${d.getDate()} ${mon} '${String(d.getFullYear()).slice(2)}`;
   }
 }

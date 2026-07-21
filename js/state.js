@@ -14,7 +14,9 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v6: Invest overhaul — procedural market; regenerate market state, KEEP
 //     portfolio holdings (ids preserved). Migrates in place, no progress lost.
 // v7: markets watchlist added — migrates in place, no progress lost.
-const SAVE_VERSION = 7;
+// v8: Invest trades stocks + crypto only. Holdings in removed assets
+//     (commodities/financial) are refunded at full cost basis — no value lost.
+const SAVE_VERSION = 8;
 
 // Offline earnings: pay 100% for a window, avoiding both "free idle game" and
 // the genre's usual stingy offline rates. Phase 1 cap = 2 hours (raised later).
@@ -146,6 +148,28 @@ function migrate(loaded) {
   // v6 -> v7: watchlist field defaults via the merge; progress fully kept.
   if (loaded.version < 7) {
     loaded.version = 7;
+  }
+  // v7 -> v8: commodities & financial assets are no longer tradeable.
+  // Refund any such holdings at their full cost basis (no value lost) and
+  // prune them (plus stale watchlist stars). ASSET_BY_ID is loaded before
+  // state.js in both the page and the test harness.
+  if (loaded.version < 8) {
+    if (typeof ASSET_BY_ID !== 'undefined') {
+      if (loaded.portfolio) {
+        for (const id of Object.keys(loaded.portfolio)) {
+          if (!ASSET_BY_ID[id]) {
+            loaded.balance = (loaded.balance || 0) + (loaded.portfolio[id].cost || 0);
+            delete loaded.portfolio[id];
+          }
+        }
+      }
+      if (loaded.watchlist) {
+        for (const id of Object.keys(loaded.watchlist)) {
+          if (!ASSET_BY_ID[id]) delete loaded.watchlist[id];
+        }
+      }
+    }
+    loaded.version = 8;
   }
   return loaded;
 }
