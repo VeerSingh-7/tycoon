@@ -1,13 +1,15 @@
-# Stock logo overrides (drop-in)
+# Designed asset logos (drop-in overrides)
 
 Every stock/asset gets a **generated** SVG logo automatically (js/logos.js).
-To hand-swap a specific one, drop a PNG here named after the asset's `id` —
-it will cover the generated logo everywhere, no code changes.
+To hand-swap a specific one, drop an SVG here named after the asset's **ticker**
+(lowercased) — it covers the generated logo everywhere, no code changes.
 
-- Naming: `<id>.png` (e.g. `mango.png`, `googol.png`, `tezla.png`, `gold.png`)
-- IDs live in `js/data/stocks.js` (`STOCK_ROSTER`) and `js/data/markets.js`
-  (`COMMODITY_DEFS`)
-- Recommended: square, 128–256px, will be shown rounded (24% corner radius)
-  at 26–52px — keep the mark bold and simple
+- Naming: `<ticker>.svg` (e.g. `mngo.svg`, `ggl.svg`, `tzla.svg`, `amz.svg`)
+- Tickers live in `js/data/stocks.js` (`STOCK_ROSTER`) and `js/data/markets.js`
+  (`CRYPTO_DEFS`)
+- Recommended: a 100×100 viewBox mark. When the override loads, the generated
+  tile beneath it is hidden, so the file's own shape shows (these ship circular)
 - A missing file is detected once per session and silently falls back to the
   generated logo (no repeated requests)
+- New override files must also be added to the precache list in
+  `service-worker.js` (and bump `CACHE_NAME`) so they work offline

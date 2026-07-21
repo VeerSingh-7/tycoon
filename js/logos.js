@@ -10,9 +10,9 @@
  *     monogram letterform instead — like real brands, some logos are letters.
  *   - A curated 14-colour palette; each company gets a subtle two-stop
  *     gradient derived from its name. Distinct, but one visual family.
- *   - Hand-swap override: drop img/logos/<id>.png in and it covers the
- *     generated logo automatically (a failed load is remembered per session
- *     so we never re-request missing files on re-renders).
+ *   - Designed override: drop img/logos/<ticker>.svg in (ticker lowercased,
+ *     e.g. mngo.svg) and it covers the generated logo automatically (a failed
+ *     load is remembered per session so we never re-request missing files).
  *
  * Performance: the SVG string for each asset is built once and cached —
  * list rebuilds are pure string concatenation, nothing is drawn per frame.
@@ -143,24 +143,38 @@ const Logos = (() => {
     return out;
   }
 
+  /** File slug for an asset's designed-logo override: its ticker, lowercased
+   *  (e.g. MNGO -> mngo). Falls back to the id if a def has no ticker. */
+  function slugOf(def) {
+    return String(def.ticker || def.id).toLowerCase();
+  }
+
   /**
    * THE one entry point: a logo tile for any asset.
    * cls: '' (40px row) | 'lg' (detail) | 'sm' (ticket).
-   * If img/logos/<id>.png exists it covers the generated logo; a 404 is
+   * If img/logos/<ticker>.svg exists it covers the generated logo; a 404 is
    * remembered so re-renders never re-request it.
    */
   function tile(def, cls = '') {
-    const img = missing.has(def.id)
+    const slug = slugOf(def);
+    const img = missing.has(slug)
       ? ''
-      : `<img src="img/logos/${def.id}.png" alt="" loading="lazy" decoding="async" onerror="Logos.miss(this,'${def.id}')">`;
+      : `<img src="img/logos/${slug}.svg" alt="" loading="lazy" decoding="async" onload="Logos.hit(this)" onerror="Logos.miss(this,'${slug}')">`;
     return `<span class="logo-tile ${cls}">${svg(def)}${img}</span>`;
   }
 
+  /** onload hook: a designed override loaded — hide the generated mark under
+   *  it so the tile takes the override's own shape (e.g. a circular logo). */
+  function hit(el) {
+    const tile = el && el.parentNode;
+    if (tile && tile.classList) tile.classList.add('has-override');
+  }
+
   /** onerror hook: drop the broken override and never ask for it again. */
-  function miss(el, id) {
-    missing.add(id);
+  function miss(el, slug) {
+    missing.add(slug);
     if (el && el.remove) el.remove();
   }
 
-  return { tile, svg, styleOf, miss };
+  return { tile, svg, styleOf, hit, miss };
 })();

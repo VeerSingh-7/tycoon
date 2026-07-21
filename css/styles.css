@@ -522,10 +522,14 @@ html, body {
 }
 .logo-tile svg { width: 100%; height: 100%; display: block; }
 .logo-tile img {
-  /* hand-swapped override (img/logos/<id>.png) covers the generated logo */
+  /* designed override (img/logos/<ticker>.svg) covers the generated logo */
   position: absolute; inset: 0; width: 100%; height: 100%;
   object-fit: cover; border-radius: 24%;
 }
+/* once the override loads, hide the generated mark beneath it so the tile
+   takes the override's own shape (these designed logos are circular). */
+.logo-tile.has-override > svg { visibility: hidden; }
+.logo-tile.has-override img { border-radius: 0; }
 .logo-tile.lg { width: 52px; height: 52px; }
 .logo-tile.sm { width: 26px; height: 26px; vertical-align: -6px; }
 .ticket-title { display: inline-flex; align-items: center; gap: 9px; }

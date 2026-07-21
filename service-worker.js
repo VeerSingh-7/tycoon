@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v10'; // v10: simplified markets navigation
+const CACHE_NAME = 'tycoon-v11'; // v11: first designed asset logos (img/logos)
 
 const ASSETS = [
   'index.html',
@@ -35,6 +35,12 @@ const ASSETS = [
   'js/profile.js',
   'js/main.js',
   'icons/icon.svg',
+  // Designed asset logos (override the generated marks in js/logos.js).
+  'img/logos/mngo.svg',
+  'img/logos/ggl.svg',
+  'img/logos/tzla.svg',
+  'img/logos/amz.svg',
+  'img/logos/fbk.svg',
 ];
 
 // Precache the app shell on install.
