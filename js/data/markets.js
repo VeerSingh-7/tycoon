@@ -47,24 +47,6 @@ const MARKET_GROUPS = [
   { id: 'crypto', label: 'Crypto', icon: '🪙' },
 ];
 
-// Stock sectors → tidy display sections (collapsible headers in the list).
-// Every SECTOR_PROFILES key maps to exactly one section.
-const STOCK_SECTIONS = [
-  { id: 'sec_tech',     label: 'Technology',          icon: '💻', sectors: ['tech', 'media', 'telecom'] },
-  { id: 'sec_semi',     label: 'Semiconductors',      icon: '🔬', sectors: ['semi'] },
-  { id: 'sec_fin',      label: 'Banks & Finance',     icon: '🏦', sectors: ['bank', 'fintech'] },
-  { id: 'sec_health',   label: 'Healthcare & Pharma', icon: '💊', sectors: ['pharma'] },
-  { id: 'sec_energy',   label: 'Energy',              icon: '⚡', sectors: ['energy', 'utility'] },
-  { id: 'sec_consumer', label: 'Consumer & Retail',   icon: '🛍️', sectors: ['consumer', 'retail', 'luxury'] },
-  { id: 'sec_auto',     label: 'Autos',               icon: '🚗', sectors: ['auto'] },
-  { id: 'sec_aero',     label: 'Aerospace & Defence', icon: '🚀', sectors: ['aerospace'] },
-  { id: 'sec_industrial', label: 'Industrials',       icon: '🏗️', sectors: ['industrial', 'materials'] },
-];
-const SECTOR_TO_SECTION = STOCK_SECTIONS.reduce((m, s) => {
-  for (const k of s.sectors) m[k] = s.id;
-  return m;
-}, {});
-
 // Stock sector profiles → drift (annual trend), vol (noise scale), P/E range,
 // dividend range (fraction paid per 5-min interval), price-to-book range.
 const SECTOR_PROFILES = {

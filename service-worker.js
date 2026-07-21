@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v9'; // v9: stocks+crypto only, line/candle charts, 100% ownership
+const CACHE_NAME = 'tycoon-v10'; // v10: simplified markets navigation
 
 const ASSETS = [
   'index.html',

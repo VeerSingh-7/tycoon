@@ -16,7 +16,8 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v7: markets watchlist added — migrates in place, no progress lost.
 // v8: Invest trades stocks + crypto only. Holdings in removed assets
 //     (commodities/financial) are refunded at full cost basis — no value lost.
-const SAVE_VERSION = 8;
+// v9: watchlist feature removed — the field is dropped; nothing else changes.
+const SAVE_VERSION = 9;
 
 // Offline earnings: pay 100% for a window, avoiding both "free idle game" and
 // the genre's usual stingy offline rates. Phase 1 cap = 2 hours (raised later).
@@ -52,7 +53,6 @@ function defaultState() {
 
     /* Phase 5 — real estate & luxury */
     assets: null,          // { epoch, estate:{}, luxury:{} }; lazy via Assets.ensure()
-    watchlist: {},         // assetId -> true (starred in the Markets list)
 
     lastSaved: nowSeconds(),
   };
@@ -170,6 +170,12 @@ function migrate(loaded) {
       }
     }
     loaded.version = 8;
+  }
+  // v8 -> v9: the watchlist feature was removed — drop the field. Everything
+  // else (holdings, cash, progress) is untouched.
+  if (loaded.version < 9) {
+    delete loaded.watchlist;
+    loaded.version = 9;
   }
   return loaded;
 }

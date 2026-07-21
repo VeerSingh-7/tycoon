@@ -20,11 +20,8 @@
 
 const Invest = (() => {
   const view = {
-    mode: 'list', chip: 'all', q: '', sort: 'movers',
+    mode: 'list', seg: 'stock', q: '',
     assetId: null, tf: MARKET.DEFAULT_TF,
-    // Stock sectors start collapsed so the list opens as a tidy index;
-    // commodity groups are small and start open. Toggles last the session.
-    collapsed: new Set(STOCK_SECTIONS.map((s) => s.id)),
   };
   let container = null;
   let chart = null, chartAsset = null, chartTf = null;       // inline chart
@@ -36,33 +33,18 @@ const Invest = (() => {
   const plCls = (v) => (v >= 0 ? 'up' : 'down');
   const sign = (v) => (v >= 0 ? '+' : '');
 
-  /* ------------------------- Chips / filters ----------------------------- */
+  /* --------------------------- Segments ----------------------------- */
+  // One simple toggle: Stocks | Crypto | Holdings. That's the whole nav.
 
-  const CHIPS = [
-    { id: 'all',    label: 'All',       icon: '🌐' },
-    { id: 'stock',  label: 'Stocks',    icon: '📈' },
-    { id: 'crypto', label: 'Crypto',    icon: '🪙' },
-    { id: 'watch',  label: 'Watchlist', icon: '★' },
-    { id: 'held',   label: 'Holdings',  icon: '💼' },
-  ];
-  // Chips whose result set is small → flat list, no section headers.
-  const FLAT_CHIPS = new Set(['crypto', 'watch', 'held']);
-
-  const SORTS = [
-    { id: 'movers', label: '🔥 Top Movers' },
-    { id: 'az',     label: 'A–Z' },
-    { id: 'price',  label: '💰 Price' },
+  const SEGS = [
+    { id: 'stock',  label: '📈 Stocks' },
+    { id: 'crypto', label: '🪙 Crypto' },
+    { id: 'held',   label: '💼 Holdings' },
   ];
 
-  function matchChip(def) {
-    switch (view.chip) {
-      case 'all':    return true;
-      case 'stock':  return def.group === 'stock';
-      case 'crypto': return def.group === 'crypto';
-      case 'watch':  return !!state.watchlist[def.id];
-      case 'held':   return Market.holding(def.id).shares > 0;
-      default:       return true;
-    }
+  function matchSeg(def) {
+    if (view.seg === 'held') return Market.holding(def.id).shares > 0;
+    return def.group === view.seg;
   }
 
   function mount(el) {
@@ -82,10 +64,7 @@ const Invest = (() => {
 
     if (a === 'open') { view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); }
     else if (a === 'back') { view.mode = 'list'; destroyChart(); render(); }
-    else if (a === 'chip') { view.chip = id; render(); }
-    else if (a === 'sort') { view.sort = id; render(); }
-    else if (a === 'sec') { view.collapsed.has(id) ? view.collapsed.delete(id) : view.collapsed.add(id); renderBody(); }
-    else if (a === 'star') { toggleWatch(id); }
+    else if (a === 'seg') { view.seg = id; render(); }
     else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; } markTf(); }
     else if (a === 'fullscreen') openFullscreen();
     else if (a === 'buy') openTicket('buy');
@@ -99,27 +78,6 @@ const Invest = (() => {
     else renderList();
   }
 
-  /* ------------------------------ Watchlist ------------------------------ */
-
-  function toggleWatch(id) {
-    if (state.watchlist[id]) delete state.watchlist[id];
-    else state.watchlist[id] = true;
-    saveGame();
-    const on = !!state.watchlist[id];
-    // Patch every star for this asset currently in the DOM (row + detail).
-    document.querySelectorAll(`[data-act="star"][data-id="${id}"]`).forEach((el) => {
-      el.classList.toggle('on', on);
-      el.textContent = on ? '★' : '☆';
-    });
-    // On the Watchlist chip an un-starred row should disappear.
-    if (view.mode === 'list' && view.chip === 'watch') renderBody();
-  }
-
-  function starHTML(id, cls = '') {
-    const on = !!state.watchlist[id];
-    return `<span class="star ${cls} ${on ? 'on' : ''}" data-act="star" data-id="${id}" role="button" aria-label="watchlist">${on ? '★' : '☆'}</span>`;
-  }
-
   /* ------------------------------ List view ------------------------------ */
 
   function fmtShares(s) {
@@ -131,7 +89,7 @@ const Invest = (() => {
     const sum = Market.portfolioSummary();
     container.innerHTML = `
       <div class="section-head"><h2>Markets</h2><div class="section-stat">${formatMoney(state.balance)} cash</div></div>
-      <div class="card pf-card" data-act="chip" data-id="held" role="button">
+      <div class="card pf-card" data-act="seg" data-id="held" role="button">
         <div class="card-row">
           <div><div class="card-title">💼 Portfolio</div><div class="card-sub">Cost basis ${formatMoney(sum.cost)}</div></div>
           <div class="pf-numbers">
@@ -145,10 +103,8 @@ const Invest = (() => {
         <input id="mktSearch" class="search-input" type="search" placeholder="Search any asset…"
           value="${view.q.replace(/"/g, '&quot;')}" autocomplete="off" autocorrect="off" spellcheck="false">
       </div>
-      <div class="chip-row invest-filters">${CHIPS.map((c) =>
-        `<button class="chip ${view.chip === c.id ? 'chip-active' : ''}" data-act="chip" data-id="${c.id}">${c.icon} ${c.label}</button>`).join('')}</div>
-      <div class="seg-row">${SORTS.map((s) =>
-        `<button class="seg ${view.sort === s.id ? 'seg-active' : ''}" data-act="sort" data-id="${s.id}">${s.label}</button>`).join('')}</div>
+      <div class="seg-row">${SEGS.map((s) =>
+        `<button class="seg ${view.seg === s.id ? 'seg-active' : ''}" data-act="seg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="mktBody"></div>
     `;
     const inp = container.querySelector('#mktSearch');
@@ -160,59 +116,20 @@ const Invest = (() => {
     renderBody();
   }
 
-  /** Rebuild only the list body (keeps the search input focused). */
+  /**
+   * Rebuild only the list body (keeps the search input focused).
+   * Searching looks across EVERYTHING so any asset is findable instantly;
+   * otherwise it's a plain, clean list of the selected segment.
+   */
   function renderBody() {
     const el = document.getElementById('mktBody');
     if (!el) return;
     const q = view.q.trim().toLowerCase();
-    const pool = ASSET_DEFS.filter((d) => matchChip(d) &&
-      (!q || d.name.toLowerCase().includes(q) || d.ticker.toLowerCase().includes(q)));
-    // Compute price/change once per row per rebuild (used for rows AND sort).
-    const data = pool.map((d) => ({ d, p: Market.price(d.id), ch: Market.changePct(d.id) }));
-
-    let html;
-    if (q || FLAT_CHIPS.has(view.chip)) {
-      html = rowsHTML(sortData(data)) || emptyHTML();
-    } else {
-      const secs = buildSections(data);
-      html = secs.map(sectionHTML).join('') || emptyHTML();
-    }
-    el.innerHTML = html;
+    const pool = q
+      ? ASSET_DEFS.filter((d) => d.name.toLowerCase().includes(q) || d.ticker.toLowerCase().includes(q))
+      : ASSET_DEFS.filter(matchSeg);
+    el.innerHTML = pool.map((d) => rowHTML(d, Market.price(d.id), Market.changePct(d.id))).join('') || emptyHTML();
     observeRows();
-  }
-
-  function sortData(data) {
-    const arr = data.slice();
-    if (view.sort === 'movers') arr.sort((a, b) => Math.abs(b.ch) - Math.abs(a.ch));
-    else if (view.sort === 'az') arr.sort((a, b) => a.d.name.localeCompare(b.d.name));
-    else if (view.sort === 'price') arr.sort((a, b) => b.p - a.p);
-    return arr;
-  }
-
-  /** Ordered sections for the current chip ('all' or 'stock'). */
-  function buildSections(data) {
-    const out = [];
-    for (const sec of STOCK_SECTIONS) {
-      out.push({ ...sec, items: data.filter((x) => x.d.group === 'stock' && SECTOR_TO_SECTION[x.d.sector] === sec.id) });
-    }
-    if (view.chip === 'all') {
-      out.push({ id: 'sec_crypto', label: 'Crypto', icon: '🪙', items: data.filter((x) => x.d.group === 'crypto') });
-    }
-    return out.filter((s) => s.items.length > 0);
-  }
-
-  function sectionHTML(sec) {
-    const closed = view.collapsed.has(sec.id);
-    return `
-      <button class="sec-head" data-act="sec" data-id="${sec.id}">
-        <span class="sec-label">${sec.icon} ${sec.label}</span>
-        <span class="sec-meta">${sec.items.length}<span class="chev">${closed ? '▸' : '▾'}</span></span>
-      </button>
-      ${closed ? '' : rowsHTML(sortData(sec.items))}`;
-  }
-
-  function rowsHTML(data) {
-    return data.map((x) => rowHTML(x.d, x.p, x.ch)).join('');
   }
 
   function rowHTML(def, p, ch) {
@@ -228,16 +145,12 @@ const Invest = (() => {
           <div class="asset-price" data-price="${def.id}">${formatMoney(p)}</div>
           <div class="asset-change ${plCls(ch)}" data-change="${def.id}">${sign(ch)}${ch.toFixed(2)}%</div>
         </div>
-        ${starHTML(def.id)}
       </button>`;
   }
 
   function emptyHTML() {
-    const msgs = {
-      watch: 'Tap the ☆ on any asset to add it to your watchlist.',
-      held: 'No holdings yet — open a market and buy.',
-    };
-    return `<div class="coming-soon"><p>${msgs[view.chip] || 'Nothing matches your search.'}</p></div>`;
+    if (view.q.trim()) return '<div class="coming-soon"><p>Nothing matches your search.</p></div>';
+    return `<div class="coming-soon"><p>${view.seg === 'held' ? 'No holdings yet — open a market and buy.' : 'Nothing here yet.'}</p></div>`;
   }
 
   /** Track which rows are on screen so refresh() only patches those. */
@@ -267,7 +180,6 @@ const Invest = (() => {
         ${Logos.tile(def, 'lg')}
         <div><div class="asset-sym big">${def.name}</div>
           <div class="asset-name">${def.ticker} · ${def.group === 'stock' ? def.sector + ' · stock' : def.group}${def.unit ? ' · ' + def.unit : ''}</div></div>
-        ${starHTML(def.id, 'lg')}
       </div>
       <div class="detail-price-row">
         <div class="detail-price" id="invPrice">${formatMoney(Market.price(def.id))}</div>
