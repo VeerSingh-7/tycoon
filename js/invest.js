@@ -20,7 +20,13 @@ const Invest = (() => {
   const view = {
     mode: 'list', seg: 'stock', pfSeg: 'stock', q: '',
     assetId: null, estateId: null, tf: MARKET.DEFAULT_TF,
+    returnTo: 'list', // where a detail's back button goes (list or portfolio)
   };
+
+  // Portfolio numbers settle on this cadence (seconds) rather than flickering
+  // every tick — they only refresh when this bucket advances.
+  const PF_STEADY = 15;
+  let pfBucket = -1;
 
   // Categories on the dedicated Portfolio page.
   const PF_SEGS = [
@@ -43,6 +49,8 @@ const Invest = (() => {
   const sign = (v) => (v >= 0 ? '+' : '');
   // List rows show a ▲/▼ arrow with the magnitude (the arrow carries the sign).
   const changeText = (v) => `${v >= 0 ? '▲' : '▼'} ${Math.abs(v).toFixed(2)}%`;
+  // A detail's back button names where it returns to.
+  const backLabel = () => (view.returnTo === 'portfolio' ? 'Portfolio' : 'Markets');
 
   /* --------------------------- Segments ----------------------------- */
   // One simple toggle: Stocks | Crypto | Property. Holdings is reached by
@@ -75,11 +83,13 @@ const Invest = (() => {
     const a = t.dataset.act;
     const id = t.dataset.id;
 
-    if (a === 'open') { view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); }
-    else if (a === 'openEstate') { view.mode = 'estateDetail'; view.estateId = id; destroyChart(); render(); }
+    if (a === 'open') { view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); }
+    else if (a === 'openEstate') { view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'estateDetail'; view.estateId = id; destroyChart(); render(); }
     else if (a === 'buyEstate') doEstate('buy');
     else if (a === 'sellEstate') doEstate('sell');
-    else if (a === 'back') { view.mode = 'list'; destroyChart(); render(); }
+    // From a detail, go back to wherever it was opened from (Portfolio or
+    // Markets). The Portfolio page's own back-link always returns to Markets.
+    else if (a === 'back') { view.mode = view.mode === 'portfolio' ? 'list' : (view.returnTo === 'portfolio' ? 'portfolio' : 'list'); destroyChart(); render(); }
     else if (a === 'portfolio') { view.mode = 'portfolio'; destroyChart(); render(); }
     else if (a === 'pfSeg') { view.pfSeg = id; render(); }
     else if (a === 'browse') { view.mode = 'list'; view.seg = id; destroyChart(); render(); }
@@ -176,6 +186,7 @@ const Invest = (() => {
   // Empty categories show a "Not owned" prompt that links straight to buying.
 
   function renderPortfolio() {
+    pfBucket = Math.floor(Date.now() / 1000 / PF_STEADY); // mark this steady window
     const sum = Market.portfolioSummary();
     Assets.ensure();
     const eSum = Assets.estateSummary();
@@ -194,11 +205,49 @@ const Invest = (() => {
       Assets.ensure();
       const owned = ESTATE_DEFS.filter((d) => estateRec(d.id).count > 0);
       if (!owned.length) return emptyOwnedHTML('estate');
-      return `<div class="asset-list">${owned.map(estateRowHTML).join('')}</div>`;
+      return `<div class="asset-list">${owned.map(pfEstateRowHTML).join('')}</div>`;
     }
     const owned = ASSET_DEFS.filter((d) => d.group === view.pfSeg && Market.holding(d.id).shares > 0);
     if (!owned.length) return emptyOwnedHTML(view.pfSeg);
-    return `<div class="asset-list">${owned.map((d) => rowHTML(d, Market.price(d.id), Market.changePct(d.id))).join('')}</div>`;
+    return `<div class="asset-list">${owned.map(pfRowHTML).join('')}</div>`;
+  }
+
+  /** Portfolio row: shows the VALUE of what you hold (shares × price), not the
+   *  price of one share, plus the asset's % change. */
+  function pfRowHTML(def) {
+    const h = Market.holding(def.id);
+    const value = h.shares * Market.price(def.id);
+    const ch = Market.changePct(def.id);
+    return `
+      <button class="asset-row" data-act="open" data-id="${def.id}">
+        ${Logos.tile(def)}
+        <div class="asset-name-wrap">
+          <div class="asset-sym">${def.name}</div>
+          <div class="asset-name">${fmtShares(h.shares)} ${def.ticker}</div>
+        </div>
+        <div class="asset-price-wrap">
+          <div class="asset-price">${formatMoney(value)}</div>
+          <div class="asset-change ${plCls(ch)}">${changeText(ch)}</div>
+        </div>
+      </button>`;
+  }
+
+  /** Portfolio row for real estate: total value of all units you own. */
+  function pfEstateRowHTML(def) {
+    const rec = estateRec(def.id);
+    const value = rec.count * Assets.unitValue(def);
+    return `
+      <button class="asset-row" data-act="openEstate" data-id="${def.id}">
+        ${estateTile(def)}
+        <div class="asset-name-wrap">
+          <div class="asset-sym">${def.name}</div>
+          <div class="asset-name">${rec.count} unit${rec.count === 1 ? '' : 's'} · Tier ${def.tier}</div>
+        </div>
+        <div class="asset-price-wrap">
+          <div class="asset-price">${formatMoney(value)}</div>
+          <div class="asset-change up">▲ ${(def.apprPerDay * 100).toFixed(1)}%</div>
+        </div>
+      </button>`;
   }
 
   /** "Not owned" state with a call-to-action that jumps to that market. */
@@ -287,7 +336,7 @@ const Invest = (() => {
     const sellNet = value * (1 - ASSETS_CFG.ESTATE_SELL_FEE);
     const paybackSec = value / def.rentPerSec;
     container.innerHTML = `
-      <button class="back-link" data-act="back">‹ Markets</button>
+      <button class="back-link" data-act="back">‹ ${backLabel()}</button>
       <div class="detail-head">
         ${estateTile(def, 'lg')}
         <div><div class="asset-sym big">${def.name}</div>
@@ -361,7 +410,7 @@ const Invest = (() => {
     const s = Market.stats(view.assetId);
     const holdingHTML = investmentPanel(def);
     container.innerHTML = `
-      <button class="back-link" data-act="back">‹ Markets</button>
+      <button class="back-link" data-act="back">‹ ${backLabel()}</button>
       <div class="detail-head">
         ${Logos.tile(def, 'lg')}
         <div><div class="asset-sym big">${def.name}</div>
@@ -763,7 +812,13 @@ const Invest = (() => {
     if (view.mode === 'estateDetail') { renderEstateDetail(); return; }
 
     // Portfolio page: cheap to rebuild (only owned items) and keeps prices live.
-    if (view.mode === 'portfolio') { renderPortfolio(); return; }
+    if (view.mode === 'portfolio') {
+      // Only re-render when the steady window advances (~every 15s), so the
+      // values and % changes settle instead of flickering every tick.
+      const b = Math.floor(Date.now() / 1000 / PF_STEADY);
+      if (b !== pfBucket) renderPortfolio();
+      return;
+    }
 
     if (view.mode === 'list') {
       // Property list: cheap to rebuild (5 units) and values drift slowly.

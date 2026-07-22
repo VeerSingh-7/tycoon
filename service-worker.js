@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v18'; // v18: sell-ALL clears whole position; remove top toast pop-ups
+const CACHE_NAME = 'tycoon-v19'; // v19: portfolio — back returns to portfolio, holding value, steady %
 
 const ASSETS = [
   'index.html',
