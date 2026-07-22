@@ -16,6 +16,19 @@
     UI.showOfflinePopup(away);
   }
 
+  // 3b. One-time notice: some assets were delisted and converted to cash
+  //     during a save migration (state.js v10). Show it once, then clear it.
+  if (state.delistedNotice && state.delistedNotice.count > 0) {
+    const n = state.delistedNotice;
+    UI.showToast(
+      `📉 <b>${n.count} asset${n.count === 1 ? '' : 's'} delisted</b><br>` +
+      `Your holdings were converted to cash (+${formatMoney(n.cash)}).`,
+      { ms: 9000 }
+    );
+    delete state.delistedNotice;
+    saveGame();
+  }
+
   // 4. Economy tick — 10x/sec, uses real elapsed time so it's frame-independent.
   setInterval(tick, 100);
 

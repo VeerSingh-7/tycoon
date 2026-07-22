@@ -17,7 +17,12 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v8: Invest trades stocks + crypto only. Holdings in removed assets
 //     (commodities/financial) are refunded at full cost basis — no value lost.
 // v9: watchlist feature removed — the field is dropped; nothing else changes.
-const SAVE_VERSION = 9;
+// v10: market trimmed to a curated 60 assets (48 stocks + 12 crypto). Holdings
+//      in delisted tickers are auto-liquidated to cash (their invested basis,
+//      so nothing is lost) and pruned from portfolio + owner-management history;
+//      a one-time notice is queued for the UI. Nova Nordisk renamed to Nordvia
+//      (same id/ticker, so holdings are untouched).
+const SAVE_VERSION = 10;
 
 // Offline earnings: pay 100% for a window, avoiding both "free idle game" and
 // the genre's usual stingy offline rates. Phase 1 cap = 2 hours (raised later).
@@ -176,6 +181,27 @@ function migrate(loaded) {
   if (loaded.version < 9) {
     delete loaded.watchlist;
     loaded.version = 9;
+  }
+  // v9 -> v10: the market was trimmed to 60 curated assets. Any holding in a
+  // now-delisted ticker is converted to cash (its invested basis — nothing is
+  // lost) and cleaned out of the portfolio and owner-management history. A
+  // one-time notice is queued for the UI (main.js shows it after init).
+  if (loaded.version < 10) {
+    if (typeof ASSET_BY_ID !== 'undefined' && loaded.portfolio) {
+      let cash = 0, count = 0;
+      for (const id of Object.keys(loaded.portfolio)) {
+        if (ASSET_BY_ID[id]) continue; // still tradeable — keep it
+        const h = loaded.portfolio[id];
+        if (h && h.shares > 0) { cash += h.cost || 0; count++; }
+        delete loaded.portfolio[id];
+        if (loaded.market && loaded.market.mgmt) delete loaded.market.mgmt[id];
+      }
+      if (count > 0) {
+        loaded.balance = (loaded.balance || 0) + cash;
+        loaded.delistedNotice = { count, cash };
+      }
+    }
+    loaded.version = 10;
   }
   return loaded;
 }

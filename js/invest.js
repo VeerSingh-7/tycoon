@@ -2,14 +2,12 @@
  * invest.js — Phase 4 (overhauled) UI: our own pro mobile trading screen
  * -------------------------------------------------------------------------
  * Dark + gold identity, rounded cards, our own candlestick canvas. Screens:
- *   list       — search bar → filter chips (All / Stocks / Crypto /
- *                Commodities / Property / Savings & Bonds / ★ Watchlist /
- *                Holdings) → sort control (Top Movers / A–Z / Price) →
- *                clean sections with collapsible headers (stocks by sector,
- *                commodities by sub-group)
- *   detail     — ticker/name header + watch star, big price + today & month
- *                %, inline chart (tap → fullscreen), Your Investment, Stats,
- *                Buyout / Manage, pinned Buy / Sell bar
+ *   list       — Portfolio card (→ Holdings) + search + a Stocks / Crypto /
+ *                Property toggle, then a clean list of the selected group
+ *   detail     — ticker/name header, big price + today & month %, inline chart
+ *                (tap → fullscreen), Your Investment, Stats, Buyout / Manage,
+ *                pinned Buy / Sell bar. Property has its own unit-based detail
+ *                (no chart) in the same styling: rent, appreciation, ROI.
  *   fullscreen — big chart + 1D/1W/1M/3M/1Y/Max timeframe row
  *   ticket     — Buy/Sell amount (slider + quick %), then Review order
  *
@@ -21,7 +19,7 @@
 const Invest = (() => {
   const view = {
     mode: 'list', seg: 'stock', q: '',
-    assetId: null, tf: MARKET.DEFAULT_TF,
+    assetId: null, estateId: null, tf: MARKET.DEFAULT_TF,
   };
   let container = null;
   let chart = null, chartAsset = null, chartTf = null;       // inline chart
@@ -34,12 +32,14 @@ const Invest = (() => {
   const sign = (v) => (v >= 0 ? '+' : '');
 
   /* --------------------------- Segments ----------------------------- */
-  // One simple toggle: Stocks | Crypto | Holdings. That's the whole nav.
+  // One simple toggle: Stocks | Crypto | Property. Holdings is reached by
+  // tapping the Portfolio card. Property (real estate) is a group like the
+  // others but its rows/detail run through a dedicated path (Assets engine).
 
   const SEGS = [
     { id: 'stock',  label: '📈 Stocks' },
     { id: 'crypto', label: '🪙 Crypto' },
-    { id: 'held',   label: '💼 Holdings' },
+    { id: 'estate', label: '🏠 Property' },
   ];
 
   function matchSeg(def) {
@@ -63,6 +63,9 @@ const Invest = (() => {
     const id = t.dataset.id;
 
     if (a === 'open') { view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); }
+    else if (a === 'openEstate') { view.mode = 'estateDetail'; view.estateId = id; destroyChart(); render(); }
+    else if (a === 'buyEstate') doEstate('buy');
+    else if (a === 'sellEstate') doEstate('sell');
     else if (a === 'back') { view.mode = 'list'; destroyChart(); render(); }
     else if (a === 'seg') { view.seg = id; render(); }
     else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; } markTf(); }
@@ -75,6 +78,7 @@ const Invest = (() => {
   function render() {
     if (!container) return;
     if (view.mode === 'detail') renderDetail();
+    else if (view.mode === 'estateDetail') renderEstateDetail();
     else renderList();
   }
 
@@ -125,6 +129,8 @@ const Invest = (() => {
     const el = document.getElementById('mktBody');
     if (!el) return;
     const q = view.q.trim().toLowerCase();
+    // Property is its own group with unit-based cards, not procedural securities.
+    if (!q && view.seg === 'estate') { el.innerHTML = estateListHTML(); return; }
     const pool = q
       ? ASSET_DEFS.filter((d) => d.name.toLowerCase().includes(q) || d.ticker.toLowerCase().includes(q))
       : ASSET_DEFS.filter(matchSeg);
@@ -166,6 +172,131 @@ const Invest = (() => {
       }
     });
     container.querySelectorAll('.asset-row').forEach((r) => visObserver.observe(r));
+  }
+
+  /* ------------------------ Property (real estate) ----------------------- */
+  // Real estate is an investment group alongside Stocks & Crypto. It keeps its
+  // own behaviour (buy/sell whole units, rent, appreciation, ROI) but wears the
+  // same row/detail styling as securities. Values come from the Assets engine.
+
+  /** A logo-tile-shaped emoji badge so property rows match the asset rows. */
+  function estateTile(def, cls = '') {
+    const hue = 140 + def.tier * 30;
+    return `<span class="logo-tile estate-tile ${cls}" style="--ph:hsl(${hue},30%,22%)"><span class="estate-emoji">${def.icon}</span></span>`;
+  }
+
+  function estateRec(id) {
+    return (state.assets && state.assets.estate && state.assets.estate[id]) || { count: 0, cost: 0 };
+  }
+
+  function estateListHTML() {
+    Assets.ensure();
+    const sum = Assets.estateSummary();
+    const head = `
+      <div class="card pf-card estate-pf">
+        <div class="card-row">
+          <div><div class="card-title">🏠 Property Portfolio</div>
+            <div class="card-sub">${sum.units} unit${sum.units === 1 ? '' : 's'} · basis ${formatMoney(sum.cost)}</div></div>
+          <div class="pf-numbers">
+            <div class="pf-value">${formatMoney(sum.value)}</div>
+            <div class="pf-pl ${plCls(sum.pl)}">${sign(sum.pl)}${formatMoney(sum.pl)} · rent ${formatRate(Assets.rentPerSec())}</div>
+          </div>
+        </div>
+      </div>`;
+    return head + ESTATE_DEFS.map(estateRowHTML).join('');
+  }
+
+  function estateRowHTML(def) {
+    const rec = estateRec(def.id);
+    const value = Assets.unitValue(def);
+    return `
+      <button class="card asset-row" data-act="openEstate" data-id="${def.id}">
+        ${estateTile(def)}
+        <div class="asset-name-wrap">
+          <div class="asset-sym">${def.name}${rec.count > 0 ? ' <span class="hold-dot">●</span>' : ''}</div>
+          <div class="asset-name">Property · Tier ${def.tier}${rec.count > 0 ? ` · ×${rec.count}` : ''}</div>
+        </div>
+        <div class="asset-price-wrap">
+          <div class="asset-price">${formatMoney(value)}</div>
+          <div class="asset-change up">+${(def.apprPerDay * 100).toFixed(1)}%</div>
+        </div>
+      </button>`;
+  }
+
+  function renderEstateDetail() {
+    Assets.ensure();
+    const def = ESTATE_BY_ID[view.estateId];
+    const rec = estateRec(def.id);
+    const value = Assets.unitValue(def);
+    const canBuy = state.balance >= value;
+    const sellNet = value * (1 - ASSETS_CFG.ESTATE_SELL_FEE);
+    const paybackSec = value / def.rentPerSec;
+    container.innerHTML = `
+      <button class="back-link" data-act="back">‹ Markets</button>
+      <div class="detail-head">
+        ${estateTile(def, 'lg')}
+        <div><div class="asset-sym big">${def.name}</div>
+          <div class="asset-name">Property · Tier ${def.tier}</div></div>
+      </div>
+      <div class="detail-price-row">
+        <div class="detail-price">${formatMoney(value)}</div>
+      </div>
+      <div class="change-row">
+        <div class="chg-pill up"><span>Appreciation</span> +${(def.apprPerDay * 100).toFixed(1)}%/day</div>
+        <div class="chg-pill"><span>ROI payback</span> ${formatDuration(paybackSec)}</div>
+      </div>
+      ${estateInvestmentPanel(def, rec, value)}
+      <div class="card">${estateStatsHTML(def, value, paybackSec)}</div>
+      <div class="trade-spacer"></div>
+      <div class="trade-bar">
+        <button class="btn btn-gold trade-btn" data-act="buyEstate" ${canBuy ? '' : 'disabled'}>Buy 1 · ${formatMoney(value)}</button>
+        <button class="btn trade-btn" data-act="sellEstate" ${rec.count > 0 ? '' : 'disabled'}>Sell 1 · ${formatMoney(sellNet)}</button>
+      </div>
+    `;
+  }
+
+  function estateInvestmentPanel(def, rec, unitVal) {
+    if (rec.count <= 0) return '';
+    const value = rec.count * unitVal;
+    const pl = value - rec.cost;
+    const plPct = rec.cost > 0 ? (pl / rec.cost) * 100 : 0;
+    const rent = rec.count * def.rentPerSec * globalIncomeMultiplier();
+    return `
+      <div class="card invest-panel">
+        <div class="card-title">Your Investment</div>
+        <div class="stat-grid">
+          <div class="stat-cell"><span class="muted">Units</span><b>×${rec.count}</b></div>
+          <div class="stat-cell"><span class="muted">Value</span><b>${formatMoney(value)}</b></div>
+          <div class="stat-cell"><span class="muted">Return</span><b class="${plCls(pl)}">${sign(pl)}${formatMoney(pl)} (${sign(plPct)}${plPct.toFixed(1)}%)</b></div>
+          <div class="stat-cell"><span class="muted">Rent</span><b class="gold">${formatRate(rent)}</b></div>
+        </div>
+      </div>`;
+  }
+
+  function estateStatsHTML(def, unitVal, paybackSec) {
+    const rows = [
+      ['Market value', formatMoney(unitVal)],
+      ['Appreciation', '+' + (def.apprPerDay * 100).toFixed(1) + '%/day'],
+      ['Rent per unit', formatRate(def.rentPerSec)],
+      ['ROI payback', formatDuration(paybackSec)],
+      ['Sell fee', (ASSETS_CFG.ESTATE_SELL_FEE * 100).toFixed(0) + '%'],
+      ['Tier', String(def.tier)],
+    ];
+    return `<div class="card-title">Stats</div><div class="stat-grid">${
+      rows.map(([k, v]) => `<div class="stat-cell"><span class="muted">${k}</span><b>${v}</b></div>`).join('')
+    }</div>`;
+  }
+
+  function doEstate(side) {
+    const def = ESTATE_BY_ID[view.estateId];
+    const ok = side === 'buy' ? Assets.buyEstate(def.id) : Assets.sellEstate(def.id);
+    if (ok) {
+      UI.renderBalance();
+      UI.showToast(`${side === 'buy' ? '🟢 Bought' : '🔴 Sold'} 1 ${def.name}`, { tone: 'good' });
+      render();
+    } else if (side === 'buy') {
+      UI.showToast('⚠️ Not enough cash for that unit.', { tone: 'bad' });
+    }
   }
 
   /* ----------------------------- Detail view ----------------------------- */
@@ -456,7 +587,12 @@ const Invest = (() => {
   function refresh() {
     if (!container) return;
 
+    // Property detail: rebuild in place (few fields, no chart to preserve).
+    if (view.mode === 'estateDetail') { renderEstateDetail(); return; }
+
     if (view.mode === 'list') {
+      // Property list: cheap to rebuild (5 units) and values drift slowly.
+      if (view.seg === 'estate' && !view.q.trim()) { renderBody(); return; }
       // Patch prices in place — and ONLY for rows currently on screen.
       container.querySelectorAll('.asset-row').forEach((row) => {
         const id = row.dataset.id;

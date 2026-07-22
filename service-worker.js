@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v11'; // v11: first designed asset logos (img/logos)
+const CACHE_NAME = 'tycoon-v12'; // v12: market trimmed to 60 assets; real estate moved into Invest
 
 const ASSETS = [
   'index.html',

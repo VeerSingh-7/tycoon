@@ -532,6 +532,15 @@ html, body {
 .logo-tile.has-override img { border-radius: 0; }
 .logo-tile.lg { width: 52px; height: 52px; }
 .logo-tile.sm { width: 26px; height: 26px; vertical-align: -6px; }
+/* Property tiles: a rounded, tinted badge holding the property emoji, so real
+   estate rows sit flush with the generated/designed asset logos. */
+.logo-tile.estate-tile {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--ph, #223); border-radius: 24%;
+}
+.logo-tile.estate-tile .estate-emoji { font-size: 22px; line-height: 1; }
+.logo-tile.lg.estate-tile .estate-emoji { font-size: 30px; }
+.logo-tile.sm.estate-tile .estate-emoji { font-size: 15px; }
 .ticket-title { display: inline-flex; align-items: center; gap: 9px; }
 .hold-dot { color: var(--gold); font-size: 9px; vertical-align: 2px; }
 .pf-card { cursor: pointer; }

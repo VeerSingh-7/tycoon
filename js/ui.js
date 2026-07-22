@@ -11,7 +11,7 @@ const UI = (() => {
     { id: 'home',    label: 'Home',     icon: '🏠', render: renderHome },
     { id: 'business', label: 'Business', icon: '🏢', render: (el) => Businesses.mount(el) },
     { id: 'invest',  label: 'Invest',   icon: '📈', render: (el) => Invest.mount(el) },
-    { id: 'assets',  label: 'Assets',   icon: '💎', render: (el) => AssetsTab.mount(el) },
+    { id: 'assets',  label: 'Luxury',   icon: '💎', render: (el) => AssetsTab.mount(el) },
     { id: 'profile', label: 'Profile',  icon: '👤', render: (el) => Profile.mount(el) },
   ];
 
