@@ -28,12 +28,6 @@ const AssetsTab = (() => {
     }
   }
 
-  /** The drop-in image hook: hidden if img/assets/<id>.png doesn't exist. */
-  function imgHTML(id) {
-    return `<img class="asset-img" src="img/assets/${id}.png" alt="" loading="lazy"
-      onerror="this.style.display='none'">`;
-  }
-
   /* ------------------------------ Render ------------------------------ */
 
   function render() {
@@ -73,28 +67,31 @@ const AssetsTab = (() => {
     const p = Assets.setProgress(set.id);
     const complete = p.owned === p.total;
     const items = LUXURY_DEFS.filter((d) => d.set === set.id);
-    const cards = items.map((d) => luxuryCardHTML(d, set)).join('');
+    const rows = items.map((d) => luxuryRowHTML(d, set)).join('');
     return `
       <div class="section-head lux-set-head">
         <h2 class="lux-set-title">${set.icon} ${set.name}</h2>
         <div class="section-stat ${complete ? 'gold' : ''}">${p.owned}/${p.total} · ×${set.bonus}${complete ? ' ✓' : ''}</div>
       </div>
-      <div class="ach-grid">${cards}</div>`;
+      <div class="asset-list">${rows}</div>`;
   }
 
-  function luxuryCardHTML(def, set) {
+  /** One collectible as a flush row — same language as the market lists. */
+  function luxuryRowHTML(def, set) {
     const owned = Assets.ownsLuxury(def.id);
     const canBuy = !owned && state.balance >= def.price;
     return `
-      <div class="ach-card asset-card lux-card ${owned ? 'ach-done' : ''}">
-        <div class="asset-visual lux-visual" style="--ph: hsl(${set.hue}, 35%, 24%)">
-          ${imgHTML(def.id)}
-          <span class="asset-visual-icon">${set.icon}</span>
+      <div class="asset-row lux-row ${owned ? 'is-owned' : ''}">
+        <span class="logo-tile estate-tile" style="--ph:hsl(${set.hue}, 45%, 52%)"><span class="estate-emoji">${set.icon}</span></span>
+        <div class="asset-name-wrap">
+          <div class="asset-sym">${def.name}</div>
+          <div class="asset-name">${owned ? 'Owned' : set.name}</div>
         </div>
-        <div class="ach-name">${def.name}</div>
-        ${owned
-          ? '<div class="ach-reward">Owned ✓</div>'
-          : `<button class="btn btn-sm ${canBuy ? 'btn-gold' : ''}" data-buylux="${def.id}" ${canBuy ? '' : 'disabled'}>${formatMoney(def.price)}</button>`}
+        <div class="asset-price-wrap">
+          ${owned
+            ? '<div class="asset-change up">Owned ✓</div>'
+            : `<button class="btn btn-sm ${canBuy ? 'btn-gold' : ''}" data-buylux="${def.id}" ${canBuy ? '' : 'disabled'}>${formatMoney(def.price)}</button>`}
+        </div>
       </div>`;
   }
 

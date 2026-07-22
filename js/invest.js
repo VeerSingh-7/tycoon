@@ -34,6 +34,8 @@ const Invest = (() => {
 
   const plCls = (v) => (v >= 0 ? 'up' : 'down');
   const sign = (v) => (v >= 0 ? '+' : '');
+  // List rows show a ▲/▼ arrow with the magnitude (the arrow carries the sign).
+  const changeText = (v) => `${v >= 0 ? '▲' : '▼'} ${Math.abs(v).toFixed(2)}%`;
 
   /* --------------------------- Segments ----------------------------- */
   // One simple toggle: Stocks | Crypto | Property. Holdings is reached by
@@ -138,22 +140,27 @@ const Invest = (() => {
     const pool = q
       ? ASSET_DEFS.filter((d) => d.name.toLowerCase().includes(q) || d.ticker.toLowerCase().includes(q))
       : ASSET_DEFS.filter(matchSeg);
-    el.innerHTML = pool.map((d) => rowHTML(d, Market.price(d.id), Market.changePct(d.id))).join('') || emptyHTML();
+    el.innerHTML = pool.length
+      ? `<div class="asset-list">${pool.map((d) => rowHTML(d, Market.price(d.id), Market.changePct(d.id))).join('')}</div>`
+      : emptyHTML();
     observeRows();
   }
 
   function rowHTML(def, p, ch) {
     const h = Market.holding(def.id);
+    const sub = h.shares > 0
+      ? `Holding ${fmtShares(h.shares)} · ${def.ticker}`
+      : `${def.ticker} · ${def.group === 'stock' ? def.sector : def.group}`;
     return `
-      <button class="card asset-row" data-act="open" data-id="${def.id}">
+      <button class="asset-row" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
         <div class="asset-name-wrap">
-          <div class="asset-sym">${def.name}${h.shares > 0 ? ' <span class="hold-dot">●</span>' : ''}</div>
-          <div class="asset-name">${def.ticker} · ${def.group === 'stock' ? def.sector : def.group}${h.shares > 0 ? ` · ${fmtShares(h.shares)}` : ''}</div>
+          <div class="asset-sym">${def.name}</div>
+          <div class="asset-name">${sub}</div>
         </div>
         <div class="asset-price-wrap">
           <div class="asset-price" data-price="${def.id}">${formatMoney(p)}</div>
-          <div class="asset-change ${plCls(ch)}" data-change="${def.id}">${sign(ch)}${ch.toFixed(2)}%</div>
+          <div class="asset-change ${plCls(ch)}" data-change="${def.id}">${changeText(ch)}</div>
         </div>
       </button>`;
   }
@@ -207,22 +214,23 @@ const Invest = (() => {
           </div>
         </div>
       </div>`;
-    return head + ESTATE_DEFS.map(estateRowHTML).join('');
+    return head + `<div class="asset-list">${ESTATE_DEFS.map(estateRowHTML).join('')}</div>`;
   }
 
   function estateRowHTML(def) {
     const rec = estateRec(def.id);
     const value = Assets.unitValue(def);
+    const sub = rec.count > 0 ? `Owned ×${rec.count} · Tier ${def.tier}` : `Property · Tier ${def.tier}`;
     return `
-      <button class="card asset-row" data-act="openEstate" data-id="${def.id}">
+      <button class="asset-row" data-act="openEstate" data-id="${def.id}">
         ${estateTile(def)}
         <div class="asset-name-wrap">
-          <div class="asset-sym">${def.name}${rec.count > 0 ? ' <span class="hold-dot">●</span>' : ''}</div>
-          <div class="asset-name">Property · Tier ${def.tier}${rec.count > 0 ? ` · ×${rec.count}` : ''}</div>
+          <div class="asset-sym">${def.name}</div>
+          <div class="asset-name">${sub}</div>
         </div>
         <div class="asset-price-wrap">
           <div class="asset-price">${formatMoney(value)}</div>
-          <div class="asset-change up">+${(def.apprPerDay * 100).toFixed(1)}%</div>
+          <div class="asset-change up">▲ ${(def.apprPerDay * 100).toFixed(1)}%</div>
         </div>
       </button>`;
   }
@@ -708,7 +716,7 @@ const Invest = (() => {
         const ce = row.querySelector(`[data-change="${id}"]`);
         if (ce) {
           const ch = Market.changePct(id);
-          ce.textContent = `${sign(ch)}${ch.toFixed(2)}%`;
+          ce.textContent = changeText(ch);
           ce.className = `asset-change ${plCls(ch)}`;
         }
       });

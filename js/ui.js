@@ -6,7 +6,7 @@
  * ========================================================================= */
 
 const UI = (() => {
-  // Registry of tabs. `render(container)` builds the tab body.
+  // Registry of bottom-nav tabs. `render(container)` builds the tab body.
   const TAB_DEFS = [
     { id: 'home',    label: 'Home',     icon: '🏠', render: renderHome },
     { id: 'business', label: 'Business', icon: '🏢', render: (el) => Businesses.mount(el) },
@@ -14,16 +14,45 @@ const UI = (() => {
     { id: 'assets',  label: 'Luxury',   icon: '💎', render: (el) => AssetsTab.mount(el) },
     { id: 'profile', label: 'Profile',  icon: '👤', render: (el) => Profile.mount(el) },
   ];
+  // Screens reachable without a bottom-nav slot (a 6th tab would be too cramped
+  // on a phone). Settings opens from the header gear and a Profile link.
+  const EXTRA_TABS = [
+    { id: 'settings', label: 'Settings', icon: '⚙️', render: renderSettings },
+  ];
+  const findTab = (id) => TAB_DEFS.find((t) => t.id === id) || EXTRA_TABS.find((t) => t.id === id);
+
+  const THEME_KEY = 'tycoon_theme';
 
   let activeTab = 'home';
   let displayedBalance = 0; // for smooth counting animation
   let balanceEl, incomeEl, tabBodyEl;
+
+  /* ------------------- Theme (light default / dark opt-in) ------------------- */
+
+  function getTheme() {
+    try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch (e) { return 'light'; }
+  }
+
+  /** Apply + persist a theme. Light is the default for new & existing players. */
+  function applyTheme(theme) {
+    const dark = theme === 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', dark ? '#0d0f14' : '#ffffff');
+    try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch (e) {}
+    // Any open chart re-reads theme colours on its next draw.
+    if (typeof Invest !== 'undefined' && Invest.refresh) Invest.refresh();
+  }
 
   function init() {
     balanceEl = document.getElementById('balanceValue');
     incomeEl = document.getElementById('incomeRate');
     tabBodyEl = document.getElementById('tabBody');
     displayedBalance = state.balance;
+
+    applyTheme(getTheme()); // sync attribute + meta with the saved choice
+    const gear = document.getElementById('settingsBtn');
+    if (gear) gear.addEventListener('click', () => switchTab('settings'));
 
     buildNav();
     switchTab('home');
@@ -49,11 +78,12 @@ const UI = (() => {
   }
 
   function switchTab(id) {
+    const def = findTab(id);
+    if (!def) return;
     activeTab = id;
     document.querySelectorAll('.nav-btn').forEach((b) => {
       b.classList.toggle('active', b.dataset.tab === id);
     });
-    const def = TAB_DEFS.find((t) => t.id === id);
     tabBodyEl.innerHTML = '';
     def.render(tabBodyEl);
   }
@@ -69,6 +99,38 @@ const UI = (() => {
     const wrap = document.createElement('div');
     el.appendChild(wrap);
     Tap.mount(wrap);
+  }
+
+  /* ------------------- Settings tab ------------------- */
+
+  function renderSettings(el) {
+    const theme = getTheme();
+    el.innerHTML = `
+      <div class="section-head"><h2>Settings</h2></div>
+      <div class="settings-group">
+        <div class="settings-group-title">Appearance</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Theme</div>
+            <div class="settings-hint">Light is the clean default; Dark is easy on the eyes.</div>
+          </div>
+          <div class="theme-toggle" id="themeToggle">
+            <button class="theme-opt ${theme === 'light' ? 'on' : ''}" data-theme="light">Light</button>
+            <button class="theme-opt ${theme === 'dark' ? 'on' : ''}" data-theme="dark">Dark</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-group-title">About</div>
+        <div class="settings-row">
+          <div><div class="settings-label">Tycoon</div>
+            <div class="settings-hint">Idle Business Empire</div></div>
+        </div>
+      </div>
+    `;
+    el.querySelectorAll('#themeToggle [data-theme]').forEach((b) => {
+      b.addEventListener('click', () => { applyTheme(b.dataset.theme); renderSettings(el); });
+    });
   }
 
   function comingSoon(el, title, desc) {
@@ -175,5 +237,5 @@ const UI = (() => {
     });
   }
 
-  return { init, renderBalance, refreshActiveTab, showOfflinePopup, showToast };
+  return { init, renderBalance, refreshActiveTab, showOfflinePopup, showToast, switchTab, applyTheme };
 })();

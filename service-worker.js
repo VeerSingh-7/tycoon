@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v13'; // v13: Invest UI — 6 timeframes, full-screen chart & trade
+const CACHE_NAME = 'tycoon-v14'; // v14: light theme default + settings + new white app icon
 
 const ASSETS = [
   'index.html',
@@ -35,6 +35,9 @@ const ASSETS = [
   'js/profile.js',
   'js/main.js',
   'icons/icon.svg',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-512-maskable.png',
   // Designed asset logos (override the generated marks in js/logos.js).
   'img/logos/mngo.svg',
   'img/logos/ggl.svg',

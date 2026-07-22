@@ -2,21 +2,56 @@
  * styles.css — Dark, modern, mobile-first theme. Gold = money.
  * ========================================================================= */
 
+/* =========================================================================
+ * Theming. LIGHT is the default (:root); DARK is opt-in via
+ * <html data-theme="dark">. Everything is driven by these variables so both
+ * themes work everywhere with nothing hard-coded. `--gold` is the semantic
+ * ACCENT (a blue that reads on white in light; the classic gold in dark).
+ * ========================================================================= */
 :root {
-  --bg:        #0d0f14;   /* app background */
-  --bg-elev:   #161a23;   /* cards / elevated surfaces */
-  --bg-elev-2: #1e2430;   /* nested surfaces */
-  --line:      #262d3a;   /* borders */
-  --text:      #eef1f6;   /* primary text */
-  --muted:     #8a93a6;   /* secondary text */
-  --gold:      #f5c451;   /* MONEY colour */
+  --bg:        #ffffff;   /* app background (near-white) */
+  --bg-elev:   #ffffff;   /* cards / elevated surfaces */
+  --bg-elev-2: #f3f5f8;   /* nested surfaces */
+  --line:      #e6e9ef;   /* borders / dividers */
+  --text:      #0f172a;   /* bold near-black */
+  --muted:     #667085;   /* soft grey secondary */
+  --gold:      #2563eb;   /* ACCENT — buttons & highlights (reads on white) */
+  --gold-deep: #1d4ed8;
+  --gold-glow: rgba(37, 99, 235, 0.16);
+  --green:     #16a34a;   /* up */
+  --danger:    #dc2626;   /* down */
+  --green-soft: rgba(22, 163, 74, 0.12);
+  --accent-ink: #ffffff;  /* text on accent buttons */
+  --topbar-bg: rgba(255, 255, 255, 0.92);
+  --nav-bg:    rgba(255, 255, 255, 0.96);
+  --shadow:    rgba(15, 23, 42, 0.08);
+  --chart-grid: #eef1f5;
+  --chart-fill-top: rgba(37, 99, 235, 0.16);
+  --chart-fill-bot: rgba(37, 99, 235, 0);
+  --radius:    16px;
+  --nav-h:     64px;
+  --top-h:     72px;
+}
+:root[data-theme="dark"] {
+  --bg:        #0d0f14;
+  --bg-elev:   #161a23;
+  --bg-elev-2: #1e2430;
+  --line:      #262d3a;
+  --text:      #eef1f6;
+  --muted:     #8a93a6;
+  --gold:      #f5c451;   /* accent stays gold in the dark theme */
   --gold-deep: #d4a017;
   --gold-glow: rgba(245, 196, 81, 0.35);
   --green:     #3ddc84;
   --danger:    #ff5d5d;
-  --radius:    16px;
-  --nav-h:     64px;
-  --top-h:     72px;
+  --green-soft: rgba(61, 220, 132, 0.15);
+  --accent-ink: #2a1e00;
+  --topbar-bg: linear-gradient(180deg, #12151d 0%, rgba(13, 15, 20, 0.92) 100%);
+  --nav-bg:    rgba(18, 21, 29, 0.96);
+  --shadow:    rgba(0, 0, 0, 0.5);
+  --chart-grid: #1e2430;
+  --chart-fill-top: rgba(245, 196, 81, 0.26);
+  --chart-fill-bot: rgba(245, 196, 81, 0);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,7 +80,8 @@ html, body {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: linear-gradient(180deg, #12151d 0%, rgba(13,15,20,0.92) 100%);
+  background: var(--topbar-bg);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
   padding-top: env(safe-area-inset-top);
 }
@@ -54,8 +90,18 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  gap: 12px;
+  padding: 0 16px;
 }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-gear {
+  width: 38px; height: 38px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-elev-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 12px;
+  font-size: 18px; cursor: pointer;
+}
+.topbar-gear:active { transform: scale(0.92); }
 .brand {
   font-weight: 800;
   letter-spacing: 2px;
@@ -91,7 +137,7 @@ html, body {
   height: calc(var(--nav-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   display: flex;
-  background: rgba(18, 21, 29, 0.96);
+  background: var(--nav-bg);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--line);
   z-index: 30;
@@ -121,6 +167,7 @@ html, body {
   border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 14px;
+  box-shadow: 0 1px 3px var(--shadow);
 }
 .card-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .card-title { font-weight: 700; font-size: 15px; }
@@ -142,7 +189,7 @@ html, body {
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-gold {
   background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
-  color: #2a1e00;
+  color: var(--accent-ink);
   border-color: var(--gold-deep);
   box-shadow: 0 4px 16px var(--gold-glow);
 }
@@ -156,7 +203,7 @@ html, body {
   border-radius: 50%;
   border: 3px solid var(--gold-deep);
   background:
-    radial-gradient(circle at 50% 38%, rgba(245,196,81,0.22), rgba(245,196,81,0.04) 60%, transparent 72%),
+    radial-gradient(circle at 50% 38%, var(--gold-glow), transparent 70%),
     var(--bg-elev);
   color: var(--gold);
   display: flex; flex-direction: column;
@@ -165,7 +212,7 @@ html, body {
   cursor: pointer;
   position: relative;
   margin: 22px 0 26px;
-  box-shadow: 0 0 40px var(--gold-glow), inset 0 0 30px rgba(245,196,81,0.08);
+  box-shadow: 0 0 40px var(--gold-glow), inset 0 0 30px var(--gold-glow);
   transition: transform 0.06s;
   touch-action: manipulation;
 }
@@ -274,7 +321,7 @@ html, body {
   font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 20px;
   white-space: nowrap;
 }
-.pill-done { background: rgba(61,220,132,0.15); color: var(--green); }
+.pill-done { background: var(--green-soft); color: var(--green); }
 .pill-locked { background: var(--bg-elev-2); color: var(--muted); }
 
 .gold { color: var(--gold); }
@@ -399,12 +446,12 @@ html, body {
   background: var(--bg-elev); border: 1px solid var(--gold-deep);
   border-radius: 14px; padding: 12px 16px;
   font-size: 13px; line-height: 1.45; color: var(--text);
-  box-shadow: 0 6px 24px rgba(0,0,0,0.5), 0 0 20px var(--gold-glow);
+  box-shadow: 0 6px 24px var(--shadow), 0 0 20px var(--gold-glow);
   pointer-events: auto; cursor: pointer;
   animation: toastIn 0.3s cubic-bezier(0.18, 0.9, 0.35, 1.2);
 }
 .toast b { color: var(--gold); }
-.toast-bad { border-color: var(--danger); box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
+.toast-bad { border-color: var(--danger); box-shadow: 0 6px 24px var(--shadow); }
 .toast-bad b { color: var(--danger); }
 .toast-out { opacity: 0; transform: translateY(-8px); transition: all 0.3s; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(-12px) scale(0.95); } to { opacity: 1; } }
@@ -451,7 +498,7 @@ html, body {
   background: var(--bg-elev); border: 1px solid var(--line);
   border-radius: 14px; padding: 14px 12px; text-align: center;
 }
-.ach-done { border-color: var(--gold-deep); box-shadow: 0 0 12px rgba(245,196,81,0.12); }
+.ach-done { border-color: var(--gold-deep); box-shadow: 0 0 12px var(--gold-glow); }
 .ach-locked { opacity: 0.55; }
 .ach-icon { font-size: 26px; }
 .ach-name { font-weight: 800; font-size: 13px; margin-top: 6px; }
@@ -465,20 +512,33 @@ html, body {
 .pf-pl { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 
-/* Asset list rows */
-.asset-list { display: flex; flex-direction: column; }
+/* Flush list rows — full-width, no gaps, separated by a thin divider. Used
+   for every browse-list in the app (markets, holdings, property, collection)
+   so the whole game reads as one design. Full-bleed past the tab padding. */
+.asset-list {
+  display: flex; flex-direction: column;
+  margin: 4px -16px 0;
+  border-top: 1px solid var(--line);
+}
 .asset-row {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 14px;
   width: 100%; text-align: left; cursor: pointer;
   color: var(--text); font-family: inherit;
+  background: none; border: none;
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--line);
 }
-.asset-row:active { transform: scale(0.985); }
+.asset-row:active { background: var(--bg-elev-2); }
+.asset-row .logo-tile { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; }
 .asset-name-wrap { flex: 1; min-width: 0; }
-.asset-sym { font-weight: 800; font-size: 14px; }
-.asset-name { font-size: 11px; color: var(--muted); text-transform: capitalize; }
-.asset-price-wrap { text-align: right; }
-.asset-price { font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; }
-.asset-change { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.asset-sym {
+  font-weight: 800; font-size: 16px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.asset-name { font-size: 13px; color: var(--muted); margin-top: 3px; text-transform: capitalize; }
+.asset-price-wrap { text-align: right; flex-shrink: 0; }
+.asset-price { font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; }
+.asset-change { font-size: 12.5px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
 .div-tag {
   font-size: 9px; font-weight: 800; color: var(--gold);
   border: 1px solid var(--gold-deep); border-radius: 6px;
@@ -710,7 +770,7 @@ html, body {
 }
 .owned-badge {
   position: absolute; top: 8px; right: 8px; z-index: 2;
-  background: rgba(13,15,20,0.8); border: 1px solid var(--gold-deep);
+  background: var(--bg-elev); border: 1px solid var(--gold-deep);
   color: var(--gold); font-size: 12px; font-weight: 800;
   border-radius: 10px; padding: 3px 8px;
 }
@@ -723,3 +783,40 @@ html, body {
 .lux-card .btn { margin-top: 8px; width: 100%; }
 .lux-set-head { margin-top: 18px; margin-bottom: 10px; }
 .lux-set-title { font-size: 16px; }
+
+/* Collection (luxury) rows — same flush-row language as the markets. */
+.lux-row.is-owned .asset-sym { color: var(--muted); }
+.lux-row .asset-price-wrap .btn { white-space: nowrap; }
+
+/* ---------------------------------------------------------- Settings */
+.settings-group { margin-bottom: 18px; }
+.settings-group-title {
+  font-size: 12px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--muted); margin: 2px 4px 8px;
+}
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 16px; background: var(--bg-elev);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 1px 3px var(--shadow); margin-bottom: 10px;
+}
+.settings-row .settings-label { font-weight: 700; font-size: 15px; }
+.settings-row .settings-hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.theme-toggle {
+  display: flex; gap: 4px; background: var(--bg-elev-2);
+  border: 1px solid var(--line); border-radius: 12px; padding: 4px; flex-shrink: 0;
+}
+.theme-opt {
+  background: none; border: none; border-radius: 9px; cursor: pointer;
+  color: var(--muted); font-size: 13px; font-weight: 700; font-family: inherit;
+  padding: 7px 14px;
+}
+.theme-opt.on { background: var(--gold); color: var(--accent-ink); }
+.settings-link {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 1px 3px var(--shadow); color: var(--text); font-family: inherit;
+  padding: 14px 16px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 14px;
+}
+.settings-link:active { background: var(--bg-elev-2); }
+.settings-link .chev { color: var(--muted); font-weight: 700; }

@@ -29,11 +29,31 @@ class CandleChart {
     this.candles = [];
     this.maxBars = 140;
 
-    // Theme (matches css/styles.css palette).
+    // Colours are pulled live from the CSS theme variables (see syncTheme),
+    // so the chart follows the light/dark theme on every draw.
     this.COL = {
-      up: '#3ddc84', down: '#ff5d5d',
-      grid: '#1e2430', axis: '#8a93a6',
-      line: '#f5c451', fillTop: 'rgba(245,196,81,0.26)', fillBot: 'rgba(245,196,81,0)',
+      up: '#16a34a', down: '#dc2626',
+      grid: '#eef1f5', axis: '#667085',
+      line: '#2563eb', fillTop: 'rgba(37,99,235,0.16)', fillBot: 'rgba(37,99,235,0)',
+    };
+  }
+
+  /** Read the current theme's palette from CSS custom properties. */
+  syncTheme() {
+    if (typeof getComputedStyle === 'undefined') return;
+    const cs = getComputedStyle(document.documentElement);
+    const v = (name, fallback) => {
+      const val = cs.getPropertyValue(name);
+      return val && val.trim() ? val.trim() : fallback;
+    };
+    this.COL = {
+      up: v('--green', '#16a34a'),
+      down: v('--danger', '#dc2626'),
+      grid: v('--chart-grid', '#eef1f5'),
+      axis: v('--muted', '#667085'),
+      line: v('--gold', '#2563eb'),
+      fillTop: v('--chart-fill-top', 'rgba(37,99,235,0.16)'),
+      fillBot: v('--chart-fill-bot', 'rgba(37,99,235,0)'),
     };
   }
 
@@ -75,6 +95,7 @@ class CandleChart {
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     if (w === 0 || h === 0 || this.candles.length === 0) return;
+    this.syncTheme(); // follow the active light/dark theme
 
     if (this.canvas.width !== w * dpr || this.canvas.height !== h * dpr) {
       this.canvas.width = w * dpr;

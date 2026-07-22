@@ -19,6 +19,7 @@ const Profile = (() => {
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
     if (btn.dataset.prestige !== undefined) showPrestigeConfirm();
+    else if (btn.dataset.settings !== undefined) UI.switchTab('settings');
   }
 
   /* ------------------------------ Render ------------------------------ */
@@ -27,6 +28,9 @@ const Profile = (() => {
     if (!container) return;
     container.innerHTML = `
       ${identityHTML()}
+      <button class="settings-link" data-settings>
+        <span>⚙️ Settings</span><span class="chev">›</span>
+      </button>
       ${multipliersHTML()}
       ${legacyHTML()}
       ${statsHTML()}

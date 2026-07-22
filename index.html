@@ -3,11 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0d0f14" />
+  <meta name="theme-color" content="#ffffff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Tycoon" />
   <title>Tycoon — Idle Business Empire</title>
+  <!-- Apply the saved theme before first paint to avoid a flash. Default light. -->
+  <script>
+    try {
+      if (localStorage.getItem('tycoon_theme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', '#0d0f14');
+      }
+    } catch (e) {}
+  </script>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -23,9 +33,12 @@
           <div class="brand">TYCOON</div>
           <div id="levelBadge" class="level-badge">LV 1</div>
         </div>
-        <div class="balance-block">
-          <div id="balanceValue" class="balance">$0</div>
-          <div class="income"><span id="incomeRate">$0/s</span> passive</div>
+        <div class="topbar-right">
+          <div class="balance-block">
+            <div id="balanceValue" class="balance">$0</div>
+            <div class="income"><span id="incomeRate">$0/s</span> passive</div>
+          </div>
+          <button id="settingsBtn" class="topbar-gear" aria-label="Settings">⚙️</button>
         </div>
       </div>
     </header>
