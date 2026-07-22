@@ -159,34 +159,58 @@ const Market = (() => {
 
   /* ------------------------------- Candles ------------------------------- */
 
-  /** Generate OHLC candles on demand for a timeframe (id from TIMEFRAMES). */
+  /**
+   * Aggregate the continuous price sim over [b0, b1] into one OHLC candle:
+   * open = first price, close = last price, high/low = max/min across the
+   * interval (sampled). The forming (right-most) candle passes b1 = now, so its
+   * close tracks the live price and it keeps updating until the boundary passes.
+   */
+  function aggregate(def, b0, b1) {
+    const open = priceAt(def, b0);
+    const close = priceAt(def, b1);
+    let high = Math.max(open, close), low = Math.min(open, close);
+    const steps = MARKET.CANDLE_SAMPLES;
+    for (let s = 1; s < steps; s++) {
+      const v = priceAt(def, b0 + (b1 - b0) * (s / steps));
+      if (v > high) high = v;
+      if (v < low) low = v;
+    }
+    return { time: b0, open, high, low, close };
+  }
+
+  /**
+   * Generate OHLC candles for a timeframe (id from TIMEFRAMES). Exactly one
+   * candle per `bucket` seconds — a NEW candle appears only when the interval
+   * boundary passes, not every second. MAX (bucket null) aggregates the asset's
+   * whole life into ≤MAX_CANDLES bars.
+   */
   function candles(id, tfId) {
     const def = ASSET_BY_ID[id];
     const p = params(def);
     const now = nowSec();
     const tf = MARKET.TIMEFRAMES.find((t) => t.id === tfId) || MARKET.TIMEFRAMES[0];
 
-    let span = tf.span, bucket = tf.bucket;
-    if (!span) { // Max: founding → now
-      span = Math.max(DAY, now - p.foundingSec);
-      bucket = Math.max(3600, span / MARKET.MAX_CANDLES);
+    let bucket = tf.bucket, n;
+    if (!bucket) {
+      // MAX — span the asset's whole history back to its founding date.
+      const life = Math.max(DAY, now - p.foundingSec);
+      bucket = Math.max(60, life / MARKET.MAX_CANDLES);
+      n = MARKET.MAX_CANDLES;
+    } else {
+      // Fixed interval: up to MAX_CANDLES bars, but never before the asset
+      // existed (no invented pre-history for young coins).
+      n = MARKET.MAX_CANDLES;
+      const sinceStart = Math.floor((now - p.foundingSec) / bucket);
+      if (sinceStart >= 2 && sinceStart + 1 < n) n = sinceStart + 1;
+      n = Math.max(2, n);
     }
-    let n = Math.min(MARKET.MAX_CANDLES, Math.max(2, Math.floor(span / bucket)));
-    const lastStart = Math.floor(now / bucket) * bucket;
 
+    const lastStart = Math.floor(now / bucket) * bucket;
     const out = [];
     for (let i = n - 1; i >= 0; i--) {
       const b0 = lastStart - i * bucket;
       const b1 = Math.min(b0 + bucket, now);
-      const open = priceAt(def, b0);
-      const close = priceAt(def, b1);
-      let high = Math.max(open, close), low = Math.min(open, close);
-      for (let s = 1; s < MARKET.CANDLE_SAMPLES; s++) {
-        const v = priceAt(def, b0 + (b1 - b0) * (s / MARKET.CANDLE_SAMPLES));
-        if (v > high) high = v;
-        if (v < low) low = v;
-      }
-      out.push({ time: b0, open, high, low, close });
+      out.push(aggregate(def, b0, b1));
     }
     return out;
   }

@@ -208,9 +208,9 @@ class CandleChart {
 
   drawCandles(ctx, data, x, y, xStep, PAD_L, plotW) {
     const n = data.length;
-    // Realistic proportions: bodies capped at 11px with a clear gap,
-    // wicks a thin hairline — never chunky, whatever the bar count.
-    const bodyW = Math.max(1.5, Math.min(xStep * 0.72, 11));
+    // Slim, real-trading-app proportions: narrow bodies (≤6px) with a clear
+    // gap between them, wicks a 1px hairline — never chunky, whatever the count.
+    const bodyW = Math.max(1, Math.min(xStep * 0.6, 6));
 
     for (let i = 0; i < n; i++) {
       const c = data[i];
@@ -219,7 +219,7 @@ class CandleChart {
 
       // Wick: thin high–low hairline.
       ctx.strokeStyle = col;
-      ctx.lineWidth = 1.25;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(cx, y(c.high));
       ctx.lineTo(cx, y(c.low));

@@ -23,21 +23,19 @@ const MARKET = {
   DIV_MAX_CATCHUP: 24,    // cap missed payouts on return (2h)
   OWNER_INCOME_RATE: 0.002, // fully-owned company/coin pays 0.2% of its market
                             // cap per interval (~payback in a couple of days)
-  CANDLE_SAMPLES: 6,      // intra-candle samples for wick high/low
+  CANDLE_SAMPLES: 20,     // intra-candle samples for accurate high/low aggregation
   MAX_CANDLES: 140,       // hard cap per chart (phone performance)
   DEFAULT_TF: '1D',
-  // Chart timeframes (both views). bucket/span in seconds; labels are
-  // deliberately unambiguous ("1min" vs "1 Month"). Max spans founding→now.
+  // Chart timeframes. `bucket` (seconds) is the candle interval — ONE candle per
+  // bucket, so a new candle only appears when that interval elapses. Six only,
+  // fitting one row. MAX (bucket null) spans the asset's whole life, aggregated.
   TIMEFRAMES: [
-    { id: '1s',  label: '1s',      bucket: 1,      span: 100 },
-    { id: '1m',  label: '1min',    bucket: 60,     span: 5400 },
-    { id: '15m', label: '15min',   bucket: 900,    span: 81000 },
-    { id: '1H',  label: '1H',      bucket: 3600,   span: 324000 },
-    { id: '1D',  label: '1D',      bucket: 900,    span: 86400 },
-    { id: '1W',  label: '1W',      bucket: 7200,   span: 604800 },
-    { id: '1Mo', label: '1 Month', bucket: 28800,  span: 2592000 },
-    { id: '1Y',  label: '1Y',      bucket: 345600, span: 31557600 },
-    { id: 'Max', label: 'Max',     bucket: null,   span: null },
+    { id: '1s', label: '1S',   bucket: 1 },
+    { id: '1m', label: '1MIN', bucket: 60 },
+    { id: '1H', label: '1H',   bucket: 3600 },
+    { id: '1D', label: '1D',   bucket: 86400 },
+    { id: '1W', label: '1W',   bucket: 604800 },
+    { id: 'Max', label: 'MAX', bucket: null },
   ],
 };
 

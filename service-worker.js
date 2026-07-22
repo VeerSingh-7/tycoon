@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v12'; // v12: market trimmed to 60 assets; real estate moved into Invest
+const CACHE_NAME = 'tycoon-v13'; // v13: Invest UI — 6 timeframes, full-screen chart & trade
 
 const ASSETS = [
   'index.html',

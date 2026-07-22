@@ -24,9 +24,13 @@ const Invest = (() => {
   let container = null;
   let chart = null, chartAsset = null, chartTf = null;       // inline chart
   let fs = null;                                             // fullscreen {chart, tf}
+  let trade = null;                                          // full-screen trade page
   let bodyTimer = 0;                                         // search debounce
   let visObserver = null;                                    // on-screen rows
   const visibleIds = new Set();
+
+  /** Lock/unlock page scroll behind a full-screen overlay. */
+  function lockScroll(on) { try { document.body.style.overflow = on ? 'hidden' : ''; } catch (e) {} }
 
   const plCls = (v) => (v >= 0 ? 'up' : 'down');
   const sign = (v) => (v >= 0 ? '+' : '');
@@ -319,9 +323,8 @@ const Invest = (() => {
 
       <div class="chart-wrap">
         <div class="chart-box" data-act="fullscreen" id="invChart"></div>
-        <button class="fs-btn" data-act="fullscreen" aria-label="Fullscreen candlestick chart">⛶</button>
       </div>
-      <div class="chip-row tf-row" id="tfRow">${tfChipsHTML()}</div>
+      <div class="chip-row tf-row" id="tfRow">${tfChipsHTML()}<button class="chip tf-fs" data-act="fullscreen" aria-label="Full screen chart">⛶</button></div>
 
       ${holdingHTML}
       <div class="card">${statsHTML(def, s)}</div>
@@ -476,14 +479,15 @@ const Invest = (() => {
 
   function openFullscreen() {
     const def = ASSET_BY_ID[view.assetId];
+    lockScroll(true);
     const ov = document.createElement('div');
-    ov.className = 'overlay fs-overlay';
+    ov.className = 'fs-screen';
     ov.innerHTML = `
       <div class="fs-head">
         ${Logos.tile(def)}
-        <div><div class="asset-sym big">${def.name}</div><div class="asset-name">${def.ticker}</div></div>
+        <div class="fs-id"><div class="asset-sym big">${def.name}</div><div class="asset-name">${def.ticker}</div></div>
         <div class="fs-price" id="fsPrice">${formatMoney(Market.price(def.id))}</div>
-        <button class="btn btn-sm" id="fsClose">✕</button>
+        <button class="icon-btn" id="fsClose" aria-label="Close full screen">✕</button>
       </div>
       <div class="fs-chart" id="fsChart"></div>
       <div class="chip-row fs-tf">${Market.timeframes.map((tf) =>
@@ -491,13 +495,18 @@ const Invest = (() => {
     `;
     document.body.appendChild(ov);
     const chEl = ov.querySelector('#fsChart');
-    fs = { chart: new CandleChart(chEl, { mode: 'candles' }), tf: view.tf, priceEl: ov.querySelector('#fsPrice') };
-    fs.chart.setData(Market.candles(view.assetId, fs.tf));
-    ov.querySelector('#fsClose').addEventListener('click', () => { ov.remove(); fs = null; });
+    const redraw = () => { if (fs) fs.chart.setData(Market.candles(view.assetId, fs.tf)); };
+    fs = { chart: new CandleChart(chEl, { mode: 'candles' }), tf: view.tf, priceEl: ov.querySelector('#fsPrice'), el: ov, redraw };
+    // Draw after layout so the flex-filled chart has real dimensions (also
+    // covers orientation changes: recompute on resize).
+    requestAnimationFrame(redraw);
+    window.addEventListener('resize', redraw);
+    const close = () => { window.removeEventListener('resize', redraw); ov.remove(); fs = null; lockScroll(false); };
+    ov.querySelector('#fsClose').addEventListener('click', close);
     ov.querySelectorAll('[data-fstf]').forEach((b) => b.addEventListener('click', () => {
       fs.tf = b.dataset.fstf; view.tf = fs.tf;
       ov.querySelectorAll('.tf-chip').forEach((c) => c.classList.toggle('chip-active', c.dataset.fstf === fs.tf));
-      fs.chart.setData(Market.candles(view.assetId, fs.tf));
+      redraw();
       markTf();
     }));
   }
@@ -509,68 +518,162 @@ const Invest = (() => {
     const h = Market.holding(def.id);
     if (side === 'sell' && h.shares <= 0) { UI.showToast('⚠️ You have no shares to sell.', { tone: 'bad' }); return; }
 
-    const st = { side, pct: 0.25, step: 'enter' };
+    // Canonical input = { mode: 'cash'|'shares', amount } in that unit; the
+    // other value is derived live from the current price.
+    const st = { side, mode: 'cash', amount: 0, step: 'enter' };
     const ov = document.createElement('div');
-    ov.className = 'overlay';
+    ov.className = 'trade-screen';
+    lockScroll(true);
     document.body.appendChild(ov);
 
-    function calc() {
-      const px = side === 'buy' ? Market.buyPrice(def.id) : Market.sellPrice(def.id);
-      if (side === 'buy') {
-        const cash = state.balance * st.pct;
-        return { px, cash, shares: cash / px };
+    const px = () => (side === 'buy' ? Market.buyPrice(def.id) : Market.sellPrice(def.id));
+    const remainingSupply = () => Math.max(0, Market.supplyOf(def) - h.shares);
+    const capShares = () => (side === 'buy' ? Math.min(remainingSupply(), state.balance / px()) : h.shares);
+    const capCash = () => (side === 'buy' ? Math.min(state.balance, remainingSupply() * px()) : h.shares * px());
+    const capForMode = () => (st.mode === 'cash' ? capCash() : capShares());
+
+    function derive() {
+      const p = px();
+      let shares, cash;
+      if (st.mode === 'cash') {
+        cash = Math.max(0, Math.min(st.amount, capCash()));
+        shares = p > 0 ? cash / p : 0;
+      } else {
+        shares = Math.max(0, Math.min(st.amount, capShares()));
+        cash = shares * p;
       }
-      const shares = h.shares * st.pct;
-      return { px, cash: shares * px, shares };
+      return { p, shares, cash };
+    }
+    function amtStr() {
+      const v = st.amount;
+      if (!isFinite(v) || v <= 0) return '';
+      const r = st.mode === 'cash' ? Math.round(v * 100) / 100 : Math.round(v * 10000) / 10000;
+      return String(r);
+    }
+    function altStr(d) {
+      return st.mode === 'cash' ? `≈ ${fmtShares(d.shares)} ${def.ticker}` : `≈ ${formatMoney(d.cash)}`;
     }
 
+    function close() { ov.remove(); trade = null; lockScroll(false); }
+
     function drawEnter() {
-      const c = calc();
-      const quick = [10, 25, 50, 100];
+      const d = derive();
+      const frac = capForMode() > 0 ? Math.min(1, st.amount / capForMode()) : 0;
+      const after = side === 'buy' ? state.balance - d.cash : state.balance + d.cash;
       ov.innerHTML = `
-        <div class="modal ticket">
-          <div class="ticket-head"><span class="ticket-title ${side === 'buy' ? 'gold' : ''}">${Logos.tile(def, 'sm')} ${side === 'buy' ? 'Buy' : 'Sell'} ${def.name}</span>
-            <button class="btn btn-sm" id="tkClose">✕</button></div>
-          <div class="ticket-price">${formatMoney(c.px)} <span class="muted">${side === 'buy' ? 'ask' : 'bid'}</span></div>
-          <input type="range" min="0" max="100" value="${Math.round(st.pct * 100)}" class="slider" id="tkSlider">
-          <div class="chip-row ticket-quick">${quick.map((q) =>
-            `<button class="chip" data-q="${q}">${q === 100 ? (side === 'buy' ? 'MAX' : 'ALL') : q + '%'}</button>`).join('')}</div>
-          <div class="ticket-readout">
-            <div><span class="muted">${side === 'buy' ? 'Spend' : 'Receive'}</span><b>${formatMoney(c.cash)}</b></div>
-            <div><span class="muted">Shares</span><b>${fmtShares(c.shares)}</b></div>
+        <div class="trade-head">
+          ${Logos.tile(def, 'sm')}
+          <div class="trade-id"><div class="asset-sym">${side === 'buy' ? 'Buy' : 'Sell'} ${def.name}</div>
+            <div class="asset-name">${def.ticker}</div></div>
+          <button class="icon-btn" id="tkClose" aria-label="Close">✕</button>
+        </div>
+        <div class="trade-live"><span class="muted">${side === 'buy' ? 'Ask' : 'Bid'}</span> <b id="tkPx">${formatMoney(d.p)}</b></div>
+
+        <div class="trade-amount-card">
+          <div class="amount-toggle">
+            <button class="amt-mode ${st.mode === 'cash' ? 'on' : ''}" data-mode="cash">Cash</button>
+            <button class="amt-mode ${st.mode === 'shares' ? 'on' : ''}" data-mode="shares">Shares</button>
           </div>
-          <button class="btn btn-gold btn-wide" id="tkReview" ${c.cash < 0.01 ? 'disabled' : ''}>Review order</button>
+          <div class="amount-input-wrap">
+            ${st.mode === 'cash' ? '<span class="amt-prefix">$</span>' : ''}
+            <input id="tkAmt" class="amount-input" inputmode="decimal" type="text" value="${amtStr()}" placeholder="0" aria-label="Amount">
+            ${st.mode === 'shares' ? `<span class="amt-suffix">${def.ticker}</span>` : ''}
+          </div>
+          <div class="amount-alt" id="tkAlt">${altStr(d)}</div>
+        </div>
+
+        <input type="range" min="0" max="100" value="${Math.round(frac * 100)}" class="slider" id="tkSlider">
+        <div class="chip-row ticket-quick">${[10, 25, 50, 100].map((q) =>
+          `<button class="chip" data-q="${q}">${q === 100 ? (side === 'buy' ? 'MAX' : 'ALL') : q + '%'}</button>`).join('')}</div>
+
+        <div class="trade-summary">
+          <div class="mult-row"><span>${side === 'buy' ? 'Spend' : 'Receive'}</span><b id="tkCash">${formatMoney(d.cash)}</b></div>
+          <div class="mult-row"><span>Shares</span><b id="tkShares">${fmtShares(d.shares)}</b></div>
+          <div class="mult-row"><span>Price (${side === 'buy' ? 'ask' : 'bid'})</span><b id="tkSumPx">${formatMoney(d.p)}</b></div>
+          <div class="mult-row"><span>Cash after</span><b id="tkAfter">${formatMoney(after)}</b></div>
+        </div>
+        <div class="trade-cta">
+          <button class="btn btn-gold btn-wide" id="tkReview" ${d.cash < 0.01 ? 'disabled' : ''}>Review order</button>
         </div>`;
-      ov.querySelector('#tkClose').onclick = () => ov.remove();
-      ov.querySelector('#tkSlider').oninput = (e) => { st.pct = e.target.value / 100; drawEnter(); };
-      ov.querySelectorAll('[data-q]').forEach((b) => b.onclick = () => { st.pct = b.dataset.q / 100; drawEnter(); });
-      ov.querySelector('#tkReview').onclick = () => { st.step = 'review'; drawReview(); };
+      wireEnter();
+    }
+
+    function patchSummary() {
+      if (ov.isConnected === false || st.step !== 'enter') return;
+      const d = derive();
+      const after = side === 'buy' ? state.balance - d.cash : state.balance + d.cash;
+      const set = (id, txt) => { const el = ov.querySelector(id); if (el) el.textContent = txt; };
+      set('#tkCash', formatMoney(d.cash));
+      set('#tkShares', fmtShares(d.shares));
+      set('#tkSumPx', formatMoney(d.p));
+      set('#tkPx', formatMoney(d.p));
+      set('#tkAfter', formatMoney(after));
+      set('#tkAlt', altStr(d));
+      const capM = capForMode();
+      const sl = ov.querySelector('#tkSlider');
+      if (sl) sl.value = Math.round((capM > 0 ? Math.min(1, st.amount / capM) : 0) * 100);
+      const rv = ov.querySelector('#tkReview');
+      if (rv) rv.disabled = d.cash < 0.01;
+    }
+
+    function setFraction(f) {
+      st.amount = f * capForMode();
+      const inp = ov.querySelector('#tkAmt');
+      if (inp) inp.value = amtStr();
+      patchSummary();
+    }
+
+    function wireEnter() {
+      ov.querySelector('#tkClose').onclick = close;
+      ov.querySelector('#tkAmt').oninput = (e) => {
+        st.amount = parseFloat(String(e.target.value).replace(/[^0-9.]/g, '')) || 0;
+        patchSummary();
+      };
+      ov.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => {
+        if (b.dataset.mode === st.mode) return;
+        const d = derive();
+        st.amount = b.dataset.mode === 'cash' ? d.cash : d.shares; // keep value across units
+        st.mode = b.dataset.mode;
+        drawEnter();
+      });
+      ov.querySelector('#tkSlider').oninput = (e) => setFraction(e.target.value / 100);
+      ov.querySelectorAll('[data-q]').forEach((b) => b.onclick = () => setFraction(b.dataset.q / 100));
+      ov.querySelector('#tkReview').onclick = () => { const d = derive(); if (d.cash >= 0.01) { st.step = 'review'; drawReview(); } };
     }
 
     function drawReview() {
-      const c = calc();
+      const d = derive();
       const after = side === 'buy'
-        ? { cash: state.balance - c.cash, shares: h.shares + c.shares }
-        : { cash: state.balance + c.cash, shares: h.shares - c.shares };
+        ? { cash: state.balance - d.cash, shares: h.shares + d.shares }
+        : { cash: state.balance + d.cash, shares: h.shares - d.shares };
       ov.innerHTML = `
-        <div class="modal ticket">
-          <div class="ticket-head"><span>Review order</span><button class="btn btn-sm" id="tkBack">‹</button></div>
-          <div class="review-list">
-            <div class="mult-row"><span>Action</span><b class="${side === 'buy' ? 'gold' : ''}">${side === 'buy' ? 'BUY' : 'SELL'} ${def.ticker}</b></div>
-            <div class="mult-row"><span>Shares</span><b>${fmtShares(c.shares)}</b></div>
-            <div class="mult-row"><span>Price (${side === 'buy' ? 'ask' : 'bid'})</span><b>${formatMoney(c.px)}</b></div>
-            <div class="mult-row mult-total"><span>${side === 'buy' ? 'Total cost' : 'Total proceeds'}</span><b class="gold">${formatMoney(c.cash)}</b></div>
-            <div class="mult-row"><span>Cash after</span><b>${formatMoney(after.cash)}</b></div>
-            <div class="mult-row"><span>Shares after</span><b>${fmtShares(after.shares)}</b></div>
-          </div>
+        <div class="trade-head">
+          <button class="icon-btn" id="tkBack" aria-label="Back">‹</button>
+          <div class="trade-id"><div class="asset-sym">Review order</div>
+            <div class="asset-name">${side === 'buy' ? 'Buy' : 'Sell'} ${def.ticker}</div></div>
+          <button class="icon-btn" id="tkClose2" aria-label="Close">✕</button>
+        </div>
+        <div class="review-list">
+          <div class="mult-row"><span>Action</span><b class="${side === 'buy' ? 'gold' : ''}">${side === 'buy' ? 'BUY' : 'SELL'} ${def.ticker}</b></div>
+          <div class="mult-row"><span>Shares</span><b>${fmtShares(d.shares)}</b></div>
+          <div class="mult-row"><span>Price (${side === 'buy' ? 'ask' : 'bid'})</span><b>${formatMoney(d.p)}</b></div>
+          <div class="mult-row mult-total"><span>${side === 'buy' ? 'Total cost' : 'Total proceeds'}</span><b class="gold">${formatMoney(d.cash)}</b></div>
+          <div class="mult-row"><span>Cash after</span><b>${formatMoney(after.cash)}</b></div>
+          <div class="mult-row"><span>Shares after</span><b>${fmtShares(after.shares)}</b></div>
+        </div>
+        <div class="trade-cta">
           <button class="btn btn-gold btn-wide" id="tkConfirm">Confirm ${side === 'buy' ? 'Buy' : 'Sell'}</button>
-          <button class="btn btn-wide" id="tkCancel">Cancel</button>
+          <button class="btn btn-wide" id="tkCancel">Back</button>
         </div>`;
       ov.querySelector('#tkBack').onclick = () => { st.step = 'enter'; drawEnter(); };
-      ov.querySelector('#tkCancel').onclick = () => ov.remove();
+      ov.querySelector('#tkClose2').onclick = close;
+      ov.querySelector('#tkCancel').onclick = () => { st.step = 'enter'; drawEnter(); };
       ov.querySelector('#tkConfirm').onclick = () => {
-        const ok = side === 'buy' ? Market.buy(def.id, c.cash) : Market.sell(def.id, st.pct);
-        ov.remove();
+        const c = derive();
+        const ok = side === 'buy'
+          ? Market.buy(def.id, c.cash)
+          : Market.sell(def.id, h.shares > 0 ? Math.min(1, c.shares / h.shares) : 0);
+        close();
         if (ok) {
           UI.renderBalance();
           UI.showToast(`${side === 'buy' ? '🟢 Bought' : '🔴 Sold'} ${fmtShares(c.shares)} ${def.ticker}`, { tone: 'good' });
@@ -579,6 +682,9 @@ const Invest = (() => {
       };
     }
 
+    // Start at 25% and keep the live price / summary ticking while open.
+    st.amount = 0.25 * capCash();
+    trade = { refresh: patchSummary };
     drawEnter();
   }
 
@@ -621,16 +727,19 @@ const Invest = (() => {
       tmp.innerHTML = investmentPanel(def);
       panel.innerHTML = tmp.firstElementChild.innerHTML;
     }
+    // Re-aggregate from live prices: the forming candle updates and a new one
+    // appears only when its interval boundary passes (candles() handles that).
     if (chart && chartAsset === view.assetId) {
-      if (chartTf !== view.tf) { chart.setData(Market.candles(def.id, view.tf)); chartTf = view.tf; }
-      else { const list = Market.candles(def.id, view.tf); if (list.length) chart.update(list[list.length - 1]); }
+      chart.setData(Market.candles(def.id, view.tf));
+      chartTf = view.tf;
     }
     // Fullscreen chart, if open.
     if (fs) {
       if (fs.priceEl) fs.priceEl.textContent = formatMoney(Market.price(def.id));
-      const list = Market.candles(def.id, fs.tf);
-      if (list.length) fs.chart.update(list[list.length - 1]);
+      fs.chart.setData(Market.candles(def.id, fs.tf));
     }
+    // Full-screen trade page: keep its live price + summary current.
+    if (trade) trade.refresh();
   }
 
   return { mount, refresh };
