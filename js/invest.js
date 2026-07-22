@@ -570,8 +570,10 @@ const Invest = (() => {
     if (side === 'sell' && h.shares <= 0) { UI.showToast('⚠️ You have no shares to sell.', { tone: 'bad' }); return; }
 
     // Canonical input = { mode: 'cash'|'shares', amount } in that unit; the
-    // other value is derived live from the current price.
-    const st = { side, mode: 'cash', amount: 0, step: 'enter' };
+    // other value is derived live from the current price. `all` records that
+    // the player chose MAX/ALL, so a whole-position trade is honoured exactly
+    // (not a cash figure that tiny price ticks make fall short → leftover dust).
+    const st = { side, mode: 'cash', amount: 0, step: 'enter', all: false };
     const ov = document.createElement('div');
     ov.className = 'trade-screen';
     lockScroll(true);
@@ -670,6 +672,7 @@ const Invest = (() => {
     }
 
     function setFraction(f) {
+      st.all = f >= 0.999999; // MAX / ALL / slider pinned to the top
       st.amount = f * capForMode();
       const inp = ov.querySelector('#tkAmt');
       if (inp) inp.value = amtStr();
@@ -679,6 +682,7 @@ const Invest = (() => {
     function wireEnter() {
       ov.querySelector('#tkClose').onclick = close;
       ov.querySelector('#tkAmt').oninput = (e) => {
+        st.all = false; // a typed amount is a specific amount, not "everything"
         st.amount = parseFloat(String(e.target.value).replace(/[^0-9.]/g, '')) || 0;
         patchSummary();
       };
@@ -725,12 +729,15 @@ const Invest = (() => {
         const c = derive();
         let ok;
         if (side === 'buy') {
-          // Shares mode buys the EXACT count; cash mode spends the exact cash.
-          ok = st.mode === 'shares' ? Market.buyShares(def.id, c.shares) : Market.buy(def.id, c.cash);
+          // MAX spends all available cash; shares mode buys the EXACT count;
+          // cash mode spends the exact cash typed.
+          if (st.all) ok = Market.buy(def.id, state.balance);
+          else if (st.mode === 'shares') ok = Market.buyShares(def.id, c.shares);
+          else ok = Market.buy(def.id, c.cash);
         } else {
-          // Sell exact shares; a whole-position sell snaps to a clean full exit.
-          const sellAll = c.shares >= h.shares * (1 - 1e-9);
-          ok = Market.sellShares(def.id, sellAll ? h.shares : c.shares);
+          // ALL sells the ENTIRE position (no leftover); otherwise the exact
+          // amount. A whole-position sell also snaps to a clean full exit.
+          ok = Market.sellShares(def.id, st.all ? h.shares : c.shares);
         }
         close();
         if (ok) {

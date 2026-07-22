@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v17'; // v17: exact-share buy/sell (no dust), clearer amount entry
+const CACHE_NAME = 'tycoon-v18'; // v18: sell-ALL clears whole position; remove top toast pop-ups
 
 const ASSETS = [
   'index.html',

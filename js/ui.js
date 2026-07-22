@@ -189,27 +189,12 @@ const UI = (() => {
 
   /* ------------------- Toasts (events, achievements) ------------------- */
 
-  /** Non-blocking popup banner. Tap to dismiss; auto-fades after ~6s. */
-  function showToast(html, opts = {}) {
-    let stack = document.getElementById('toastStack');
-    if (!stack) {
-      stack = document.createElement('div');
-      stack.id = 'toastStack';
-      stack.className = 'toast-stack';
-      document.body.appendChild(stack);
-    }
-    const toast = document.createElement('div');
-    toast.className = 'toast' + (opts.tone === 'bad' ? ' toast-bad' : '');
-    toast.innerHTML = html;
-    stack.appendChild(toast);
-
-    const dismiss = () => {
-      toast.classList.add('toast-out');
-      setTimeout(() => toast.remove(), 350);
-    };
-    toast.addEventListener('click', dismiss);
-    setTimeout(dismiss, opts.ms || 6000);
-  }
+  /**
+   * Top-of-screen notification banners are disabled — the game no longer shows
+   * these little pop-ups. Kept as a safe no-op so every existing caller still
+   * works (trades, income, achievements, etc. simply don't surface a banner).
+   */
+  function showToast() { /* intentionally silent */ }
 
   /* ------------------- Offline popup ------------------- */
 
