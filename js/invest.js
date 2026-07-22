@@ -43,9 +43,9 @@ const Invest = (() => {
   // others but its rows/detail run through a dedicated path (Assets engine).
 
   const SEGS = [
-    { id: 'stock',  label: '📈 Stocks' },
-    { id: 'crypto', label: '🪙 Crypto' },
-    { id: 'estate', label: '🏠 Property' },
+    { id: 'stock',  label: 'Stocks' },
+    { id: 'crypto', label: 'Crypto' },
+    { id: 'estate', label: 'Real Estate' },
   ];
 
   function matchSeg(def) {
@@ -99,30 +99,19 @@ const Invest = (() => {
     const sum = Market.portfolioSummary();
     container.innerHTML = `
       <div class="section-head"><h2>Markets</h2><div class="section-stat">${formatMoney(state.balance)} cash</div></div>
-      <div class="card pf-card" data-act="seg" data-id="held" role="button">
+      <div class="card pf-card pf-card-lg" data-act="seg" data-id="held" role="button">
         <div class="card-row">
-          <div><div class="card-title">💼 Portfolio</div><div class="card-sub">Cost basis ${formatMoney(sum.cost)}</div></div>
+          <div><div class="card-title">Portfolio</div><div class="card-sub">Cost basis ${formatMoney(sum.cost)}</div></div>
           <div class="pf-numbers">
             <div class="pf-value">${formatMoney(sum.value)}</div>
             <div class="pf-pl ${plCls(sum.pl)}">${sign(sum.pl)}${formatMoney(sum.pl)} (${sign(sum.plPct)}${sum.plPct.toFixed(1)}%)</div>
           </div>
         </div>
       </div>
-      <div class="search-wrap">
-        <span class="search-ico">🔍</span>
-        <input id="mktSearch" class="search-input" type="search" placeholder="Search any asset…"
-          value="${view.q.replace(/"/g, '&quot;')}" autocomplete="off" autocorrect="off" spellcheck="false">
-      </div>
       <div class="seg-row">${SEGS.map((s) =>
         `<button class="seg ${view.seg === s.id ? 'seg-active' : ''}" data-act="seg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="mktBody"></div>
     `;
-    const inp = container.querySelector('#mktSearch');
-    inp.addEventListener('input', () => {
-      view.q = inp.value;
-      clearTimeout(bodyTimer);
-      bodyTimer = setTimeout(renderBody, 140); // debounce; input keeps focus
-    });
     renderBody();
   }
 
@@ -206,7 +195,7 @@ const Invest = (() => {
     const head = `
       <div class="card pf-card estate-pf">
         <div class="card-row">
-          <div><div class="card-title">🏠 Property Portfolio</div>
+          <div><div class="card-title">Real Estate Portfolio</div>
             <div class="card-sub">${sum.units} unit${sum.units === 1 ? '' : 's'} · basis ${formatMoney(sum.cost)}</div></div>
           <div class="pf-numbers">
             <div class="pf-value">${formatMoney(sum.value)}</div>
@@ -220,7 +209,7 @@ const Invest = (() => {
   function estateRowHTML(def) {
     const rec = estateRec(def.id);
     const value = Assets.unitValue(def);
-    const sub = rec.count > 0 ? `Owned ×${rec.count} · Tier ${def.tier}` : `Property · Tier ${def.tier}`;
+    const sub = rec.count > 0 ? `Owned ×${rec.count} · Tier ${def.tier}` : `Real Estate · Tier ${def.tier}`;
     return `
       <button class="asset-row" data-act="openEstate" data-id="${def.id}">
         ${estateTile(def)}
@@ -248,7 +237,7 @@ const Invest = (() => {
       <div class="detail-head">
         ${estateTile(def, 'lg')}
         <div><div class="asset-sym big">${def.name}</div>
-          <div class="asset-name">Property · Tier ${def.tier}</div></div>
+          <div class="asset-name">Real Estate · Tier ${def.tier}</div></div>
       </div>
       <div class="detail-price-row">
         <div class="detail-price">${formatMoney(value)}</div>

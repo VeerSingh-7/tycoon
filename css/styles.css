@@ -605,6 +605,12 @@ html, body {
 .ticket-title { display: inline-flex; align-items: center; gap: 9px; }
 .hold-dot { color: var(--gold); font-size: 9px; vertical-align: 2px; }
 .pf-card { cursor: pointer; }
+/* Enlarged portfolio summary card on the Markets screen — roomier, not huge. */
+.pf-card-lg { padding: 22px 20px; }
+.pf-card-lg .card-title { font-size: 18px; }
+.pf-card-lg .card-sub { font-size: 13px; margin-top: 4px; }
+.pf-card-lg .pf-value { font-size: 26px; }
+.pf-card-lg .pf-pl { font-size: 13px; margin-top: 2px; }
 
 /* Search bar */
 .search-wrap {

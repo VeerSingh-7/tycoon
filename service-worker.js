@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v14'; // v14: light theme default + settings + new white app icon
+const CACHE_NAME = 'tycoon-v15'; // v15: Invest tidy — no emojis/search, Real Estate, bigger portfolio
 
 const ASSETS = [
   'index.html',
