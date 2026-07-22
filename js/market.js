@@ -259,8 +259,8 @@ const Market = (() => {
   }
 
   /**
-   * Spend `cash` on an asset at the ask. Capped at 100% of the supply —
-   * you can never hold more of a company/coin than exists.
+   * Spend `cash` on an asset at the ask (fractional shares are expected here —
+   * this is the "spend $X" path). Capped at 100% of supply and your balance.
    */
   function buy(id, cash) {
     const def = ASSET_BY_ID[id];
@@ -280,21 +280,58 @@ const Market = (() => {
     return true;
   }
 
-  /** Sell a fraction of a position at the bid. Profit-only counts as earnings. */
-  function sell(id, frac) {
+  /**
+   * Buy an EXACT number of shares/coins at the ask — the "buy N shares" path.
+   * Keeps the requested count precise (no cash round-trip drift) whenever the
+   * player can afford it; only clamps if it exceeds supply or the balance.
+   */
+  function buyShares(id, shares) {
+    const def = ASSET_BY_ID[id];
     const h = holding(id);
-    const shares = h.shares * Math.min(1, Math.max(0, frac));
-    if (shares <= 0) return false;
+    const cap = supplyOf(def);
+    const remaining = Math.max(0, cap - h.shares);
+    if (remaining <= 0 || shares <= 0) return false;
+    const ask = buyPrice(id);
+    shares = Math.min(shares, remaining);
+    if (shares * ask > state.balance) shares = state.balance / ask; // can't afford exact
+    const cost = shares * ask;
+    if (cost < 0.01) return false;
+    state.balance -= cost;
+    h.shares += shares;
+    if (cap - h.shares < cap * 1e-9) h.shares = cap; // snap MAX to 100%
+    h.cost += cost;
+    saveGame();
+    return true;
+  }
+
+  /**
+   * Sell an EXACT number of shares/coins at the bid. Selling (essentially) the
+   * whole position snaps to a clean full exit, and any sub-cent residue is
+   * cleared, so nothing fractional is ever left lingering in the portfolio.
+   * Profit-only counts as earnings.
+   */
+  function sellShares(id, shares) {
+    const h = holding(id);
+    if (h.shares <= 0 || shares <= 0) return false;
+    if (shares >= h.shares * (1 - 1e-9)) shares = h.shares; // full exit
+    shares = Math.min(shares, h.shares);
     const proceeds = shares * sellPrice(id);
     const costOut = (h.cost / h.shares) * shares;
     h.shares -= shares;
     h.cost -= costOut;
-    if (h.shares < 1e-9) { h.shares = 0; h.cost = 0; }
+    // Clear any negligible (sub-cent) residue so the holding fully disappears.
+    if (h.shares <= 0 || h.shares * price(id) < 0.01) { h.shares = 0; h.cost = 0; }
     state.balance += proceeds;
     const gain = proceeds - costOut;
     if (gain > 0) { state.totalEarned += gain; state.runEarned += gain; }
     saveGame();
     return true;
+  }
+
+  /** Sell a fraction (0..1) of a position — thin wrapper over sellShares. */
+  function sell(id, frac) {
+    const h = holding(id);
+    return sellShares(id, h.shares * Math.min(1, Math.max(0, frac)));
   }
 
   function portfolioSummary() {
@@ -425,7 +462,7 @@ const Market = (() => {
   return {
     ensure, tick, applyOffline,
     price, priceAt, buyPrice, sellPrice, changePct, candles,
-    holding, buy, sell, portfolioSummary,
+    holding, buy, buyShares, sell, sellShares, portfolioSummary,
     stats, params, supplyOf, timeframes: MARKET.TIMEFRAMES,
     ownedFrac, isOwned, manage, mgmtState,
     // Back-compat aliases (older callers/tests used "control" wording).

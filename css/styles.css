@@ -750,23 +750,36 @@ html, body {
   background: var(--bg-elev); border: 1px solid var(--line);
   border-radius: 16px; padding: 16px 14px; margin-bottom: 16px;
 }
+.amount-mode-label {
+  text-align: center; font-size: 11px; font-weight: 800; letter-spacing: 0.6px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+}
+/* Prominent full-width Cash / Shares selector so it's obvious you can enter
+   either — the active side is filled with the accent colour. */
 .amount-toggle {
-  display: flex; gap: 4px; background: var(--bg-elev-2);
-  border-radius: 10px; padding: 4px; width: fit-content; margin: 0 auto 14px;
+  display: flex; gap: 6px; background: var(--bg-elev-2);
+  border: 1px solid var(--line); border-radius: 12px; padding: 5px;
+  width: 100%; margin: 0 0 16px;
 }
 .amt-mode {
-  background: none; border: none; color: var(--muted); font-weight: 700;
-  font-size: 12px; padding: 6px 18px; border-radius: 8px; cursor: pointer; font-family: inherit;
+  flex: 1; text-align: center; background: none; border: none; color: var(--muted);
+  font-weight: 800; font-size: 14px; padding: 10px 8px; border-radius: 9px;
+  cursor: pointer; font-family: inherit; transition: background 0.12s, color 0.12s;
 }
-.amt-mode.on { background: var(--bg-elev); color: var(--gold); }
-.amount-input-wrap { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.amt-mode.on { background: var(--gold); color: var(--accent-ink); box-shadow: 0 2px 8px var(--gold-glow); }
+/* The editable number reads as a tappable field (accent underline + caret). */
+.amount-input-wrap {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  border-bottom: 2px solid var(--gold); margin: 0 6px; padding-bottom: 8px;
+}
 .amt-prefix, .amt-suffix { font-size: 26px; font-weight: 800; color: var(--muted); flex-shrink: 0; }
 .amount-input {
   flex: 1; min-width: 0; background: none; border: none; outline: none;
   color: var(--text); font-size: 40px; font-weight: 800; text-align: center;
-  font-family: inherit; font-variant-numeric: tabular-nums;
+  font-family: inherit; font-variant-numeric: tabular-nums; caret-color: var(--gold);
 }
-.amount-alt { text-align: center; color: var(--muted); font-size: 13px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+.amount-tip { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+.amount-alt { text-align: center; color: var(--muted); font-size: 13px; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .trade-summary { background: var(--bg-elev-2); border-radius: 12px; padding: 6px 14px; margin-top: 16px; }
 .trade-cta { margin-top: auto; padding-top: 18px; }
 .trade-cta .btn-wide + .btn-wide { margin-top: 10px; }

@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v16'; // v16: dedicated Portfolio page (Stocks/Crypto/Real Estate + buy CTAs)
+const CACHE_NAME = 'tycoon-v17'; // v17: exact-share buy/sell (no dust), clearer amount entry
 
 const ASSETS = [
   'index.html',

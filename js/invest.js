@@ -621,8 +621,9 @@ const Invest = (() => {
         <div class="trade-live"><span class="muted">${side === 'buy' ? 'Ask' : 'Bid'}</span> <b id="tkPx">${formatMoney(d.p)}</b></div>
 
         <div class="trade-amount-card">
+          <div class="amount-mode-label">Enter amount as</div>
           <div class="amount-toggle">
-            <button class="amt-mode ${st.mode === 'cash' ? 'on' : ''}" data-mode="cash">Cash</button>
+            <button class="amt-mode ${st.mode === 'cash' ? 'on' : ''}" data-mode="cash">Cash ($)</button>
             <button class="amt-mode ${st.mode === 'shares' ? 'on' : ''}" data-mode="shares">Shares</button>
           </div>
           <div class="amount-input-wrap">
@@ -630,6 +631,7 @@ const Invest = (() => {
             <input id="tkAmt" class="amount-input" inputmode="decimal" type="text" value="${amtStr()}" placeholder="0" aria-label="Amount">
             ${st.mode === 'shares' ? `<span class="amt-suffix">${def.ticker}</span>` : ''}
           </div>
+          <div class="amount-tip">Tap the number to type an exact ${st.mode === 'cash' ? 'cash amount' : 'number of shares'}</div>
           <div class="amount-alt" id="tkAlt">${altStr(d)}</div>
         </div>
 
@@ -721,9 +723,15 @@ const Invest = (() => {
       ov.querySelector('#tkCancel').onclick = () => { st.step = 'enter'; drawEnter(); };
       ov.querySelector('#tkConfirm').onclick = () => {
         const c = derive();
-        const ok = side === 'buy'
-          ? Market.buy(def.id, c.cash)
-          : Market.sell(def.id, h.shares > 0 ? Math.min(1, c.shares / h.shares) : 0);
+        let ok;
+        if (side === 'buy') {
+          // Shares mode buys the EXACT count; cash mode spends the exact cash.
+          ok = st.mode === 'shares' ? Market.buyShares(def.id, c.shares) : Market.buy(def.id, c.cash);
+        } else {
+          // Sell exact shares; a whole-position sell snaps to a clean full exit.
+          const sellAll = c.shares >= h.shares * (1 - 1e-9);
+          ok = Market.sellShares(def.id, sellAll ? h.shares : c.shares);
+        }
         close();
         if (ok) {
           UI.renderBalance();
