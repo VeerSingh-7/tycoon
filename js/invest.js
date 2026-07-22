@@ -18,9 +18,16 @@
 
 const Invest = (() => {
   const view = {
-    mode: 'list', seg: 'stock', q: '',
+    mode: 'list', seg: 'stock', pfSeg: 'stock', q: '',
     assetId: null, estateId: null, tf: MARKET.DEFAULT_TF,
   };
+
+  // Categories on the dedicated Portfolio page.
+  const PF_SEGS = [
+    { id: 'stock',  label: 'Stocks' },
+    { id: 'crypto', label: 'Crypto' },
+    { id: 'estate', label: 'Real Estate' },
+  ];
   let container = null;
   let chart = null, chartAsset = null, chartTf = null;       // inline chart
   let fs = null;                                             // fullscreen {chart, tf}
@@ -73,6 +80,9 @@ const Invest = (() => {
     else if (a === 'buyEstate') doEstate('buy');
     else if (a === 'sellEstate') doEstate('sell');
     else if (a === 'back') { view.mode = 'list'; destroyChart(); render(); }
+    else if (a === 'portfolio') { view.mode = 'portfolio'; destroyChart(); render(); }
+    else if (a === 'pfSeg') { view.pfSeg = id; render(); }
+    else if (a === 'browse') { view.mode = 'list'; view.seg = id; destroyChart(); render(); }
     else if (a === 'seg') { view.seg = id; render(); }
     else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; } markTf(); }
     else if (a === 'fullscreen') openFullscreen();
@@ -85,6 +95,7 @@ const Invest = (() => {
     if (!container) return;
     if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'estateDetail') renderEstateDetail();
+    else if (view.mode === 'portfolio') renderPortfolio();
     else renderList();
   }
 
@@ -99,7 +110,7 @@ const Invest = (() => {
     const sum = Market.portfolioSummary();
     container.innerHTML = `
       <div class="section-head"><h2>Markets</h2><div class="section-stat">${formatMoney(state.balance)} cash</div></div>
-      <div class="card pf-card pf-card-lg" data-act="seg" data-id="held" role="button">
+      <div class="card pf-card pf-card-lg" data-act="portfolio" role="button">
         <div class="card-row">
           <div><div class="card-title">Portfolio</div><div class="card-sub">Cost basis ${formatMoney(sum.cost)}</div></div>
           <div class="pf-numbers">
@@ -107,6 +118,7 @@ const Invest = (() => {
             <div class="pf-pl ${plCls(sum.pl)}">${sign(sum.pl)}${formatMoney(sum.pl)} (${sign(sum.plPct)}${sum.plPct.toFixed(1)}%)</div>
           </div>
         </div>
+        <button class="btn btn-wide pf-view-btn" data-act="portfolio">View Portfolio ›</button>
       </div>
       <div class="seg-row">${SEGS.map((s) =>
         `<button class="seg ${view.seg === s.id ? 'seg-active' : ''}" data-act="seg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
@@ -157,6 +169,48 @@ const Invest = (() => {
   function emptyHTML() {
     if (view.q.trim()) return '<div class="coming-soon"><p>Nothing matches your search.</p></div>';
     return `<div class="coming-soon"><p>${view.seg === 'held' ? 'No holdings yet — open a market and buy.' : 'Nothing here yet.'}</p></div>`;
+  }
+
+  /* ---------------------------- Portfolio page --------------------------- */
+  // A dedicated page: pick Stocks / Crypto / Real Estate and see what you own.
+  // Empty categories show a "Not owned" prompt that links straight to buying.
+
+  function renderPortfolio() {
+    const sum = Market.portfolioSummary();
+    Assets.ensure();
+    const eSum = Assets.estateSummary();
+    const total = sum.value + eSum.value;
+    container.innerHTML = `
+      <button class="back-link" data-act="back">‹ Markets</button>
+      <div class="section-head"><h2>Portfolio</h2><div class="section-stat">${formatMoney(total)} total</div></div>
+      <div class="seg-row">${PF_SEGS.map((s) =>
+        `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
+      <div id="pfBody">${portfolioBodyHTML()}</div>
+    `;
+  }
+
+  function portfolioBodyHTML() {
+    if (view.pfSeg === 'estate') {
+      Assets.ensure();
+      const owned = ESTATE_DEFS.filter((d) => estateRec(d.id).count > 0);
+      if (!owned.length) return emptyOwnedHTML('estate');
+      return `<div class="asset-list">${owned.map(estateRowHTML).join('')}</div>`;
+    }
+    const owned = ASSET_DEFS.filter((d) => d.group === view.pfSeg && Market.holding(d.id).shares > 0);
+    if (!owned.length) return emptyOwnedHTML(view.pfSeg);
+    return `<div class="asset-list">${owned.map((d) => rowHTML(d, Market.price(d.id), Market.changePct(d.id))).join('')}</div>`;
+  }
+
+  /** "Not owned" state with a call-to-action that jumps to that market. */
+  function emptyOwnedHTML(seg) {
+    const noun = seg === 'stock' ? 'stocks' : seg === 'crypto' ? 'crypto' : 'real estate';
+    const label = seg === 'stock' ? 'Stocks' : seg === 'crypto' ? 'Crypto' : 'Real Estate';
+    return `
+      <div class="pf-empty">
+        <div class="pf-empty-title">Not owned</div>
+        <div class="pf-empty-sub">You don't own any ${noun} yet.</div>
+        <button class="btn btn-gold btn-wide" data-act="browse" data-id="${seg}">Buy ${label} ›</button>
+      </div>`;
   }
 
   /** Track which rows are on screen so refresh() only patches those. */
@@ -692,6 +746,9 @@ const Invest = (() => {
 
     // Property detail: rebuild in place (few fields, no chart to preserve).
     if (view.mode === 'estateDetail') { renderEstateDetail(); return; }
+
+    // Portfolio page: cheap to rebuild (only owned items) and keeps prices live.
+    if (view.mode === 'portfolio') { renderPortfolio(); return; }
 
     if (view.mode === 'list') {
       // Property list: cheap to rebuild (5 units) and values drift slowly.

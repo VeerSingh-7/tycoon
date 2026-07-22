@@ -611,6 +611,16 @@ html, body {
 .pf-card-lg .card-sub { font-size: 13px; margin-top: 4px; }
 .pf-card-lg .pf-value { font-size: 26px; }
 .pf-card-lg .pf-pl { font-size: 13px; margin-top: 2px; }
+.pf-view-btn { margin-top: 16px; }
+
+/* Portfolio page — "Not owned" empty state with a buy CTA. */
+.pf-empty {
+  text-align: center; padding: 44px 24px 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.pf-empty-title { font-size: 18px; font-weight: 800; }
+.pf-empty-sub { font-size: 14px; color: var(--muted); margin-bottom: 14px; }
+.pf-empty .btn-wide { max-width: 280px; }
 
 /* Search bar */
 .search-wrap {

@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v15'; // v15: Invest tidy — no emojis/search, Real Estate, bigger portfolio
+const CACHE_NAME = 'tycoon-v16'; // v16: dedicated Portfolio page (Stocks/Crypto/Real Estate + buy CTAs)
 
 const ASSETS = [
   'index.html',
