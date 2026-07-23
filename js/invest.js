@@ -159,7 +159,7 @@ const Invest = (() => {
       <div class="section-head"><h2>Markets</h2></div>
       <div class="card pf-card pf-card-lg" data-act="portfolio" role="button">
         <div class="card-row">
-          <div><div class="card-title">Portfolio</div></div>
+          <div><div class="card-title">Portfolio</div><div class="card-sub">Stocks · Crypto · Real Estate</div></div>
           <div class="pf-numbers">
             <div class="pf-value" id="pfcVal">${formatMoney(g.value)}</div>
             <div class="pf-pl ${plCls(g.pl)}" id="pfcPl">${plStr(g.pl, g.plPct)}</div>
@@ -232,41 +232,12 @@ const Invest = (() => {
   // A dedicated page: pick Stocks / Crypto / Real Estate and see what you own.
   // Empty categories show a "Not owned" prompt that links straight to buying.
 
-  /** Totals for one category (stocks / crypto / real estate). */
-  function categoryTotals(segId) {
-    let value = 0, cost = 0;
-    if (segId === 'estate') {
-      Assets.ensure();
-      for (const d of ESTATE_DEFS) {
-        const rec = estateRec(d.id);
-        if (rec.count > 0) { value += rec.count * Assets.unitValue(d); cost += rec.cost; }
-      }
-    } else {
-      for (const d of ASSET_DEFS) {
-        if (d.group !== segId) continue;
-        const h = Market.holding(d.id);
-        if (h.shares > 0) { value += h.shares * Market.dispPrice(d.id); cost += h.cost; }
-      }
-    }
-    return { value, cost, pl: value - cost, plPct: cost > 0 ? ((value - cost) / cost) * 100 : 0 };
-  }
-
   function renderPortfolio() {
-    const t = categoryTotals(view.pfSeg);
-    const label = (PF_SEGS.find((s) => s.id === view.pfSeg) || PF_SEGS[0]).label;
     container.innerHTML = `
       <button class="back-link" data-act="back">‹ Markets</button>
       <div class="section-head"><h2>Portfolio</h2></div>
       <div class="seg-row">${PF_SEGS.map((s) =>
         `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
-      <div class="pf-summary">
-        <div class="pf-sum-value" id="pfSumVal">${formatMoney(t.value)}</div>
-        <div class="pf-sum-label">${label} · value of what you own</div>
-        <div class="pf-sum-row">
-          <div><span>Invested</span><b id="pfSumInv">${formatMoney(t.cost)}</b></div>
-          <div><span>Profit / Loss</span><b class="${plCls(t.pl)}" id="pfSumPl">${plStr(t.pl, t.plPct)}</b></div>
-        </div>
-      </div>
       <div id="pfBody">${portfolioBodyHTML()}</div>
     `;
   }
@@ -338,16 +309,6 @@ const Invest = (() => {
 
   /** Patch the Portfolio's values + P/L in place (no full re-render). */
   function patchPortfolio() {
-    // Selected-category summary at the top.
-    const sv = document.getElementById('pfSumVal');
-    if (sv) {
-      const t = categoryTotals(view.pfSeg);
-      sv.textContent = formatMoney(t.value);
-      const inv = document.getElementById('pfSumInv');
-      if (inv) inv.textContent = formatMoney(t.cost);
-      const pe = document.getElementById('pfSumPl');
-      if (pe) { pe.textContent = plStr(t.pl, t.plPct); pe.className = `${plCls(t.pl)}`; }
-    }
     container.querySelectorAll('.asset-row').forEach((row) => {
       const id = row.dataset.id;
       if (!id) return;

@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v26'; // v26: portfolio toggle back with per-category summary; card subtitle removed
+const CACHE_NAME = 'tycoon-v27'; // v27: drop portfolio category summary box; restore Markets card subtitle
 
 const ASSETS = [
   'index.html',
