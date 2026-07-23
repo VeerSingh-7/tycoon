@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v22'; // v22: real ownership %, simpler stats, consistent totals, calmer ticks
+const CACHE_NAME = 'tycoon-v23'; // v23: scroll keep, renames, live pf-card, buyout=value, sleeker cards
 
 const ASSETS = [
   'index.html',

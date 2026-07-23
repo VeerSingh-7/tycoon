@@ -484,13 +484,16 @@ html, body {
 }
 
 /* Stats grid */
-.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .stat-cell {
-  background: var(--bg-elev-2); border-radius: 10px; padding: 9px 11px;
-  display: flex; flex-direction: column; gap: 2px;
+  background: var(--bg-elev-2); border-radius: 12px; padding: 11px 12px;
+  display: flex; flex-direction: column; gap: 3px;
 }
-.stat-cell span { font-size: 11px; }
-.stat-cell b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.stat-cell span {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--muted);
+}
+.stat-cell b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 /* Achievements grid */
 .ach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -698,6 +701,24 @@ html, body {
 
 /* Buyout + manage */
 .buyout-card, .manage-card { border-color: var(--gold-deep); }
+
+/* Modern buyout card */
+.buyout-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.buyout-title { font-size: 16px; font-weight: 800; }
+.buyout-badge {
+  font-size: 12px; font-weight: 800; color: var(--gold);
+  background: var(--gold-glow); border-radius: 20px; padding: 4px 12px; white-space: nowrap;
+}
+.buyout-bar { height: 8px; background: var(--bg-elev-2); border-radius: 8px; overflow: hidden; margin: 14px 0; }
+.buyout-fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width 0.25s ease; }
+.buyout-stats { display: flex; gap: 10px; }
+.buyout-stats > div {
+  flex: 1; background: var(--bg-elev-2); border-radius: 12px; padding: 11px 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.buyout-stats span { font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); }
+.buyout-stats b { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.buyout-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 12px; }
 .manage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .manage-btn {
   display: flex; flex-direction: column; align-items: flex-start; gap: 3px;

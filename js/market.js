@@ -253,15 +253,17 @@ const Market = (() => {
     return s;
   }
 
-  /** Full live stats (market cap etc. move with price). */
+  /** Full live stats. Uses the same displayed price as the quotes so the
+   *  "company value" always reconciles with the cost to buy the rest. */
   function stats(id) {
     const def = ASSET_BY_ID[id];
     const s = Object.assign({}, staticStats(def));
-    const px = price(id);
+    const px = dispPrice(id);
     const owned = holding(id).shares;
-    s.marketCap = px * s.supply;
-    s.costToBuyOut = s.marketCap;
+    s.marketCap = px * s.supply;               // whole-company value
     s.available = Math.max(0, s.supply - owned);
+    s.remainingCost = s.available * px;         // cost to buy the rest to 100%
+    s.costToBuyOut = s.marketCap;
     s.ownedShares = owned;
     if (def.group === 'stock') {
       s.companyValue = s.marketCap / s.pb; // ~book value

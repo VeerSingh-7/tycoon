@@ -21,6 +21,7 @@ const Invest = (() => {
     mode: 'list', seg: 'stock', pfSeg: 'stock', q: '',
     assetId: null, estateId: null, tf: MARKET.DEFAULT_TF,
     returnTo: 'list', // where a detail's back button goes (list or portfolio)
+    scrollY: 0,       // saved list/portfolio scroll to restore on back
   };
 
   // Rows are patched every tick with each asset's staggered display price
@@ -43,6 +44,18 @@ const Invest = (() => {
 
   /** Lock/unlock page scroll behind a full-screen overlay. */
   function lockScroll(on) { try { document.body.style.overflow = on ? 'hidden' : ''; } catch (e) {} }
+
+  /* Preserve the list/portfolio scroll position when opening & closing a
+     detail, so tapping a row near the bottom doesn't jump you to the top. */
+  function getScroll() {
+    return window.pageYOffset || document.documentElement.scrollTop || (document.body && document.body.scrollTop) || 0;
+  }
+  function setScroll(y) { try { window.scrollTo(0, y); } catch (e) {} }
+  function restoreScroll(y) {
+    // Wait for the rebuilt list to lay out before restoring the offset.
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setScroll(y || 0));
+    else setScroll(y || 0);
+  }
 
   const plCls = (v) => (v >= 0 ? 'up' : 'down');
   const sign = (v) => (v >= 0 ? '+' : '');
@@ -95,13 +108,14 @@ const Invest = (() => {
     const a = t.dataset.act;
     const id = t.dataset.id;
 
-    if (a === 'open') { view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); }
-    else if (a === 'openEstate') { view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'estateDetail'; view.estateId = id; destroyChart(); render(); }
+    if (a === 'open') { view.scrollY = getScroll(); view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); setScroll(0); }
+    else if (a === 'openEstate') { view.scrollY = getScroll(); view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'estateDetail'; view.estateId = id; destroyChart(); render(); setScroll(0); }
     else if (a === 'buyEstate') doEstate('buy');
     else if (a === 'sellEstate') doEstate('sell');
     // From a detail, go back to wherever it was opened from (Portfolio or
-    // Markets). The Portfolio page's own back-link always returns to Markets.
-    else if (a === 'back') { view.mode = view.mode === 'portfolio' ? 'list' : (view.returnTo === 'portfolio' ? 'portfolio' : 'list'); destroyChart(); render(); }
+    // Markets) AND restore the exact scroll position you left. The Portfolio
+    // page's own back-link always returns to Markets.
+    else if (a === 'back') { view.mode = view.mode === 'portfolio' ? 'list' : (view.returnTo === 'portfolio' ? 'portfolio' : 'list'); destroyChart(); render(); restoreScroll(view.scrollY); }
     else if (a === 'portfolio') { view.mode = 'portfolio'; destroyChart(); render(); }
     else if (a === 'pfSeg') { view.pfSeg = id; render(); }
     else if (a === 'browse') { view.mode = 'list'; view.seg = id; destroyChart(); render(); }
@@ -131,13 +145,13 @@ const Invest = (() => {
   function renderList() {
     const sum = Market.portfolioSummary();
     container.innerHTML = `
-      <div class="section-head"><h2>Markets</h2><div class="section-stat">${formatMoney(state.balance)} cash</div></div>
+      <div class="section-head"><h2>Markets</h2></div>
       <div class="card pf-card pf-card-lg" data-act="portfolio" role="button">
         <div class="card-row">
-          <div><div class="card-title">Portfolio</div><div class="card-sub">Cost basis ${formatMoney(sum.cost)}</div></div>
+          <div><div class="card-title">Portfolio</div><div class="card-sub">Cost basis <span id="pfcCost">${formatMoney(sum.cost)}</span></div></div>
           <div class="pf-numbers">
-            <div class="pf-value">${formatMoney(sum.value)}</div>
-            <div class="pf-pl ${plCls(sum.pl)}">${sign(sum.pl)}${formatMoney(sum.pl)} (${sign(sum.plPct)}${sum.plPct.toFixed(1)}%)</div>
+            <div class="pf-value" id="pfcVal">${formatMoney(sum.value)}</div>
+            <div class="pf-pl ${plCls(sum.pl)}" id="pfcPl">${plStr(sum.pl, sum.plPct)}</div>
           </div>
         </div>
         <button class="btn btn-wide pf-view-btn" data-act="portfolio">View Portfolio ›</button>
@@ -147,6 +161,18 @@ const Invest = (() => {
       <div id="mktBody"></div>
     `;
     renderBody();
+  }
+
+  /** Live-update the Markets Portfolio summary card (value + profit/loss). */
+  function patchPortfolioCard() {
+    const val = document.getElementById('pfcVal');
+    if (!val) return; // card not on screen (e.g. searching a segment)
+    const sum = Market.portfolioSummary();
+    val.textContent = formatMoney(sum.value);
+    const pl = document.getElementById('pfcPl');
+    if (pl) { pl.textContent = plStr(sum.pl, sum.plPct); pl.className = `pf-pl ${plCls(sum.pl)}`; }
+    const cost = document.getElementById('pfcCost');
+    if (cost) cost.textContent = formatMoney(sum.cost);
   }
 
   /**
@@ -517,20 +543,34 @@ const Invest = (() => {
       </div>`;
   }
 
-  // Only the simple, useful facts — no P/E, volatility, volume or book-value
-  // jargon. Company value + shares-to-buy live in the highlights above.
+  // Plain-language stats — useful facts, no P/E / book-value jargon. Volatility
+  // becomes an easy Low/Medium/High risk rating.
+  const SECTOR_NAMES = {
+    tech: 'Technology', semi: 'Semiconductors', bank: 'Banking', fintech: 'Fintech',
+    pharma: 'Pharma', energy: 'Energy', consumer: 'Consumer', retail: 'Retail',
+    auto: 'Automotive', aerospace: 'Aerospace', industrial: 'Industrial',
+    telecom: 'Telecom', media: 'Media', utility: 'Utility', materials: 'Materials',
+    luxury: 'Luxury',
+  };
+
   function statsHTML(def, s) {
+    const risk = s.volPct < 35 ? 'Low' : s.volPct < 60 ? 'Medium' : 'High';
+    const dy = Math.min(8, (s.divYield || 0) * 500);
     const rows = [];
     if (def.group === 'stock') {
-      const dy = Math.min(8, s.divYield * 500);
-      if (dy >= 0.05) rows.push(['Pays you', dy.toFixed(1) + '% / yr in dividends']);
+      rows.push(['Sector', SECTOR_NAMES[def.sector] || def.sector]);
       rows.push(['Founded', String(s.founded)]);
+      rows.push(['Dividend', dy >= 0.05 ? dy.toFixed(1) + '% / yr' : 'None']);
       rows.push(['Total shares', formatNumber(s.supply)]);
+      rows.push(['Risk', risk]);
+      rows.push(['Ownership', ownPctStr(Market.ownedFrac(def.id) * 100)]);
     } else {
+      rows.push(['Type', 'Cryptocurrency']);
       rows.push(['Since', String(s.founded)]);
       rows.push(['Total coins', formatNumber(s.supply)]);
+      rows.push(['Risk', risk]);
     }
-    return `<div class="card-title">About</div><div class="stat-grid">${
+    return `<div class="card-title">Stats</div><div class="stat-grid">${
       rows.map(([k, v]) => `<div class="stat-cell"><span class="muted">${k}</span><b>${v}</b></div>`).join('')
     }</div>`;
   }
@@ -557,18 +597,23 @@ const Invest = (() => {
     const frac = Market.ownedFrac(def.id);
     if (Market.isOwned(def.id)) return manageHTML(def, s);
     const pct = frac * 100;
-    const thing = def.group === 'crypto' ? 'coin' : 'company';
     const units = def.group === 'crypto' ? 'coins' : 'shares';
-    const restCost = s.available * Market.buyPrice(def.id);
+    // Cost to buy the rest to 100%, at the SAME price the Company value uses,
+    // so the two numbers reconcile (whole company = value when you own none).
+    const restCost = s.remainingCost;
+    const income = s.marketCap * MARKET.OWNER_INCOME_RATE;
     return `
       <div class="card buyout-card">
-        <div class="card-title">${def.group === 'crypto' ? '🪙' : '🏛️'} Own ${def.name}</div>
-        <div class="card-sub">Buy ${units} until you own <b>100%</b> — then it's fully yours:
-          it pays you income every 5 minutes and you make the big decisions.</div>
-        <div class="mult-row"><span>You own</span><b>${ownPctStr(pct)}</b></div>
-        <div class="mult-row"><span>Buy the rest (use Buy → MAX)</span><b class="gold">${formatMoney(restCost)}</b></div>
-        <div class="progress"><div class="progress-fill" style="width:${Math.min(100, Math.max(pct, pct > 0 ? 0.5 : 0))}%"></div></div>
-        <div class="progress-caption">${ownPctStr(pct)} / 100% owned · pays ${formatMoney(s.marketCap * MARKET.OWNER_INCOME_RATE)} per 5 min once yours</div>
+        <div class="buyout-head">
+          <div class="buyout-title">Own ${def.name}</div>
+          <div class="buyout-badge">${ownPctStr(pct)} owned</div>
+        </div>
+        <div class="buyout-bar"><div class="buyout-fill" style="width:${Math.min(100, Math.max(pct, pct > 0 ? 1.5 : 0))}%"></div></div>
+        <div class="buyout-stats">
+          <div><span>Buy the rest</span><b class="gold">${formatMoney(restCost)}</b></div>
+          <div><span>Pays you when owned</span><b>${formatMoney(income)} / 5 min</b></div>
+        </div>
+        <div class="buyout-note">Own <b>100%</b> of the ${units} and ${def.name} is fully yours — it pays income every 5 minutes and you call the shots. Use <b>Buy → MAX</b> to add more.</div>
       </div>`;
   }
 
@@ -856,6 +901,7 @@ const Invest = (() => {
     if (view.mode === 'portfolio') { patchPortfolio(); return; }
 
     if (view.mode === 'list') {
+      patchPortfolioCard(); // keep the Portfolio summary value + P/L live
       if (view.seg === 'estate' && !view.q.trim()) { renderBody(); return; }
       // Patch prices in place — and ONLY for rows currently on screen. Each
       // uses its own staggered display price, so they update at different times.
