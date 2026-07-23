@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v19'; // v19: portfolio — back returns to portfolio, holding value, steady %
+const CACHE_NAME = 'tycoon-v20'; // v20: synced ticker cadence + normal-sized fullscreen candles
 
 const ASSETS = [
   'index.html',

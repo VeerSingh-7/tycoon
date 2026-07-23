@@ -108,11 +108,19 @@ class CandleChart {
     const PAD_L = 8, PAD_R = 56, PAD_T = 10, PAD_B = 20;
     const plotW = w - PAD_L - PAD_R;
     const plotH = h - PAD_T - PAD_B;
-    const data = this.candles;
+
+    // Candle mode: show only as many candles as fit with clear gaps (~9px per
+    // slot) instead of packing 140 hairlines into a solid wall. Line mode keeps
+    // every point for a smooth curve.
+    let data = this.candles;
+    if (this.mode !== 'line') {
+      const fit = Math.max(16, Math.floor(plotW / 9));
+      if (data.length > fit) data = data.slice(-fit);
+    }
     const n = data.length;
 
-    // Auto-scale to the visible range (+5% padding). The line view only
-    // needs closes; candles need the full high/low span.
+    // Auto-scale to the visible range. The line view only needs closes; candles
+    // need the full high/low span.
     let min = Infinity, max = -Infinity;
     for (const c of data) {
       const lo = this.mode === 'line' ? c.close : c.low;
@@ -120,7 +128,12 @@ class CandleChart {
       if (lo < min) min = lo;
       if (hi > max) max = hi;
     }
-    const pad = (max - min) * 0.05 || max * 0.01 || 1;
+    // Keep a sane minimum vertical span so a near-flat window isn't zoomed into
+    // giant candles — quiet stretches should read as calm, not exploded.
+    const mid = (max + min) / 2 || 1;
+    const minSpan = mid * 0.012;
+    if (max - min < minSpan) { max = mid + minSpan / 2; min = mid - minSpan / 2; }
+    const pad = (max - min) * 0.08 || max * 0.01 || 1;
     min -= pad; max += pad;
     const y = (p) => PAD_T + ((max - p) / (max - min)) * plotH;
     const x = (i) => PAD_L + (plotW / n) * (i + 0.5);

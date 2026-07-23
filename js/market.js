@@ -157,6 +157,23 @@ const Market = (() => {
     return ((priceAt(def, now) - past) / past) * 100;
   }
 
+  /* ---------------------- Synchronised "ticker" prices -------------------- */
+  // List and portfolio rows sample the price on a SHARED cadence, so every row
+  // updates together at the same rate and shows the same snapshot (instead of
+  // each asset drifting on its own every tick). The detail chart stays fully
+  // live — this only governs the list/portfolio number displays.
+  const TICKER_STEP = 15; // seconds between ticker updates (10–20s feel)
+  function tickerTime() { return Math.floor(nowSec() / TICKER_STEP) * TICKER_STEP; }
+  function tickerBucket() { return Math.floor(nowSec() / TICKER_STEP); }
+  function dispPrice(id) { return priceAt(ASSET_BY_ID[id], tickerTime()); }
+  function dispChangePct(id, sinceSec = DAY) {
+    const def = ASSET_BY_ID[id];
+    const t = tickerTime();
+    const past = priceAt(def, t - sinceSec);
+    if (past <= 0) return 0;
+    return ((priceAt(def, t) - past) / past) * 100;
+  }
+
   /* ------------------------------- Candles ------------------------------- */
 
   /**
@@ -463,6 +480,7 @@ const Market = (() => {
     ensure, tick, applyOffline,
     price, priceAt, buyPrice, sellPrice, changePct, candles,
     holding, buy, buyShares, sell, sellShares, portfolioSummary,
+    dispPrice, dispChangePct, tickerTime, tickerBucket,
     stats, params, supplyOf, timeframes: MARKET.TIMEFRAMES,
     ownedFrac, isOwned, manage, mgmtState,
     // Back-compat aliases (older callers/tests used "control" wording).

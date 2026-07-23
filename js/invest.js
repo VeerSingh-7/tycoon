@@ -23,9 +23,10 @@ const Invest = (() => {
     returnTo: 'list', // where a detail's back button goes (list or portfolio)
   };
 
-  // Portfolio numbers settle on this cadence (seconds) rather than flickering
-  // every tick — they only refresh when this bucket advances.
-  const PF_STEADY = 15;
+  // The Markets list and Portfolio update on the SHARED ticker cadence
+  // (Market.tickerBucket, ~15s) so every row moves together at the same rate
+  // and shows the same snapshot — they only re-render when the bucket advances.
+  let listBucket = -1;
   let pfBucket = -1;
 
   // Categories on the dedicated Portfolio page.
@@ -151,8 +152,9 @@ const Invest = (() => {
     const pool = q
       ? ASSET_DEFS.filter((d) => d.name.toLowerCase().includes(q) || d.ticker.toLowerCase().includes(q))
       : ASSET_DEFS.filter(matchSeg);
+    listBucket = Market.tickerBucket();
     el.innerHTML = pool.length
-      ? `<div class="asset-list">${pool.map((d) => rowHTML(d, Market.price(d.id), Market.changePct(d.id))).join('')}</div>`
+      ? `<div class="asset-list">${pool.map((d) => rowHTML(d, Market.dispPrice(d.id), Market.dispChangePct(d.id))).join('')}</div>`
       : emptyHTML();
     observeRows();
   }
@@ -186,7 +188,7 @@ const Invest = (() => {
   // Empty categories show a "Not owned" prompt that links straight to buying.
 
   function renderPortfolio() {
-    pfBucket = Math.floor(Date.now() / 1000 / PF_STEADY); // mark this steady window
+    pfBucket = Market.tickerBucket(); // mark this shared ticker window
     const sum = Market.portfolioSummary();
     Assets.ensure();
     const eSum = Assets.estateSummary();
@@ -216,8 +218,8 @@ const Invest = (() => {
    *  price of one share, plus the asset's % change. */
   function pfRowHTML(def) {
     const h = Market.holding(def.id);
-    const value = h.shares * Market.price(def.id);
-    const ch = Market.changePct(def.id);
+    const value = h.shares * Market.dispPrice(def.id);
+    const ch = Market.dispChangePct(def.id);
     return `
       <button class="asset-row" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
@@ -811,27 +813,26 @@ const Invest = (() => {
     // Property detail: rebuild in place (few fields, no chart to preserve).
     if (view.mode === 'estateDetail') { renderEstateDetail(); return; }
 
-    // Portfolio page: cheap to rebuild (only owned items) and keeps prices live.
+    // Portfolio page: re-render only when the shared ticker window advances
+    // (~every 15s), so values and % changes settle instead of flickering.
     if (view.mode === 'portfolio') {
-      // Only re-render when the steady window advances (~every 15s), so the
-      // values and % changes settle instead of flickering every tick.
-      const b = Math.floor(Date.now() / 1000 / PF_STEADY);
-      if (b !== pfBucket) renderPortfolio();
+      if (Market.tickerBucket() !== pfBucket) renderPortfolio();
       return;
     }
 
     if (view.mode === 'list') {
-      // Property list: cheap to rebuild (5 units) and values drift slowly.
+      // Update all rows together on the shared ticker cadence (same rate, same
+      // snapshot) — nothing changes between windows.
+      if (Market.tickerBucket() === listBucket) return;
+      listBucket = Market.tickerBucket();
       if (view.seg === 'estate' && !view.q.trim()) { renderBody(); return; }
-      // Patch prices in place — and ONLY for rows currently on screen.
       container.querySelectorAll('.asset-row').forEach((row) => {
         const id = row.dataset.id;
-        if (visObserver && !visibleIds.has(id)) return;
         const pe = row.querySelector(`[data-price="${id}"]`);
-        if (pe) pe.textContent = formatMoney(Market.price(id));
+        if (pe) pe.textContent = formatMoney(Market.dispPrice(id));
         const ce = row.querySelector(`[data-change="${id}"]`);
         if (ce) {
-          const ch = Market.changePct(id);
+          const ch = Market.dispChangePct(id);
           ce.textContent = changeText(ch);
           ce.className = `asset-change ${plCls(ch)}`;
         }
