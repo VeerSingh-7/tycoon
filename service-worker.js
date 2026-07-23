@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v23'; // v23: scroll keep, renames, live pf-card, buyout=value, sleeker cards
+const CACHE_NAME = 'tycoon-v24'; // v24: grand-total portfolio (incl real estate), invested shown
 
 const ASSETS = [
   'index.html',

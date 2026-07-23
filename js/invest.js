@@ -142,16 +142,27 @@ const Invest = (() => {
     return (Math.round(s * 10000) / 10000).toString();
   }
 
+  /** Grand total across EVERYTHING you hold — stocks, crypto and real estate.
+   *  value/cost use the same synced display price as the rows. */
+  function grandTotal() {
+    const s = Market.portfolioSummary(); // securities (stocks + crypto)
+    Assets.ensure();
+    const e = Assets.estateSummary();    // real estate
+    const value = s.value + e.value;
+    const cost = s.cost + e.cost;
+    return { value, cost, pl: value - cost, plPct: cost > 0 ? ((value - cost) / cost) * 100 : 0 };
+  }
+
   function renderList() {
-    const sum = Market.portfolioSummary();
+    const g = grandTotal();
     container.innerHTML = `
       <div class="section-head"><h2>Markets</h2></div>
       <div class="card pf-card pf-card-lg" data-act="portfolio" role="button">
         <div class="card-row">
-          <div><div class="card-title">Portfolio</div><div class="card-sub">Cost basis <span id="pfcCost">${formatMoney(sum.cost)}</span></div></div>
+          <div><div class="card-title">Portfolio</div><div class="card-sub">Stocks · Crypto · Real Estate</div></div>
           <div class="pf-numbers">
-            <div class="pf-value" id="pfcVal">${formatMoney(sum.value)}</div>
-            <div class="pf-pl ${plCls(sum.pl)}" id="pfcPl">${plStr(sum.pl, sum.plPct)}</div>
+            <div class="pf-value" id="pfcVal">${formatMoney(g.value)}</div>
+            <div class="pf-pl ${plCls(g.pl)}" id="pfcPl">${plStr(g.pl, g.plPct)}</div>
           </div>
         </div>
         <button class="btn btn-wide pf-view-btn" data-act="portfolio">View Portfolio ›</button>
@@ -163,16 +174,14 @@ const Invest = (() => {
     renderBody();
   }
 
-  /** Live-update the Markets Portfolio summary card (value + profit/loss). */
+  /** Live-update the Markets Portfolio summary card (grand-total value + P/L). */
   function patchPortfolioCard() {
     const val = document.getElementById('pfcVal');
-    if (!val) return; // card not on screen (e.g. searching a segment)
-    const sum = Market.portfolioSummary();
-    val.textContent = formatMoney(sum.value);
+    if (!val) return; // card not on screen
+    const g = grandTotal();
+    val.textContent = formatMoney(g.value);
     const pl = document.getElementById('pfcPl');
-    if (pl) { pl.textContent = plStr(sum.pl, sum.plPct); pl.className = `pf-pl ${plCls(sum.pl)}`; }
-    const cost = document.getElementById('pfcCost');
-    if (cost) cost.textContent = formatMoney(sum.cost);
+    if (pl) { pl.textContent = plStr(g.pl, g.plPct); pl.className = `pf-pl ${plCls(g.pl)}`; }
   }
 
   /**
@@ -224,9 +233,18 @@ const Invest = (() => {
   // Empty categories show a "Not owned" prompt that links straight to buying.
 
   function renderPortfolio() {
+    const g = grandTotal();
     container.innerHTML = `
       <button class="back-link" data-act="back">‹ Markets</button>
       <div class="section-head"><h2>Portfolio</h2></div>
+      <div class="pf-summary">
+        <div class="pf-sum-value" id="pfSumVal">${formatMoney(g.value)}</div>
+        <div class="pf-sum-label">Total value · everything you own</div>
+        <div class="pf-sum-row">
+          <div><span>Invested</span><b id="pfSumInv">${formatMoney(g.cost)}</b></div>
+          <div><span>Profit / Loss</span><b class="${plCls(g.pl)}" id="pfSumPl">${plStr(g.pl, g.plPct)}</b></div>
+        </div>
+      </div>
       <div class="seg-row">${PF_SEGS.map((s) =>
         `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="pfBody">${portfolioBodyHTML()}</div>
@@ -288,6 +306,16 @@ const Invest = (() => {
 
   /** Patch the Portfolio's values + P/L in place (no full re-render). */
   function patchPortfolio() {
+    // Grand-total summary at the top.
+    const sv = document.getElementById('pfSumVal');
+    if (sv) {
+      const g = grandTotal();
+      sv.textContent = formatMoney(g.value);
+      const inv = document.getElementById('pfSumInv');
+      if (inv) inv.textContent = formatMoney(g.cost);
+      const pe = document.getElementById('pfSumPl');
+      if (pe) { pe.textContent = plStr(g.pl, g.plPct); pe.className = `${plCls(g.pl)}`; }
+    }
     container.querySelectorAll('.asset-row').forEach((row) => {
       const id = row.dataset.id;
       if (!id) return;
