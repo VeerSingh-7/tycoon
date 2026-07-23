@@ -23,11 +23,9 @@ const Invest = (() => {
     returnTo: 'list', // where a detail's back button goes (list or portfolio)
   };
 
-  // The Markets list and Portfolio update on the SHARED ticker cadence
-  // (Market.tickerBucket, ~15s) so every row moves together at the same rate
-  // and shows the same snapshot — they only re-render when the bucket advances.
-  let listBucket = -1;
-  let pfBucket = -1;
+  // Rows are patched every tick with each asset's staggered display price
+  // (Market.dispPrice) — the value only actually changes on that asset's own
+  // ~15s phase, so different stocks visibly update at different moments.
 
   // Categories on the dedicated Portfolio page.
   const PF_SEGS = [
@@ -52,6 +50,11 @@ const Invest = (() => {
   const changeText = (v) => `${v >= 0 ? '▲' : '▼'} ${Math.abs(v).toFixed(2)}%`;
   // A detail's back button names where it returns to.
   const backLabel = () => (view.returnTo === 'portfolio' ? 'Portfolio' : 'Markets');
+  // Profit/loss shown Trading-212 style: money made/lost AND the % together.
+  const plStr = (pl, pct) => {
+    const s = pl >= 0 ? '+' : '-';
+    return `${s}${formatMoney(Math.abs(pl))} (${s}${Math.abs(pct).toFixed(2)}%)`;
+  };
 
   /* --------------------------- Segments ----------------------------- */
   // One simple toggle: Stocks | Crypto | Property. Holdings is reached by
@@ -152,7 +155,6 @@ const Invest = (() => {
     const pool = q
       ? ASSET_DEFS.filter((d) => d.name.toLowerCase().includes(q) || d.ticker.toLowerCase().includes(q))
       : ASSET_DEFS.filter(matchSeg);
-    listBucket = Market.tickerBucket();
     el.innerHTML = pool.length
       ? `<div class="asset-list">${pool.map((d) => rowHTML(d, Market.dispPrice(d.id), Market.dispChangePct(d.id))).join('')}</div>`
       : emptyHTML();
@@ -187,15 +189,21 @@ const Invest = (() => {
   // A dedicated page: pick Stocks / Crypto / Real Estate and see what you own.
   // Empty categories show a "Not owned" prompt that links straight to buying.
 
-  function renderPortfolio() {
-    pfBucket = Market.tickerBucket(); // mark this shared ticker window
-    const sum = Market.portfolioSummary();
+  /** Total portfolio value using each asset's staggered display price. */
+  function pfTotalValue() {
     Assets.ensure();
-    const eSum = Assets.estateSummary();
-    const total = sum.value + eSum.value;
+    let v = 0;
+    for (const def of ASSET_DEFS) {
+      const h = Market.holding(def.id);
+      if (h.shares > 0) v += h.shares * Market.dispPrice(def.id);
+    }
+    return v + Assets.estateSummary().value;
+  }
+
+  function renderPortfolio() {
     container.innerHTML = `
       <button class="back-link" data-act="back">‹ Markets</button>
-      <div class="section-head"><h2>Portfolio</h2><div class="section-stat">${formatMoney(total)} total</div></div>
+      <div class="section-head"><h2>Portfolio</h2><div class="section-stat" id="pfTotal">${formatMoney(pfTotalValue())} total</div></div>
       <div class="seg-row">${PF_SEGS.map((s) =>
         `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="pfBody">${portfolioBodyHTML()}</div>
@@ -214,12 +222,13 @@ const Invest = (() => {
     return `<div class="asset-list">${owned.map(pfRowHTML).join('')}</div>`;
   }
 
-  /** Portfolio row: shows the VALUE of what you hold (shares × price), not the
-   *  price of one share, plus the asset's % change. */
+  /** Portfolio row: the VALUE of what you hold, with your profit/loss in money
+   *  AND % (relative to what you paid) right beneath it — Trading-212 style. */
   function pfRowHTML(def) {
     const h = Market.holding(def.id);
     const value = h.shares * Market.dispPrice(def.id);
-    const ch = Market.dispChangePct(def.id);
+    const pl = value - h.cost;
+    const pct = h.cost > 0 ? (pl / h.cost) * 100 : 0;
     return `
       <button class="asset-row" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
@@ -228,16 +237,18 @@ const Invest = (() => {
           <div class="asset-name">${fmtShares(h.shares)} ${def.ticker}</div>
         </div>
         <div class="asset-price-wrap">
-          <div class="asset-price">${formatMoney(value)}</div>
-          <div class="asset-change ${plCls(ch)}">${changeText(ch)}</div>
+          <div class="asset-price" data-pfval="${def.id}">${formatMoney(value)}</div>
+          <div class="asset-change ${plCls(pl)}" data-pfpl="${def.id}">${plStr(pl, pct)}</div>
         </div>
       </button>`;
   }
 
-  /** Portfolio row for real estate: total value of all units you own. */
+  /** Portfolio row for real estate: total value of your units + profit/loss. */
   function pfEstateRowHTML(def) {
     const rec = estateRec(def.id);
     const value = rec.count * Assets.unitValue(def);
+    const pl = value - rec.cost;
+    const pct = rec.cost > 0 ? (pl / rec.cost) * 100 : 0;
     return `
       <button class="asset-row" data-act="openEstate" data-id="${def.id}">
         ${estateTile(def)}
@@ -246,10 +257,34 @@ const Invest = (() => {
           <div class="asset-name">${rec.count} unit${rec.count === 1 ? '' : 's'} · Tier ${def.tier}</div>
         </div>
         <div class="asset-price-wrap">
-          <div class="asset-price">${formatMoney(value)}</div>
-          <div class="asset-change up">▲ ${(def.apprPerDay * 100).toFixed(1)}%</div>
+          <div class="asset-price" data-pfval="${def.id}">${formatMoney(value)}</div>
+          <div class="asset-change ${plCls(pl)}" data-pfpl="${def.id}">${plStr(pl, pct)}</div>
         </div>
       </button>`;
+  }
+
+  /** Patch the Portfolio's values + P/L in place (no full re-render). */
+  function patchPortfolio() {
+    const totalEl = document.getElementById('pfTotal');
+    if (totalEl) totalEl.textContent = `${formatMoney(pfTotalValue())} total`;
+    container.querySelectorAll('.asset-row').forEach((row) => {
+      const id = row.dataset.id;
+      if (!id) return;
+      let value, cost;
+      if (view.pfSeg === 'estate') {
+        const rec = estateRec(id);
+        value = rec.count * Assets.unitValue(ESTATE_BY_ID[id]); cost = rec.cost;
+      } else {
+        const h = Market.holding(id);
+        value = h.shares * Market.dispPrice(id); cost = h.cost;
+      }
+      const pl = value - cost;
+      const pct = cost > 0 ? (pl / cost) * 100 : 0;
+      const ve = row.querySelector(`[data-pfval="${id}"]`);
+      if (ve) ve.textContent = formatMoney(value);
+      const pe = row.querySelector(`[data-pfpl="${id}"]`);
+      if (pe) { pe.textContent = plStr(pl, pct); pe.className = `asset-change ${plCls(pl)}`; }
+    });
   }
 
   /** "Not owned" state with a call-to-action that jumps to that market. */
@@ -419,7 +454,7 @@ const Invest = (() => {
           <div class="asset-name">${def.ticker} · ${def.group === 'stock' ? def.sector + ' · stock' : def.group}${def.unit ? ' · ' + def.unit : ''}</div></div>
       </div>
       <div class="detail-price-row">
-        <div class="detail-price" id="invPrice">${formatMoney(Market.price(def.id))}</div>
+        <div class="detail-price" id="invPrice">${formatMoney(Market.dispPrice(def.id))}</div>
       </div>
       <div class="change-row" id="invChanges">${changesHTML(def)}</div>
 
@@ -428,6 +463,7 @@ const Invest = (() => {
       </div>
       <div class="chip-row tf-row" id="tfRow">${tfChipsHTML()}<button class="chip tf-fs" data-act="fullscreen" aria-label="Full screen chart">⛶</button></div>
 
+      ${highlightsHTML(def, s)}
       ${holdingHTML}
       <div class="card">${statsHTML(def, s)}</div>
       ${ownershipHTML(def, s)}
@@ -441,11 +477,21 @@ const Invest = (() => {
   }
 
   function changesHTML(def) {
-    const today = Market.changePct(def.id, MARKET.DAY);
-    const month = Market.changePct(def.id, 30 * MARKET.DAY);
+    const today = Market.dispChangePct(def.id, MARKET.DAY);
+    const month = Market.dispChangePct(def.id, 30 * MARKET.DAY);
     return `
       <div class="chg-pill ${plCls(today)}"><span>Today</span> ${sign(today)}${today.toFixed(2)}%</div>
       <div class="chg-pill ${plCls(month)}"><span>1 Month</span> ${sign(month)}${month.toFixed(2)}%</div>`;
+  }
+
+  /** Prominent, easy-to-see capitalization + how many units are still buyable. */
+  function highlightsHTML(def, s) {
+    const availLabel = def.group === 'crypto' ? 'Coins to buy' : 'Shares to buy';
+    return `
+      <div class="detail-highlights">
+        <div class="dh-tile"><span>Market cap</span><b>${formatMoney(s.marketCap)}</b></div>
+        <div class="dh-tile"><span>${availLabel}</span><b>${formatNumber(s.available)}</b></div>
+      </div>`;
   }
 
   function tfChipsHTML() {
@@ -460,16 +506,15 @@ const Invest = (() => {
   function investmentPanel(def) {
     const h = Market.holding(def.id);
     if (h.shares <= 0) return '';
-    const px = Market.price(def.id);
-    const value = h.shares * px;
+    const value = h.shares * Market.dispPrice(def.id);
     const pl = value - h.cost;
-    const plPct = (pl / h.cost) * 100;
+    const plPct = h.cost > 0 ? (pl / h.cost) * 100 : 0;
     return `
       <div class="card invest-panel" id="invPanel">
         <div class="card-title">Your Investment</div>
         <div class="stat-grid">
           <div class="stat-cell"><span class="muted">Value</span><b>${formatMoney(value)}</b></div>
-          <div class="stat-cell"><span class="muted">Return</span><b class="${plCls(pl)}">${sign(pl)}${formatMoney(pl)} (${sign(plPct)}${plPct.toFixed(1)}%)</b></div>
+          <div class="stat-cell"><span class="muted">Profit / Loss</span><b class="${plCls(pl)}">${plStr(pl, plPct)}</b></div>
           <div class="stat-cell"><span class="muted">Shares</span><b>${fmtShares(h.shares)}</b></div>
           <div class="stat-cell"><span class="muted">Avg price</span><b>${formatMoney(h.cost / h.shares)}</b></div>
         </div>
@@ -479,16 +524,14 @@ const Invest = (() => {
   function statsHTML(def, s) {
     const rows = [];
     rows.push(['Volatility', Math.min(99, s.volPct).toFixed(0) + '%']);
-    rows.push(['Market cap', formatMoney(s.marketCap)]);
     if (def.group === 'stock') {
       rows.push(['Company value', formatMoney(s.companyValue)]);
       rows.push(['Avg volume', formatNumber(s.avgVolume) + ' /day']);
       rows.push(['P/E ratio', s.pe.toFixed(1)]);
       rows.push(['Dividend yield', (Math.min(8, s.divYield * 500)).toFixed(2) + '%']);
-      rows.push(['Shares available', formatNumber(s.available)]);
+      rows.push(['Total shares', formatNumber(s.supply)]);
     } else {
       rows.push(['Coin supply', formatNumber(s.supply)]);
-      rows.push(['Coins available', formatNumber(s.available)]);
       rows.push(['Around since', s.founded]);
     }
     rows.push(['Cost to buy out', formatMoney(s.costToBuyOut)]);
@@ -588,7 +631,7 @@ const Invest = (() => {
       <div class="fs-head">
         ${Logos.tile(def)}
         <div class="fs-id"><div class="asset-sym big">${def.name}</div><div class="asset-name">${def.ticker}</div></div>
-        <div class="fs-price" id="fsPrice">${formatMoney(Market.price(def.id))}</div>
+        <div class="fs-price" id="fsPrice">${formatMoney(Market.dispPrice(def.id))}</div>
         <button class="icon-btn" id="fsClose" aria-label="Close full screen">✕</button>
       </div>
       <div class="fs-chart" id="fsChart"></div>
@@ -813,21 +856,17 @@ const Invest = (() => {
     // Property detail: rebuild in place (few fields, no chart to preserve).
     if (view.mode === 'estateDetail') { renderEstateDetail(); return; }
 
-    // Portfolio page: re-render only when the shared ticker window advances
-    // (~every 15s), so values and % changes settle instead of flickering.
-    if (view.mode === 'portfolio') {
-      if (Market.tickerBucket() !== pfBucket) renderPortfolio();
-      return;
-    }
+    // Portfolio page: patch owned rows' value + P/L in place each tick (the
+    // numbers only actually change on each asset's own staggered ~15s phase).
+    if (view.mode === 'portfolio') { patchPortfolio(); return; }
 
     if (view.mode === 'list') {
-      // Update all rows together on the shared ticker cadence (same rate, same
-      // snapshot) — nothing changes between windows.
-      if (Market.tickerBucket() === listBucket) return;
-      listBucket = Market.tickerBucket();
       if (view.seg === 'estate' && !view.q.trim()) { renderBody(); return; }
+      // Patch prices in place — and ONLY for rows currently on screen. Each
+      // uses its own staggered display price, so they update at different times.
       container.querySelectorAll('.asset-row').forEach((row) => {
         const id = row.dataset.id;
+        if (visObserver && !visibleIds.has(id)) return;
         const pe = row.querySelector(`[data-price="${id}"]`);
         if (pe) pe.textContent = formatMoney(Market.dispPrice(id));
         const ce = row.querySelector(`[data-change="${id}"]`);
@@ -843,7 +882,7 @@ const Invest = (() => {
     // Detail: patch price, changes, position; push newest candle.
     const def = ASSET_BY_ID[view.assetId];
     const pe = document.getElementById('invPrice');
-    if (pe) pe.textContent = formatMoney(Market.price(def.id));
+    if (pe) pe.textContent = formatMoney(Market.dispPrice(def.id));
     const chg = document.getElementById('invChanges');
     if (chg) chg.innerHTML = changesHTML(def);
     const panel = document.getElementById('invPanel');
@@ -860,7 +899,7 @@ const Invest = (() => {
     }
     // Fullscreen chart, if open.
     if (fs) {
-      if (fs.priceEl) fs.priceEl.textContent = formatMoney(Market.price(def.id));
+      if (fs.priceEl) fs.priceEl.textContent = formatMoney(Market.dispPrice(def.id));
       fs.chart.setData(Market.candles(def.id, fs.tf));
     }
     // Full-screen trade page: keep its live price + summary current.

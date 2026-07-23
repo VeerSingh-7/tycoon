@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v20'; // v20: synced ticker cadence + normal-sized fullscreen candles
+const CACHE_NAME = 'tycoon-v21'; // v21: portfolio P/L math, staggered per-stock ticks, prominent stats
 
 const ASSETS = [
   'index.html',

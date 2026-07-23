@@ -664,6 +664,18 @@ html, body {
 }
 .chg-pill span { display: block; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; }
 
+/* Prominent detail highlights — capitalization + how many units are buyable */
+.detail-highlights { display: flex; gap: 10px; margin-bottom: 14px; }
+.dh-tile {
+  flex: 1; background: var(--bg-elev-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px;
+}
+.dh-tile span {
+  display: block; font-size: 10px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px;
+}
+.dh-tile b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
 /* Timeframe chip row — six chips + fullscreen button, all on one line */
 .tf-row {
   margin-bottom: 14px; flex-wrap: nowrap; align-items: center; gap: 6px;
