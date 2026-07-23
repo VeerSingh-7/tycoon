@@ -55,6 +55,14 @@ const Invest = (() => {
     const s = pl >= 0 ? '+' : '-';
     return `${s}${formatMoney(Math.abs(pl))} (${s}${Math.abs(pct).toFixed(2)}%)`;
   };
+  // Ownership % with adaptive precision so even a small real stake is visible
+  // (never a flat "0.00%" when you actually hold shares).
+  const ownPctStr = (pct) => {
+    if (pct <= 0) return '0%';
+    if (pct >= 1) return pct.toFixed(2) + '%';
+    if (pct >= 0.01) return pct.toFixed(3) + '%';
+    return pct.toPrecision(2) + '%';
+  };
 
   /* --------------------------- Segments ----------------------------- */
   // One simple toggle: Stocks | Crypto | Property. Holdings is reached by
@@ -189,21 +197,10 @@ const Invest = (() => {
   // A dedicated page: pick Stocks / Crypto / Real Estate and see what you own.
   // Empty categories show a "Not owned" prompt that links straight to buying.
 
-  /** Total portfolio value using each asset's staggered display price. */
-  function pfTotalValue() {
-    Assets.ensure();
-    let v = 0;
-    for (const def of ASSET_DEFS) {
-      const h = Market.holding(def.id);
-      if (h.shares > 0) v += h.shares * Market.dispPrice(def.id);
-    }
-    return v + Assets.estateSummary().value;
-  }
-
   function renderPortfolio() {
     container.innerHTML = `
       <button class="back-link" data-act="back">‹ Markets</button>
-      <div class="section-head"><h2>Portfolio</h2><div class="section-stat" id="pfTotal">${formatMoney(pfTotalValue())} total</div></div>
+      <div class="section-head"><h2>Portfolio</h2></div>
       <div class="seg-row">${PF_SEGS.map((s) =>
         `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="pfBody">${portfolioBodyHTML()}</div>
@@ -265,8 +262,6 @@ const Invest = (() => {
 
   /** Patch the Portfolio's values + P/L in place (no full re-render). */
   function patchPortfolio() {
-    const totalEl = document.getElementById('pfTotal');
-    if (totalEl) totalEl.textContent = `${formatMoney(pfTotalValue())} total`;
     container.querySelectorAll('.asset-row').forEach((row) => {
       const id = row.dataset.id;
       if (!id) return;
@@ -484,12 +479,13 @@ const Invest = (() => {
       <div class="chg-pill ${plCls(month)}"><span>1 Month</span> ${sign(month)}${month.toFixed(2)}%</div>`;
   }
 
-  /** Prominent, easy-to-see capitalization + how many units are still buyable. */
+  /** Prominent, plain-language highlights: what the whole company is worth (=
+   *  what a full buyout costs) and how many units are still up for grabs. */
   function highlightsHTML(def, s) {
     const availLabel = def.group === 'crypto' ? 'Coins to buy' : 'Shares to buy';
     return `
       <div class="detail-highlights">
-        <div class="dh-tile"><span>Market cap</span><b>${formatMoney(s.marketCap)}</b></div>
+        <div class="dh-tile"><span>Company value</span><b>${formatMoney(s.marketCap)}</b></div>
         <div class="dh-tile"><span>${availLabel}</span><b>${formatNumber(s.available)}</b></div>
       </div>`;
   }
@@ -521,21 +517,20 @@ const Invest = (() => {
       </div>`;
   }
 
+  // Only the simple, useful facts — no P/E, volatility, volume or book-value
+  // jargon. Company value + shares-to-buy live in the highlights above.
   function statsHTML(def, s) {
     const rows = [];
-    rows.push(['Volatility', Math.min(99, s.volPct).toFixed(0) + '%']);
     if (def.group === 'stock') {
-      rows.push(['Company value', formatMoney(s.companyValue)]);
-      rows.push(['Avg volume', formatNumber(s.avgVolume) + ' /day']);
-      rows.push(['P/E ratio', s.pe.toFixed(1)]);
-      rows.push(['Dividend yield', (Math.min(8, s.divYield * 500)).toFixed(2) + '%']);
+      const dy = Math.min(8, s.divYield * 500);
+      if (dy >= 0.05) rows.push(['Pays you', dy.toFixed(1) + '% / yr in dividends']);
+      rows.push(['Founded', String(s.founded)]);
       rows.push(['Total shares', formatNumber(s.supply)]);
     } else {
-      rows.push(['Coin supply', formatNumber(s.supply)]);
-      rows.push(['Around since', s.founded]);
+      rows.push(['Since', String(s.founded)]);
+      rows.push(['Total coins', formatNumber(s.supply)]);
     }
-    rows.push(['Cost to buy out', formatMoney(s.costToBuyOut)]);
-    return `<div class="card-title">Stats</div><div class="stat-grid">${
+    return `<div class="card-title">About</div><div class="stat-grid">${
       rows.map(([k, v]) => `<div class="stat-cell"><span class="muted">${k}</span><b>${v}</b></div>`).join('')
     }</div>`;
   }
@@ -570,10 +565,10 @@ const Invest = (() => {
         <div class="card-title">${def.group === 'crypto' ? '🪙' : '🏛️'} Own ${def.name}</div>
         <div class="card-sub">Buy ${units} until you own <b>100%</b> — then it's fully yours:
           it pays you income every 5 minutes and you make the big decisions.</div>
-        <div class="mult-row"><span>You own</span><b>${pct.toFixed(2)}%</b></div>
+        <div class="mult-row"><span>You own</span><b>${ownPctStr(pct)}</b></div>
         <div class="mult-row"><span>Buy the rest (use Buy → MAX)</span><b class="gold">${formatMoney(restCost)}</b></div>
-        <div class="progress"><div class="progress-fill" style="width:${Math.min(100, pct)}%"></div></div>
-        <div class="progress-caption">${pct.toFixed(1)}% / 100% owned · pays ${formatMoney(s.marketCap * MARKET.OWNER_INCOME_RATE)} per 5 min once yours</div>
+        <div class="progress"><div class="progress-fill" style="width:${Math.min(100, Math.max(pct, pct > 0 ? 0.5 : 0))}%"></div></div>
+        <div class="progress-caption">${ownPctStr(pct)} / 100% owned · pays ${formatMoney(s.marketCap * MARKET.OWNER_INCOME_RATE)} per 5 min once yours</div>
       </div>`;
   }
 

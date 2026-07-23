@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v21'; // v21: portfolio P/L math, staggered per-stock ticks, prominent stats
+const CACHE_NAME = 'tycoon-v22'; // v22: real ownership %, simpler stats, consistent totals, calmer ticks
 
 const ASSETS = [
   'index.html',

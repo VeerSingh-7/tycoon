@@ -138,7 +138,7 @@ const Market = (() => {
     // history reads as a gentle climb, not a hockey stick.
     const expo = Math.max(-3.0, (p.drift + mgmtGrowth(def)) * (t - EPOCH) / YEAR);
     const noise = p.vol * fbm(p.seed, t / DAY)
-      + p.vol * 0.15 * (vnoise(p.seed + 777, t / 12) - 0.5) * 2; // fast live tick
+      + p.vol * 0.06 * (vnoise(p.seed + 777, t / 20) - 0.5) * 2; // gentle live tick
     let price = def.refPrice * Math.exp(expo) * Math.exp(noise) * managerFactor(def, t);
     // Sanity clamps only (prevent 0/Infinity); wide enough to never shape.
     return Math.min(def.refPrice * 1e6, Math.max(def.refPrice * 1e-6, price));
@@ -359,7 +359,9 @@ const Market = (() => {
     let value = 0, cost = 0;
     for (const def of ASSET_DEFS) {
       const h = state.portfolio[def.id];
-      if (h && h.shares > 0) { value += h.shares * price(def.id); cost += h.cost; }
+      // Use the SAME display price the rows show, so the total value and total
+      // P/L% always reconcile with the individual holdings.
+      if (h && h.shares > 0) { value += h.shares * dispPrice(def.id); cost += h.cost; }
     }
     return { value, cost, pl: value - cost, plPct: cost > 0 ? ((value - cost) / cost) * 100 : 0 };
   }
