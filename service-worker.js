@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v25'; // v25: portfolio grouped into sections, each with its own invested total
+const CACHE_NAME = 'tycoon-v26'; // v26: portfolio toggle back with per-category summary; card subtitle removed
 
 const ASSETS = [
   'index.html',

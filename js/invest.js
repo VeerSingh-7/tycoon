@@ -117,6 +117,7 @@ const Invest = (() => {
     // page's own back-link always returns to Markets.
     else if (a === 'back') { view.mode = view.mode === 'portfolio' ? 'list' : (view.returnTo === 'portfolio' ? 'portfolio' : 'list'); destroyChart(); render(); restoreScroll(view.scrollY); }
     else if (a === 'portfolio') { view.mode = 'portfolio'; destroyChart(); render(); }
+    else if (a === 'pfSeg') { view.pfSeg = id; render(); }
     else if (a === 'browse') { view.mode = 'list'; view.seg = id; destroyChart(); render(); }
     else if (a === 'seg') { view.seg = id; render(); }
     else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; } markTf(); }
@@ -158,7 +159,7 @@ const Invest = (() => {
       <div class="section-head"><h2>Markets</h2></div>
       <div class="card pf-card pf-card-lg" data-act="portfolio" role="button">
         <div class="card-row">
-          <div><div class="card-title">Portfolio</div><div class="card-sub">Stocks · Crypto · Real Estate</div></div>
+          <div><div class="card-title">Portfolio</div></div>
           <div class="pf-numbers">
             <div class="pf-value" id="pfcVal">${formatMoney(g.value)}</div>
             <div class="pf-pl ${plCls(g.pl)}" id="pfcPl">${plStr(g.pl, g.plPct)}</div>
@@ -231,52 +232,66 @@ const Invest = (() => {
   // A dedicated page: pick Stocks / Crypto / Real Estate and see what you own.
   // Empty categories show a "Not owned" prompt that links straight to buying.
 
+  /** Totals for one category (stocks / crypto / real estate). */
+  function categoryTotals(segId) {
+    let value = 0, cost = 0;
+    if (segId === 'estate') {
+      Assets.ensure();
+      for (const d of ESTATE_DEFS) {
+        const rec = estateRec(d.id);
+        if (rec.count > 0) { value += rec.count * Assets.unitValue(d); cost += rec.cost; }
+      }
+    } else {
+      for (const d of ASSET_DEFS) {
+        if (d.group !== segId) continue;
+        const h = Market.holding(d.id);
+        if (h.shares > 0) { value += h.shares * Market.dispPrice(d.id); cost += h.cost; }
+      }
+    }
+    return { value, cost, pl: value - cost, plPct: cost > 0 ? ((value - cost) / cost) * 100 : 0 };
+  }
+
   function renderPortfolio() {
-    const g = grandTotal();
+    const t = categoryTotals(view.pfSeg);
+    const label = (PF_SEGS.find((s) => s.id === view.pfSeg) || PF_SEGS[0]).label;
     container.innerHTML = `
       <button class="back-link" data-act="back">‹ Markets</button>
       <div class="section-head"><h2>Portfolio</h2></div>
+      <div class="seg-row">${PF_SEGS.map((s) =>
+        `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div class="pf-summary">
-        <div class="pf-sum-value" id="pfSumVal">${formatMoney(g.value)}</div>
-        <div class="pf-sum-label">Total value · everything you own</div>
+        <div class="pf-sum-value" id="pfSumVal">${formatMoney(t.value)}</div>
+        <div class="pf-sum-label">${label} · value of what you own</div>
         <div class="pf-sum-row">
-          <div><span>Invested</span><b id="pfSumInv">${formatMoney(g.cost)}</b></div>
-          <div><span>Profit / Loss</span><b class="${plCls(g.pl)}" id="pfSumPl">${plStr(g.pl, g.plPct)}</b></div>
+          <div><span>Invested</span><b id="pfSumInv">${formatMoney(t.cost)}</b></div>
+          <div><span>Profit / Loss</span><b class="${plCls(t.pl)}" id="pfSumPl">${plStr(t.pl, t.plPct)}</b></div>
         </div>
       </div>
       <div id="pfBody">${portfolioBodyHTML()}</div>
     `;
   }
 
-  /** All three sections stacked, each headed by its own total invested. */
   function portfolioBodyHTML() {
-    Assets.ensure();
-    return PF_SEGS.map((s) => pfSectionHTML(s.id, s.label)).join('');
-  }
-
-  function pfSectionHTML(segId, label) {
-    let owned, invested, rows;
-    if (segId === 'estate') {
-      owned = ESTATE_DEFS.filter((d) => estateRec(d.id).count > 0);
-      invested = owned.reduce((t, d) => t + estateRec(d.id).cost, 0);
-      rows = owned.map(pfEstateRowHTML).join('');
-    } else {
-      owned = ASSET_DEFS.filter((d) => d.group === segId && Market.holding(d.id).shares > 0);
-      invested = owned.reduce((t, d) => t + Market.holding(d.id).cost, 0);
-      rows = owned.map(pfRowHTML).join('');
+    if (view.pfSeg === 'estate') {
+      Assets.ensure();
+      const owned = ESTATE_DEFS.filter((d) => estateRec(d.id).count > 0);
+      if (!owned.length) return emptyOwnedHTML('estate');
+      return `<div class="asset-list">${owned.map(pfEstateRowHTML).join('')}</div>`;
     }
-    const head = `<div class="pf-section-head"><h3>${label}</h3>${
-      owned.length ? `<div class="pf-section-invested">Invested ${formatMoney(invested)}</div>` : ''}</div>`;
-    if (!owned.length) return head + emptyMiniHTML(segId, label);
-    return head + `<div class="asset-list">${rows}</div>`;
+    const owned = ASSET_DEFS.filter((d) => d.group === view.pfSeg && Market.holding(d.id).shares > 0);
+    if (!owned.length) return emptyOwnedHTML(view.pfSeg);
+    return `<div class="asset-list">${owned.map(pfRowHTML).join('')}</div>`;
   }
 
-  /** Compact "you don't own any yet" row with a jump-to-buy button. */
-  function emptyMiniHTML(segId, label) {
+  /** "Not owned" state with a call-to-action that jumps to that market. */
+  function emptyOwnedHTML(seg) {
+    const noun = seg === 'stock' ? 'stocks' : seg === 'crypto' ? 'crypto' : 'real estate';
+    const label = seg === 'stock' ? 'Stocks' : seg === 'crypto' ? 'Crypto' : 'Real Estate';
     return `
-      <div class="pf-empty-mini">
-        <span>Nothing owned yet</span>
-        <button class="btn btn-sm btn-gold" data-act="browse" data-id="${segId}">Buy ${label} ›</button>
+      <div class="pf-empty">
+        <div class="pf-empty-title">Not owned</div>
+        <div class="pf-empty-sub">You don't own any ${noun} yet.</div>
+        <button class="btn btn-gold btn-wide" data-act="browse" data-id="${seg}">Buy ${label} ›</button>
       </div>`;
   }
 
@@ -323,15 +338,15 @@ const Invest = (() => {
 
   /** Patch the Portfolio's values + P/L in place (no full re-render). */
   function patchPortfolio() {
-    // Grand-total summary at the top.
+    // Selected-category summary at the top.
     const sv = document.getElementById('pfSumVal');
     if (sv) {
-      const g = grandTotal();
-      sv.textContent = formatMoney(g.value);
+      const t = categoryTotals(view.pfSeg);
+      sv.textContent = formatMoney(t.value);
       const inv = document.getElementById('pfSumInv');
-      if (inv) inv.textContent = formatMoney(g.cost);
+      if (inv) inv.textContent = formatMoney(t.cost);
       const pe = document.getElementById('pfSumPl');
-      if (pe) { pe.textContent = plStr(g.pl, g.plPct); pe.className = `${plCls(g.pl)}`; }
+      if (pe) { pe.textContent = plStr(t.pl, t.plPct); pe.className = `${plCls(t.pl)}`; }
     }
     container.querySelectorAll('.asset-row').forEach((row) => {
       const id = row.dataset.id;
