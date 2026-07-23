@@ -117,7 +117,6 @@ const Invest = (() => {
     // page's own back-link always returns to Markets.
     else if (a === 'back') { view.mode = view.mode === 'portfolio' ? 'list' : (view.returnTo === 'portfolio' ? 'portfolio' : 'list'); destroyChart(); render(); restoreScroll(view.scrollY); }
     else if (a === 'portfolio') { view.mode = 'portfolio'; destroyChart(); render(); }
-    else if (a === 'pfSeg') { view.pfSeg = id; render(); }
     else if (a === 'browse') { view.mode = 'list'; view.seg = id; destroyChart(); render(); }
     else if (a === 'seg') { view.seg = id; render(); }
     else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; } markTf(); }
@@ -245,22 +244,40 @@ const Invest = (() => {
           <div><span>Profit / Loss</span><b class="${plCls(g.pl)}" id="pfSumPl">${plStr(g.pl, g.plPct)}</b></div>
         </div>
       </div>
-      <div class="seg-row">${PF_SEGS.map((s) =>
-        `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="pfBody">${portfolioBodyHTML()}</div>
     `;
   }
 
+  /** All three sections stacked, each headed by its own total invested. */
   function portfolioBodyHTML() {
-    if (view.pfSeg === 'estate') {
-      Assets.ensure();
-      const owned = ESTATE_DEFS.filter((d) => estateRec(d.id).count > 0);
-      if (!owned.length) return emptyOwnedHTML('estate');
-      return `<div class="asset-list">${owned.map(pfEstateRowHTML).join('')}</div>`;
+    Assets.ensure();
+    return PF_SEGS.map((s) => pfSectionHTML(s.id, s.label)).join('');
+  }
+
+  function pfSectionHTML(segId, label) {
+    let owned, invested, rows;
+    if (segId === 'estate') {
+      owned = ESTATE_DEFS.filter((d) => estateRec(d.id).count > 0);
+      invested = owned.reduce((t, d) => t + estateRec(d.id).cost, 0);
+      rows = owned.map(pfEstateRowHTML).join('');
+    } else {
+      owned = ASSET_DEFS.filter((d) => d.group === segId && Market.holding(d.id).shares > 0);
+      invested = owned.reduce((t, d) => t + Market.holding(d.id).cost, 0);
+      rows = owned.map(pfRowHTML).join('');
     }
-    const owned = ASSET_DEFS.filter((d) => d.group === view.pfSeg && Market.holding(d.id).shares > 0);
-    if (!owned.length) return emptyOwnedHTML(view.pfSeg);
-    return `<div class="asset-list">${owned.map(pfRowHTML).join('')}</div>`;
+    const head = `<div class="pf-section-head"><h3>${label}</h3>${
+      owned.length ? `<div class="pf-section-invested">Invested ${formatMoney(invested)}</div>` : ''}</div>`;
+    if (!owned.length) return head + emptyMiniHTML(segId, label);
+    return head + `<div class="asset-list">${rows}</div>`;
+  }
+
+  /** Compact "you don't own any yet" row with a jump-to-buy button. */
+  function emptyMiniHTML(segId, label) {
+    return `
+      <div class="pf-empty-mini">
+        <span>Nothing owned yet</span>
+        <button class="btn btn-sm btn-gold" data-act="browse" data-id="${segId}">Buy ${label} ›</button>
+      </div>`;
   }
 
   /** Portfolio row: the VALUE of what you hold, with your profit/loss in money
@@ -320,10 +337,10 @@ const Invest = (() => {
       const id = row.dataset.id;
       if (!id) return;
       let value, cost;
-      if (view.pfSeg === 'estate') {
+      if (ESTATE_BY_ID[id]) { // a real-estate row
         const rec = estateRec(id);
         value = rec.count * Assets.unitValue(ESTATE_BY_ID[id]); cost = rec.cost;
-      } else {
+      } else { // a stock / crypto row
         const h = Market.holding(id);
         value = h.shares * Market.dispPrice(id); cost = h.cost;
       }
@@ -334,18 +351,6 @@ const Invest = (() => {
       const pe = row.querySelector(`[data-pfpl="${id}"]`);
       if (pe) { pe.textContent = plStr(pl, pct); pe.className = `asset-change ${plCls(pl)}`; }
     });
-  }
-
-  /** "Not owned" state with a call-to-action that jumps to that market. */
-  function emptyOwnedHTML(seg) {
-    const noun = seg === 'stock' ? 'stocks' : seg === 'crypto' ? 'crypto' : 'real estate';
-    const label = seg === 'stock' ? 'Stocks' : seg === 'crypto' ? 'Crypto' : 'Real Estate';
-    return `
-      <div class="pf-empty">
-        <div class="pf-empty-title">Not owned</div>
-        <div class="pf-empty-sub">You don't own any ${noun} yet.</div>
-        <button class="btn btn-gold btn-wide" data-act="browse" data-id="${seg}">Buy ${label} ›</button>
-      </div>`;
   }
 
   /** Track which rows are on screen so refresh() only patches those. */

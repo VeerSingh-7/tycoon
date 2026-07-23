@@ -631,6 +631,18 @@ html, body {
 .pf-sum-row span { font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); }
 .pf-sum-row b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
+/* Portfolio page — per-section header with that section's total invested */
+.pf-section-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin: 20px 2px 6px;
+}
+.pf-section-head h3 { font-size: 16px; font-weight: 800; }
+.pf-section-invested { font-size: 13px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pf-empty-mini {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 2px; color: var(--muted); font-size: 13px;
+}
+
 /* Portfolio page — "Not owned" empty state with a buy CTA. */
 .pf-empty {
   text-align: center; padding: 44px 24px 24px;
