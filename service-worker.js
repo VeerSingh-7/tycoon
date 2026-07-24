@@ -1,13 +1,13 @@
 /* =========================================================================
  * service-worker.js — PWA offline shell
  * -------------------------------------------------------------------------
- * Cache-first for our own assets so the game launches offline. Bump
- * CACHE_NAME whenever assets change to force clients to update.
+ * Network-first for our own assets (always fresh when online) with a full
+ * precache so the game still launches offline. Bump CACHE_NAME on asset change.
  * Fully self-contained: the candlestick chart is our own canvas renderer
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v29'; // v29: real estate as a Business-tab property business (biz-card layout); save v11
+const CACHE_NAME = 'tycoon-v30'; // v30: network-first for app files so updates never serve stale (real estate already gone from Invest)
 
 const ASSETS = [
   'index.html',
@@ -62,31 +62,43 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache-first with network fallback; cache successful GETs for next time.
+// NETWORK-FIRST for our own app files (HTML/CSS/JS/icons), so a new build lands
+// as soon as you're online — no more stale cached code — while the cache keeps
+// the game fully playable offline. Cross-origin GETs stay cache-first.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  // Navigations (e.g. "/") fall back to the cached shell when offline.
-  if (event.request.mode === 'navigate') {
+  const sameOrigin = new URL(event.request.url).origin === self.location.origin;
+
+  if (event.request.mode === 'navigate' || sameOrigin) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('index.html'))
-    );
-    return;
-  }
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
+      fetch(event.request)
         .then((resp) => {
-          // Cache same-origin assets AND the CORS-served chart library.
-          const cacheable = resp && resp.status === 200 &&
-            (resp.type === 'basic' || resp.type === 'cors');
-          if (cacheable) {
+          // Refresh the cache copy for offline use.
+          if (resp && resp.status === 200 && resp.type === 'basic') {
             const copy = resp.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
           return resp;
         })
-        .catch(() => cached);
+        .catch(() =>
+          caches.match(event.request).then((cached) =>
+            cached || (event.request.mode === 'navigate' ? caches.match('index.html') : undefined))
+        )
+    );
+    return;
+  }
+
+  // Cross-origin GETs: cache-first with network fallback.
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((resp) => {
+        if (resp && resp.status === 200 && resp.type === 'cors') {
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return resp;
+      }).catch(() => cached);
     })
   );
 });
