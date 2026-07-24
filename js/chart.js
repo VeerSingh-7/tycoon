@@ -80,15 +80,6 @@ class CandleChart {
     this.candles = [];
   }
 
-  /** Compact price label; more decimals for micro-priced meme coins. */
-  fmtPrice(p) {
-    if (p >= 10000) return formatNumber(p, 2);
-    if (p >= 100) return p.toFixed(1);
-    if (p >= 1) return p.toFixed(2);
-    if (p >= 0.01) return p.toFixed(4);
-    return p.toPrecision(2);
-  }
-
   draw() {
     const ctx = this.ctx;
     const dpr = window.devicePixelRatio || 1;
@@ -105,7 +96,7 @@ class CandleChart {
     ctx.clearRect(0, 0, w, h);
 
     // Plot area (right margin hosts the price axis, bottom the time axis).
-    const PAD_L = 8, PAD_R = 56, PAD_T = 10, PAD_B = 20;
+    const PAD_L = 8, PAD_R = 62, PAD_T = 10, PAD_B = 20;
     const plotW = w - PAD_L - PAD_R;
     const plotH = h - PAD_T - PAD_B;
 
@@ -138,30 +129,101 @@ class CandleChart {
     const y = (p) => PAD_T + ((max - p) / (max - min)) * plotH;
     const x = (i) => PAD_L + (plotW / n) * (i + 0.5);
 
-    this.drawGrid(ctx, w, h, PAD_L, plotW, min, max, y);
+    // Trading-212-style price axis: a ladder of evenly spaced "nice" price
+    // levels (round numbers, consistent decimals, never overlapping). The live
+    // price rides in a coloured pill that hides any ladder label it collides
+    // with, so nothing ever prints on top of anything else.
+    const axis = this.priceTicks(min, max, plotH);
+    const liveP = data[n - 1].close;
+    const liveY = y(liveP);
+
+    this.drawGrid(ctx, w, h, PAD_L, plotW, y, axis, liveY);
     if (this.mode === 'line') this.drawLine(ctx, data, x, y, PAD_T, plotH, PAD_L, plotW);
     else this.drawCandles(ctx, data, x, y, plotW / n, PAD_L, plotW);
+    // Live-price pill last, so it sits cleanly above the grid labels.
+    this.drawPriceTag(ctx, this.axisLabel(liveP, axis.decimals), liveY, PAD_L + plotW, w, this.COL.line);
     this.drawTimeAxis(ctx, data, x, h);
+  }
+
+  /* ------------------------- Price axis ladder ------------------------- */
+
+  /**
+   * Evenly spaced "nice" price levels across [min, max] — the ladder on the
+   * right. Steps snap to 1/2/2.5/5 ×10ⁿ so labels land on round numbers, and
+   * the count is capped by the available height (~one label per 26px) so they
+   * never crowd. `decimals` is shared by every label so the pennies line up.
+   */
+  priceTicks(min, max, plotH) {
+    const range = max - min;
+    if (!(range > 0)) return { ticks: [min], decimals: 2, step: 1 };
+    const maxTicks = Math.max(2, Math.floor(plotH / 26));
+    const rawStep = range / maxTicks;
+    const pow = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const frac = rawStep / pow;
+    const niceFrac = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 2.5 ? 2.5 : frac <= 5 ? 5 : 10;
+    const step = niceFrac * pow;
+    // Enough decimals to render the step, but always at least pennies for
+    // normal prices (and more for micro-priced coins) so the rise reads neatly.
+    let decimals = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9));
+    if (max < 10000) decimals = Math.max(decimals, 2);
+    if (max < 1) decimals = Math.max(decimals, 4);
+    if (max < 0.01) decimals = Math.max(decimals, 6);
+    decimals = Math.min(decimals, 8);
+    const ticks = [];
+    for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-6; v += step) ticks.push(v);
+    return { ticks, decimals, step };
+  }
+
+  /** Axis/pill label: fixed decimals + thousands separators; compact if huge. */
+  axisLabel(p, decimals) {
+    if (p >= 10000) return formatNumber(p, 2);
+    return p.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+
+  roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /** Filled coloured price pill in the right margin (white text). */
+  drawPriceTag(ctx, text, yPos, rightX, w, color) {
+    const tagH = 15, x0 = rightX + 3, x1 = w - 1;
+    const yy = Math.round(yPos);
+    ctx.fillStyle = color;
+    this.roundRect(ctx, x0, yy - tagH / 2, x1 - x0, tagH, 3);
+    ctx.fill();
+    ctx.font = '600 10px -apple-system, system-ui, sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, (x0 + x1) / 2, yy);
   }
 
   /* ------------------------- Shared chrome ------------------------- */
 
-  drawGrid(ctx, w, h, PAD_L, plotW, min, max, y) {
-    ctx.font = '10px -apple-system, sans-serif';
+  drawGrid(ctx, w, h, PAD_L, plotW, y, axis, liveY) {
+    ctx.font = '10px -apple-system, system-ui, sans-serif';
     ctx.textBaseline = 'middle';
-    const GRID_LINES = 4;
-    for (let i = 0; i <= GRID_LINES; i++) {
-      const p = max - ((max - min) * i) / GRID_LINES;
-      const gy = y(p);
+    const rightX = PAD_L + plotW;
+    const labelX = w - 4;
+    for (const p of axis.ticks) {
+      const gy = Math.round(y(p)) + 0.5;   // snap to pixel → crisp 1px line
       ctx.strokeStyle = this.COL.grid;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(PAD_L, gy);
-      ctx.lineTo(PAD_L + plotW, gy);
+      ctx.lineTo(rightX, gy);
       ctx.stroke();
+      // Skip a label that would collide with the live-price pill.
+      if (Math.abs(y(p) - liveY) < 9) continue;
       ctx.fillStyle = this.COL.axis;
-      ctx.textAlign = 'left';
-      ctx.fillText(this.fmtPrice(p), PAD_L + plotW + 6, gy);
+      ctx.textAlign = 'right';
+      ctx.fillText(this.axisLabel(p, axis.decimals), labelX, Math.round(y(p)));
     }
   }
 
@@ -232,10 +294,7 @@ class CandleChart {
     ctx.arc(lx, ly, 3.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-    ctx.fillStyle = this.COL.line;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(this.fmtPrice(data[n - 1].close), PAD_L + plotW + 6, ly);
+    // The live-price pill is drawn by draw() over the axis (shared with candles).
   }
 
   /* --------------------------- Candle mode --------------------------- */
@@ -277,9 +336,6 @@ class CandleChart {
     ctx.lineTo(PAD_L + plotW, ly);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = this.COL.line;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(this.fmtPrice(live), PAD_L + plotW + 6, ly);
+    // The live-price pill is drawn by draw() over the axis (shared with line mode).
   }
 }

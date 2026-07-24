@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v31'; // v31: charts advance at the selected timeframe's cadence (1S→1s, 1MIN→1min … 1W→1w) instead of jittering every second
+const CACHE_NAME = 'tycoon-v32'; // v32: Trading-212-style price axis — a neat non-overlapping ladder of round levels + a live-price pill
 
 const ASSETS = [
   'index.html',
