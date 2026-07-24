@@ -227,32 +227,34 @@ class CandleChart {
   }
 
   /**
-   * Time axis, Trading-212 style: a few evenly spaced absolute date/time stamps
-   * across the plot, in the granularity that suits the visible span — clock time
-   * for intraday, "12 Mar" for weeks, "Mar '25" for months, years for MAX. The
-   * count fits the width (~one per 64px); ends anchor to the plot edges and the
-   * rest sit at even fractions between them, so nothing bunches up.
+   * Time axis, Trading-212 style: a few absolute date/time stamps in the
+   * granularity that suits the visible span — clock time for intraday, "12 Mar"
+   * for weeks, "Mar '25" for months, years for MAX. Every stamp is centred at an
+   * evenly spaced position (equal gaps between centres) and the row is inset from
+   * the plot edges so the first/last never clip — so they read as one even row.
    */
   drawTimeAxis(ctx, data, h, PAD_L, plotW) {
     const n = data.length;
     if (n < 2) return;
     ctx.fillStyle = this.COL.axis;
     ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'center';
     ctx.font = '10px -apple-system, system-ui, sans-serif';
     const t0 = data[0].time, span = data[n - 1].time - t0;
     // Pick the label granularity from the visible span.
     let fmt;
-    if (span < 5 * 60) fmt = 'secs';            // < 5 min → HH:MM:SS
-    else if (span < 2 * 86400) fmt = 'time';    // < 2 days → HH:MM
-    else if (span < 120 * 86400) fmt = 'day';   // < ~4 months → 12 Mar
+    if (span < 5 * 60) fmt = 'secs';                // < 5 min → HH:MM:SS
+    else if (span < 2 * 86400) fmt = 'time';        // < 2 days → HH:MM
+    else if (span < 120 * 86400) fmt = 'day';       // < ~4 months → 12 Mar
     else if (span < 4 * 365 * 86400) fmt = 'month'; // < ~4 years → Mar '25
-    else fmt = 'year';                          // MAX → 2025
-    const k = Math.max(2, Math.min(5, Math.floor(plotW / 64)));
+    else fmt = 'year';                              // MAX → 2025
+    // Inset so centred end labels don't run past the plot; evenly spaced within.
+    const inset = 18;
+    const usable = Math.max(0, plotW - inset * 2);
+    const k = Math.max(2, Math.min(5, Math.floor(plotW / 64) + 1));
     for (let j = 0; j < k; j++) {
       const f = j / (k - 1);
-      const first = j === 0, last = j === k - 1;
-      ctx.textAlign = first ? 'left' : last ? 'right' : 'center';
-      const lx = first ? PAD_L : last ? PAD_L + plotW : Math.round(PAD_L + f * plotW);
+      const lx = Math.round(PAD_L + inset + usable * f);
       ctx.fillText(this.axisTime(t0 + f * span, fmt), lx, h - 6);
     }
   }

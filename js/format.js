@@ -45,19 +45,28 @@ function formatNumber(value, decimals = 2) {
 
 /**
  * Format money with a leading $.
- * Below $10,000: exact with two decimals — "$12.60", "$4,900.00".
+ * Below $10,000: exact with two decimals — "$12.60", "$4,900.00" — but sub-$1
+ * values (e.g. meme coins) get enough decimals to show ~2 significant figures
+ * so a real price never collapses to "$0.00" ("$0.000020", "$0.045").
  * From $10,000: compact — "$12.6K", "$3.4M", "$7.8T".
  */
 function formatMoney(value, decimals = 2) {
   if (value === null || value === undefined || !isFinite(value)) return '$0.00';
   const negative = value < 0;
   const n = Math.abs(value);
+  const sign = negative ? '-' : '';
 
   if (n < ABBREV_THRESHOLD) {
-    return (negative ? '-' : '') + '$' +
-      n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    let dp = 2;
+    if (n > 0 && n < 1) {
+      // First significant digit position: -1 for 0.x, -5 for 0.0000x. Show two
+      // significant figures, capped so we never print an absurd tail.
+      const firstSig = Math.floor(Math.log10(n));
+      dp = Math.min(8, Math.max(2, 1 - firstSig));
+    }
+    return sign + '$' + n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
   }
-  return (negative ? '-' : '') + '$' + formatNumber(n, decimals);
+  return sign + '$' + formatNumber(n, decimals);
 }
 
 /**

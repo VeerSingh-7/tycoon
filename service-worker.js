@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v37'; // v37: chart live price pinned to the shared quote so it matches the header/list to the penny on every timeframe
+const CACHE_NAME = 'tycoon-v38'; // v38: evenly spaced time axis; sub-cent prices no longer show as $0.00
 
 const ASSETS = [
   'index.html',

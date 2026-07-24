@@ -7,7 +7,7 @@
  *   detail     — ticker/name header, big price + today & month %, inline chart
  *                (tap → fullscreen), Your Investment, Stats, Buyout / Manage,
  *                pinned Buy / Sell bar
- *   fullscreen — big chart + 1D/1W/1M/3M/1Y/Max timeframe row
+ *   fullscreen — big chart + 1S/1MIN/1H/1D/1W/1M/MAX timeframe row
  *   ticket     — Buy/Sell amount (slider + quick %), then Review order
  *
  * Performance: rows are patched in place each second, and ONLY rows that are
