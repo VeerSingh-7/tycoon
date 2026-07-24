@@ -239,6 +239,21 @@ const Market = (() => {
     return out;
   }
 
+  /**
+   * Effective candle interval (seconds) for a timeframe — the cadence at which
+   * the chart advances. Mirrors the `bucket` candles() uses (including MAX's
+   * per-asset dynamic bucket), so the UI redraws only when a new bar forms
+   * (1S→every second, 1W→every week…) instead of every render tick.
+   */
+  function tfBucketSecs(id, tfId) {
+    const tf = MARKET.TIMEFRAMES.find((t) => t.id === tfId) || MARKET.TIMEFRAMES[0];
+    if (tf.bucket) return tf.bucket;
+    const def = ASSET_BY_ID[id];
+    const p = params(def);
+    const life = Math.max(DAY, nowSec() - p.foundingSec);
+    return Math.max(60, life / MARKET.MAX_CANDLES);
+  }
+
   /* ------------------------------- Stats --------------------------------- */
 
   /** Static (price-independent) stat seeds, cached. */
@@ -489,7 +504,7 @@ const Market = (() => {
 
   return {
     ensure, tick, applyOffline,
-    price, priceAt, buyPrice, sellPrice, changePct, candles,
+    price, priceAt, buyPrice, sellPrice, changePct, candles, tfBucketSecs,
     holding, buy, buyShares, sell, sellShares, portfolioSummary,
     dispPrice, dispChangePct,
     stats, params, supplyOf, timeframes: MARKET.TIMEFRAMES,

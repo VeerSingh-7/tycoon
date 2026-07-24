@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v34'; // v34: time axis — evenly spaced relative labels (Now, 6h, 3d, 2w…)
+const CACHE_NAME = 'tycoon-v35'; // v35: chart advances at timeframe cadence again; T212-style absolute date axis; new 1M timeframe
 
 const ASSETS = [
   'index.html',

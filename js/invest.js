@@ -34,7 +34,17 @@ const Invest = (() => {
   ];
   let container = null;
   let chart = null, chartAsset = null, chartTf = null;       // inline chart
-  let fs = null;                                             // fullscreen {chart, tf}
+  let chartBar = null;                                       // last bar index drawn (gates redraws to the timeframe)
+  let fs = null;                                             // fullscreen {chart, tf, bar}
+
+  // Which bar is forming right now for this asset+timeframe. The chart is
+  // redrawn only when this index changes, so it advances at the timeframe's own
+  // cadence — every second on 1S, every minute on 1MIN, weekly on 1W, monthly
+  // on 1M — instead of re-drawing the live candle on every render tick.
+  function barIndex(id, tf) {
+    const secs = Market.tfBucketSecs(id, tf);
+    return Math.floor((Date.now() / 1000) / secs);
+  }
   let trade = null;                                          // full-screen trade page
   let bodyTimer = 0;                                         // search debounce
   let visObserver = null;                                    // on-screen rows
@@ -113,7 +123,7 @@ const Invest = (() => {
     else if (a === 'pfSeg') { view.pfSeg = id; render(); }
     else if (a === 'browse') { view.mode = 'list'; view.seg = id; destroyChart(); render(); }
     else if (a === 'seg') { view.seg = id; render(); }
-    else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; } markTf(); }
+    else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; chartBar = barIndex(view.assetId, view.tf); } markTf(); }
     else if (a === 'fullscreen') openFullscreen();
     else if (a === 'buy') openTicket('buy');
     else if (a === 'sell') openTicket('sell');
@@ -489,10 +499,11 @@ const Invest = (() => {
     chart = new CandleChart(el, { mode: 'line' });
     chartAsset = view.assetId; chartTf = view.tf;
     chart.setData(Market.candles(view.assetId, view.tf));
+    chartBar = barIndex(view.assetId, view.tf);
   }
   function destroyChart() {
     if (chart) { try { chart.destroy(); } catch (e) {} }
-    chart = null; chartAsset = null; chartTf = null;
+    chart = null; chartAsset = null; chartTf = null; chartBar = null;
   }
 
   function openFullscreen() {
@@ -513,8 +524,8 @@ const Invest = (() => {
     `;
     document.body.appendChild(ov);
     const chEl = ov.querySelector('#fsChart');
-    const redraw = () => { if (fs) fs.chart.setData(Market.candles(view.assetId, fs.tf)); };
-    fs = { chart: new CandleChart(chEl, { mode: 'candles' }), tf: view.tf, priceEl: ov.querySelector('#fsPrice'), el: ov, redraw };
+    const redraw = () => { if (fs) { fs.chart.setData(Market.candles(view.assetId, fs.tf)); fs.bar = barIndex(view.assetId, fs.tf); } };
+    fs = { chart: new CandleChart(chEl, { mode: 'candles' }), tf: view.tf, priceEl: ov.querySelector('#fsPrice'), el: ov, redraw, bar: barIndex(view.assetId, view.tf) };
     // Draw after layout so the flex-filled chart has real dimensions (also
     // covers orientation changes: recompute on resize).
     requestAnimationFrame(redraw);
@@ -761,18 +772,22 @@ const Invest = (() => {
       tmp.innerHTML = investmentPanel(def);
       panel.innerHTML = tmp.firstElementChild.innerHTML;
     }
-    // The forming (right-most) candle's close tracks the live price, so the tip
-    // ticks a fresh value every refresh — never stuck on one price — while a NEW
-    // candle only appears when its timeframe interval elapses (candles() handles
-    // the bucketing, so 1W still plots weekly bars, 1S second-by-second, etc.).
+    // Redraw only when a new bar forms for the active timeframe, so the chart
+    // advances at that cadence (1S every second … 1W weekly, 1M monthly) rather
+    // than ticking every render. A livelier price sim means each new bar lands
+    // on a fresh value, so it never sticks on the same price between steps.
     if (chart && chartAsset === view.assetId) {
-      chart.setData(Market.candles(def.id, view.tf));
-      chartTf = view.tf;
+      const bar = barIndex(def.id, view.tf);
+      if (bar !== chartBar || chartTf !== view.tf) {
+        chart.setData(Market.candles(def.id, view.tf));
+        chartTf = view.tf; chartBar = bar;
+      }
     }
-    // Fullscreen chart, if open.
+    // Fullscreen chart, if open (same per-timeframe cadence).
     if (fs) {
       if (fs.priceEl) fs.priceEl.textContent = formatMoney(Market.dispPrice(def.id));
-      fs.chart.setData(Market.candles(def.id, fs.tf));
+      const bar = barIndex(def.id, fs.tf);
+      if (bar !== fs.bar) { fs.chart.setData(Market.candles(def.id, fs.tf)); fs.bar = bar; }
     }
     // Full-screen trade page: keep its live price + summary current.
     if (trade) trade.refresh();

@@ -227,10 +227,11 @@ class CandleChart {
   }
 
   /**
-   * Time axis: a few evenly spaced stamps across the plot, labelled relative to
-   * the latest bar ("Now", "15m", "2h", "3d", "2w"…). The count fits the width
-   * (~one per 58px) so they stay tidy and never bunch up; the ends anchor to the
-   * plot edges and the rest are centred at even fractions between them.
+   * Time axis, Trading-212 style: a few evenly spaced absolute date/time stamps
+   * across the plot, in the granularity that suits the visible span — clock time
+   * for intraday, "12 Mar" for weeks, "Mar '25" for months, years for MAX. The
+   * count fits the width (~one per 64px); ends anchor to the plot edges and the
+   * rest sit at even fractions between them, so nothing bunches up.
    */
   drawTimeAxis(ctx, data, h, PAD_L, plotW) {
     const n = data.length;
@@ -238,30 +239,34 @@ class CandleChart {
     ctx.fillStyle = this.COL.axis;
     ctx.textBaseline = 'alphabetic';
     ctx.font = '10px -apple-system, system-ui, sans-serif';
-    const ref = data[n - 1].time;              // newest bar = "Now"
-    const span = ref - data[0].time;
-    const k = Math.max(2, Math.min(5, Math.floor(plotW / 58)));
+    const t0 = data[0].time, span = data[n - 1].time - t0;
+    // Pick the label granularity from the visible span.
+    let fmt;
+    if (span < 5 * 60) fmt = 'secs';            // < 5 min → HH:MM:SS
+    else if (span < 2 * 86400) fmt = 'time';    // < 2 days → HH:MM
+    else if (span < 120 * 86400) fmt = 'day';   // < ~4 months → 12 Mar
+    else if (span < 4 * 365 * 86400) fmt = 'month'; // < ~4 years → Mar '25
+    else fmt = 'year';                          // MAX → 2025
+    const k = Math.max(2, Math.min(5, Math.floor(plotW / 64)));
     for (let j = 0; j < k; j++) {
       const f = j / (k - 1);
-      const t = data[0].time + f * span;
       const first = j === 0, last = j === k - 1;
       ctx.textAlign = first ? 'left' : last ? 'right' : 'center';
       const lx = first ? PAD_L : last ? PAD_L + plotW : Math.round(PAD_L + f * plotW);
-      ctx.fillText(this.relTime(ref - t), lx, h - 6);
+      ctx.fillText(this.axisTime(t0 + f * span, fmt), lx, h - 6);
     }
   }
 
-  /** Compact "time ago" label relative to the latest bar. */
-  relTime(dsec) {
-    if (dsec < 5) return 'Now';
-    if (dsec < 60) return Math.round(dsec) + 's';
-    if (dsec < 3600) return Math.round(dsec / 60) + 'm';
-    if (dsec < 86400) return Math.round(dsec / 3600) + 'h';
-    if (dsec < 7 * 86400) return Math.round(dsec / 86400) + 'd';
-    if (dsec < 30 * 86400) return Math.round(dsec / (7 * 86400)) + 'w';
-    if (dsec < 365 * 86400) return Math.round(dsec / (30 * 86400)) + 'mo';
-    const yrs = dsec / (365 * 86400);
-    return (yrs < 10 ? yrs.toFixed(1) : Math.round(yrs)) + 'y';
+  /** Absolute date/time label at the chosen granularity. */
+  axisTime(sec, fmt) {
+    const d = new Date(sec * 1000);
+    const p2 = (x) => String(x).padStart(2, '0');
+    if (fmt === 'secs') return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+    if (fmt === 'time') return `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    const mon = CandleChart.MONTHS[d.getMonth()];
+    if (fmt === 'day') return `${d.getDate()} ${mon}`;
+    if (fmt === 'month') return `${mon} '${String(d.getFullYear()).slice(2)}`;
+    return String(d.getFullYear());
   }
 
   /* ------------------------- Line / area mode ------------------------ */
@@ -355,3 +360,5 @@ class CandleChart {
     // The live-price pill is drawn by draw() over the axis (shared with line mode).
   }
 }
+
+CandleChart.MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

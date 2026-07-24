@@ -679,7 +679,7 @@ html, body {
 }
 .dh-tile b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
-/* Timeframe chip row — six chips + fullscreen button, all on one line */
+/* Timeframe chip row — chips + fullscreen button on one horizontally scrollable line */
 .tf-row {
   margin-bottom: 14px; flex-wrap: nowrap; align-items: center; gap: 6px;
   overflow-x: auto; scrollbar-width: none;
