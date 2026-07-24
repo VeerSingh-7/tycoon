@@ -100,14 +100,13 @@ class CandleChart {
     const plotW = w - PAD_L - PAD_R;
     const plotH = h - PAD_T - PAD_B;
 
-    // Candle mode: show only as many candles as fit with clear gaps (~9px per
-    // slot) instead of packing 140 hairlines into a solid wall. Line mode keeps
-    // every point for a smooth curve.
+    // Thin the data so the shape is spread out and legible instead of a tight
+    // wall of wiggles. Candles get a wide ~14px slot (clear gaps); the line
+    // keeps ~9px between points so its dips and curves breathe.
     let data = this.candles;
-    if (this.mode !== 'line') {
-      const fit = Math.max(16, Math.floor(plotW / 9));
-      if (data.length > fit) data = data.slice(-fit);
-    }
+    const slot = this.mode === 'line' ? 9 : 14;
+    const fit = Math.max(this.mode === 'line' ? 20 : 14, Math.floor(plotW / slot));
+    if (data.length > fit) data = data.slice(-fit);
     const n = data.length;
 
     // Auto-scale to the visible range. The line view only needs closes; candles
@@ -156,7 +155,7 @@ class CandleChart {
   priceTicks(min, max, plotH) {
     const range = max - min;
     if (!(range > 0)) return { ticks: [min], decimals: 2, step: 1 };
-    const maxTicks = Math.max(2, Math.floor(plotH / 26));
+    const maxTicks = Math.max(2, Math.floor(plotH / 19));
     const rawStep = range / maxTicks;
     const pow = Math.pow(10, Math.floor(Math.log10(rawStep)));
     const frac = rawStep / pow;

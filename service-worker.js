@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v32'; // v32: Trading-212-style price axis — a neat non-overlapping ladder of round levels + a live-price pill
+const CACHE_NAME = 'tycoon-v33'; // v33: roomier chart spacing, denser price ladder, continuous live tick (fresh price every refresh)
 
 const ASSETS = [
   'index.html',

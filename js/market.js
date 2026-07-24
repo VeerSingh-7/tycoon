@@ -138,7 +138,11 @@ const Market = (() => {
     // history reads as a gentle climb, not a hockey stick.
     const expo = Math.max(-3.0, (p.drift + mgmtGrowth(def)) * (t - EPOCH) / YEAR);
     const noise = p.vol * fbm(p.seed, t / DAY)
-      + p.vol * 0.06 * (vnoise(p.seed + 777, t / 20) - 0.5) * 2; // gentle live tick
+      // Live tick, layered on the slow fbm walk: a gentle drift plus a small
+      // fast (~2.6s) wiggle so the quote lands on a fresh price every refresh
+      // instead of repeating the same value — without making it look erratic.
+      + p.vol * 0.07 * (vnoise(p.seed + 777, t / 9) - 0.5) * 2
+      + p.vol * 0.03 * (vnoise(p.seed + 991, t / 2.6) - 0.5) * 2;
     let price = def.refPrice * Math.exp(expo) * Math.exp(noise) * managerFactor(def, t);
     // Sanity clamps only (prevent 0/Infinity); wide enough to never shape.
     return Math.min(def.refPrice * 1e6, Math.max(def.refPrice * 1e-6, price));
@@ -233,21 +237,6 @@ const Market = (() => {
       out.push(aggregate(def, b0, b1));
     }
     return out;
-  }
-
-  /**
-   * Effective candle interval (seconds) for a timeframe — the cadence at which
-   * the chart advances. Mirrors the `bucket` used by candles() (including MAX's
-   * per-asset dynamic bucket), so the UI can redraw only when a new bar forms
-   * instead of jittering the forming candle every second on long timeframes.
-   */
-  function tfBucketSecs(id, tfId) {
-    const tf = MARKET.TIMEFRAMES.find((t) => t.id === tfId) || MARKET.TIMEFRAMES[0];
-    if (tf.bucket) return tf.bucket;
-    const def = ASSET_BY_ID[id];
-    const p = params(def);
-    const life = Math.max(DAY, nowSec() - p.foundingSec);
-    return Math.max(60, life / MARKET.MAX_CANDLES);
   }
 
   /* ------------------------------- Stats --------------------------------- */
@@ -500,7 +489,7 @@ const Market = (() => {
 
   return {
     ensure, tick, applyOffline,
-    price, priceAt, buyPrice, sellPrice, changePct, candles, tfBucketSecs,
+    price, priceAt, buyPrice, sellPrice, changePct, candles,
     holding, buy, buyShares, sell, sellShares, portfolioSummary,
     dispPrice, dispChangePct,
     stats, params, supplyOf, timeframes: MARKET.TIMEFRAMES,
