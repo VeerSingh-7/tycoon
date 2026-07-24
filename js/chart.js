@@ -141,7 +141,7 @@ class CandleChart {
     else this.drawCandles(ctx, data, x, y, plotW / n, PAD_L, plotW);
     // Live-price pill last, so it sits cleanly above the grid labels.
     this.drawPriceTag(ctx, this.axisLabel(liveP, axis.decimals), liveY, PAD_L + plotW, w, this.COL.line);
-    this.drawTimeAxis(ctx, data, x, h);
+    this.drawTimeAxis(ctx, data, h, PAD_L, plotW);
   }
 
   /* ------------------------- Price axis ladder ------------------------- */
@@ -226,25 +226,42 @@ class CandleChart {
     }
   }
 
-  drawTimeAxis(ctx, data, x, h) {
+  /**
+   * Time axis: a few evenly spaced stamps across the plot, labelled relative to
+   * the latest bar ("Now", "15m", "2h", "3d", "2w"…). The count fits the width
+   * (~one per 58px) so they stay tidy and never bunch up; the ends anchor to the
+   * plot edges and the rest are centred at even fractions between them.
+   */
+  drawTimeAxis(ctx, data, h, PAD_L, plotW) {
     const n = data.length;
+    if (n < 2) return;
     ctx.fillStyle = this.COL.axis;
     ctx.textBaseline = 'alphabetic';
-    const spanSec = n > 1 ? data[n - 1].time - data[0].time : 0;
-    const useDate = spanSec >= 3 * 86400;      // days of history → dates
-    const useSecs = !useDate && spanSec < 600; // sub-10-min windows → HH:MM:SS
-    const stamps = [[0, 'left'], [Math.floor(n / 2), 'center'], [n - 1, 'right']];
-    for (const [i, align] of stamps) {
-      ctx.textAlign = align;
-      ctx.fillText(this.stamp(data[i].time, useDate, useSecs), x(i), h - 6);
+    ctx.font = '10px -apple-system, system-ui, sans-serif';
+    const ref = data[n - 1].time;              // newest bar = "Now"
+    const span = ref - data[0].time;
+    const k = Math.max(2, Math.min(5, Math.floor(plotW / 58)));
+    for (let j = 0; j < k; j++) {
+      const f = j / (k - 1);
+      const t = data[0].time + f * span;
+      const first = j === 0, last = j === k - 1;
+      ctx.textAlign = first ? 'left' : last ? 'right' : 'center';
+      const lx = first ? PAD_L : last ? PAD_L + plotW : Math.round(PAD_L + f * plotW);
+      ctx.fillText(this.relTime(ref - t), lx, h - 6);
     }
   }
 
-  stamp(sec, useDate, useSecs) {
-    const d = new Date(sec * 1000);
-    if (!useDate) return d.toTimeString().slice(0, useSecs ? 8 : 5);
-    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
-    return `${d.getDate()} ${mon} '${String(d.getFullYear()).slice(2)}`;
+  /** Compact "time ago" label relative to the latest bar. */
+  relTime(dsec) {
+    if (dsec < 5) return 'Now';
+    if (dsec < 60) return Math.round(dsec) + 's';
+    if (dsec < 3600) return Math.round(dsec / 60) + 'm';
+    if (dsec < 86400) return Math.round(dsec / 3600) + 'h';
+    if (dsec < 7 * 86400) return Math.round(dsec / 86400) + 'd';
+    if (dsec < 30 * 86400) return Math.round(dsec / (7 * 86400)) + 'w';
+    if (dsec < 365 * 86400) return Math.round(dsec / (30 * 86400)) + 'mo';
+    const yrs = dsec / (365 * 86400);
+    return (yrs < 10 ? yrs.toFixed(1) : Math.round(yrs)) + 'y';
   }
 
   /* ------------------------- Line / area mode ------------------------ */
