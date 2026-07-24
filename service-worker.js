@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v30'; // v30: network-first for app files so updates never serve stale (real estate already gone from Invest)
+const CACHE_NAME = 'tycoon-v31'; // v31: charts advance at the selected timeframe's cadence (1S→1s, 1MIN→1min … 1W→1w) instead of jittering every second
 
 const ASSETS = [
   'index.html',
