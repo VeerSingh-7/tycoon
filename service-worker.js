@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v36'; // v36: Banks & Fintech designed logos (MNP/GDS/BKA/VSA/MIC/YRK) + .png override support
+const CACHE_NAME = 'tycoon-v37'; // v37: chart live price pinned to the shared quote so it matches the header/list to the penny on every timeframe
 
 const ASSETS = [
   'index.html',

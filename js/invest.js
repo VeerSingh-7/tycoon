@@ -34,16 +34,19 @@ const Invest = (() => {
   ];
   let container = null;
   let chart = null, chartAsset = null, chartTf = null;       // inline chart
-  let chartBar = null;                                       // last bar index drawn (gates redraws to the timeframe)
-  let fs = null;                                             // fullscreen {chart, tf, bar}
+  let chartSig = null;                                       // last redraw signature (gates redraws)
+  let fs = null;                                             // fullscreen {chart, tf, sig}
 
-  // Which bar is forming right now for this asset+timeframe. The chart is
-  // redrawn only when this index changes, so it advances at the timeframe's own
-  // cadence — every second on 1S, every minute on 1MIN, weekly on 1W, monthly
-  // on 1M — instead of re-drawing the live candle on every render tick.
-  function barIndex(id, tf) {
+  // Redraw signature for an asset+timeframe. It changes when a NEW bar forms
+  // for the timeframe (so the chart advances at that cadence — 1S per second,
+  // 1W weekly, 1M monthly …) OR when the displayed quote ticks (so the live
+  // price on the chart always equals the header/list number to the penny, on
+  // every timeframe). Between those, nothing redraws, so long timeframes don't
+  // churn on every render tick.
+  function chartSigOf(id, tf) {
     const secs = Market.tfBucketSecs(id, tf);
-    return Math.floor((Date.now() / 1000) / secs);
+    const bar = Math.floor((Date.now() / 1000) / secs);
+    return bar + '|' + Market.quoteEpoch(id);
   }
   let trade = null;                                          // full-screen trade page
   let bodyTimer = 0;                                         // search debounce
@@ -123,7 +126,7 @@ const Invest = (() => {
     else if (a === 'pfSeg') { view.pfSeg = id; render(); }
     else if (a === 'browse') { view.mode = 'list'; view.seg = id; destroyChart(); render(); }
     else if (a === 'seg') { view.seg = id; render(); }
-    else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; chartBar = barIndex(view.assetId, view.tf); } markTf(); }
+    else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; chartSig = chartSigOf(view.assetId, view.tf); } markTf(); }
     else if (a === 'fullscreen') openFullscreen();
     else if (a === 'buy') openTicket('buy');
     else if (a === 'sell') openTicket('sell');
@@ -499,11 +502,11 @@ const Invest = (() => {
     chart = new CandleChart(el, { mode: 'line' });
     chartAsset = view.assetId; chartTf = view.tf;
     chart.setData(Market.candles(view.assetId, view.tf));
-    chartBar = barIndex(view.assetId, view.tf);
+    chartSig = chartSigOf(view.assetId, view.tf);
   }
   function destroyChart() {
     if (chart) { try { chart.destroy(); } catch (e) {} }
-    chart = null; chartAsset = null; chartTf = null; chartBar = null;
+    chart = null; chartAsset = null; chartTf = null; chartSig = null;
   }
 
   function openFullscreen() {
@@ -524,8 +527,8 @@ const Invest = (() => {
     `;
     document.body.appendChild(ov);
     const chEl = ov.querySelector('#fsChart');
-    const redraw = () => { if (fs) { fs.chart.setData(Market.candles(view.assetId, fs.tf)); fs.bar = barIndex(view.assetId, fs.tf); } };
-    fs = { chart: new CandleChart(chEl, { mode: 'candles' }), tf: view.tf, priceEl: ov.querySelector('#fsPrice'), el: ov, redraw, bar: barIndex(view.assetId, view.tf) };
+    const redraw = () => { if (fs) { fs.chart.setData(Market.candles(view.assetId, fs.tf)); fs.sig = chartSigOf(view.assetId, fs.tf); } };
+    fs = { chart: new CandleChart(chEl, { mode: 'candles' }), tf: view.tf, priceEl: ov.querySelector('#fsPrice'), el: ov, redraw, sig: chartSigOf(view.assetId, view.tf) };
     // Draw after layout so the flex-filled chart has real dimensions (also
     // covers orientation changes: recompute on resize).
     requestAnimationFrame(redraw);
@@ -772,22 +775,21 @@ const Invest = (() => {
       tmp.innerHTML = investmentPanel(def);
       panel.innerHTML = tmp.firstElementChild.innerHTML;
     }
-    // Redraw only when a new bar forms for the active timeframe, so the chart
-    // advances at that cadence (1S every second … 1W weekly, 1M monthly) rather
-    // than ticking every render. A livelier price sim means each new bar lands
-    // on a fresh value, so it never sticks on the same price between steps.
+    // Redraw when a new bar forms for the timeframe OR when the quote ticks, so
+    // the chart advances at the right cadence AND its live price stays exactly
+    // in step with the header number — never one, never the other stale.
     if (chart && chartAsset === view.assetId) {
-      const bar = barIndex(def.id, view.tf);
-      if (bar !== chartBar || chartTf !== view.tf) {
+      const sig = chartSigOf(def.id, view.tf);
+      if (sig !== chartSig || chartTf !== view.tf) {
         chart.setData(Market.candles(def.id, view.tf));
-        chartTf = view.tf; chartBar = bar;
+        chartTf = view.tf; chartSig = sig;
       }
     }
-    // Fullscreen chart, if open (same per-timeframe cadence).
+    // Fullscreen chart, if open (same signature gate).
     if (fs) {
       if (fs.priceEl) fs.priceEl.textContent = formatMoney(Market.dispPrice(def.id));
-      const bar = barIndex(def.id, fs.tf);
-      if (bar !== fs.bar) { fs.chart.setData(Market.candles(def.id, fs.tf)); fs.bar = bar; }
+      const sig = chartSigOf(def.id, fs.tf);
+      if (sig !== fs.sig) { fs.chart.setData(Market.candles(def.id, fs.tf)); fs.sig = sig; }
     }
     // Full-screen trade page: keep its live price + summary current.
     if (trade) trade.refresh();

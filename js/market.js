@@ -181,6 +181,14 @@ const Market = (() => {
     return ((priceAt(def, t) - past) / past) * 100;
   }
 
+  /** The timestamp (staggered 15s grid) the current quote is sampled at. It
+   *  changes only when dispPrice changes, so the chart can redraw exactly in
+   *  step with the header/list quote and never show a different live price. */
+  function quoteEpoch(id) {
+    const d = ASSET_BY_ID[id];
+    return d ? dispTimeFor(d) : 0;
+  }
+
   /* ------------------------------- Candles ------------------------------- */
 
   /**
@@ -235,6 +243,17 @@ const Market = (() => {
       const b0 = lastStart - i * bucket;
       const b1 = Math.min(b0 + bucket, now);
       out.push(aggregate(def, b0, b1));
+    }
+    // Pin the forming (last) candle's close to the SAME displayed quote the
+    // header, market list and portfolio show, so the chart's live price is
+    // identical to the penny — and identical across every timeframe — instead
+    // of drifting (e.g. 267.68 on the chart vs 267.70 in the header).
+    const tip = out[out.length - 1];
+    if (tip) {
+      const q = dispPrice(id);
+      tip.close = q;
+      if (q > tip.high) tip.high = q;
+      if (q < tip.low) tip.low = q;
     }
     return out;
   }
@@ -504,7 +523,7 @@ const Market = (() => {
 
   return {
     ensure, tick, applyOffline,
-    price, priceAt, buyPrice, sellPrice, changePct, candles, tfBucketSecs,
+    price, priceAt, buyPrice, sellPrice, changePct, candles, tfBucketSecs, quoteEpoch,
     holding, buy, buyShares, sell, sellShares, portfolioSummary,
     dispPrice, dispChangePct,
     stats, params, supplyOf, timeframes: MARKET.TIMEFRAMES,
