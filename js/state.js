@@ -22,7 +22,10 @@ const SAVE_KEY = 'tycoon_save_v1';
 //      so nothing is lost) and pruned from portfolio + owner-management history;
 //      a one-time notice is queued for the UI. Nova Nordisk renamed to Nordvia
 //      (same id/ticker, so holdings are untouched).
-const SAVE_VERSION = 10;
+// v11: real estate moved from the Invest tab to the Business tab. The property
+//      data (state.assets.estate) is UNCHANGED — every owned unit keeps its
+//      count, cost basis, value and rent. Pure in-place migration, no reset.
+const SAVE_VERSION = 11;
 
 // Offline earnings: pay 100% for a window, avoiding both "free idle game" and
 // the genre's usual stingy offline rates. Phase 1 cap = 2 hours (raised later).
@@ -202,6 +205,12 @@ function migrate(loaded) {
       }
     }
     loaded.version = 10;
+  }
+  // v10 -> v11: real estate moved from Invest to the Business tab. The property
+  // data (loaded.assets.estate) is untouched — owned units, their cost basis,
+  // value and rent all carry over exactly. Nothing to transform.
+  if (loaded.version < 11) {
+    loaded.version = 11;
   }
   return loaded;
 }

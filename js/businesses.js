@@ -82,9 +82,10 @@ const Businesses = (() => {
   }
 
   /* --------------------------- Real estate ---------------------------- */
-  // Buy property units for rent + appreciation. Rent feeds passive income
-  // (engine.totalPassiveIncomePerSec) exactly as before — only the UI moved
-  // here from the Invest tab.
+  // Property is operated like a business: buy units for rent + appreciation.
+  // Rent still feeds passive income (engine.totalPassiveIncomePerSec) exactly
+  // as before — only the UI moved here from the Invest tab. Cards use the same
+  // biz-card layout as the businesses so it feels native.
 
   function estateTabHTML() {
     Assets.ensure();
@@ -92,47 +93,52 @@ const Businesses = (() => {
     let html = `
       <div class="section-head">
         <h2>Real Estate</h2>
-        <div class="section-stat">${formatRate(Assets.rentPerSec())} rent</div>
+        <div class="section-stat">${formatRate(Assets.rentPerSec())}</div>
       </div>
       ${tabToggleHTML()}
-      <div class="card">
+      <div class="card meta-card">
         <div class="card-row">
           <div>
             <div class="card-title">🏠 Property Portfolio</div>
-            <div class="card-sub">${sum.units} unit${sum.units === 1 ? '' : 's'} · invested ${formatMoney(sum.cost)}</div>
+            <div class="card-sub">${sum.units} unit${sum.units === 1 ? '' : 's'} owned · worth ${formatMoney(sum.value)}</div>
           </div>
-          <div class="pf-numbers">
-            <div class="pf-value">${formatMoney(sum.value)}</div>
-            <div class="pf-pl ${sum.pl >= 0 ? 'up' : 'down'}">${sum.pl >= 0 ? '+' : '-'}${formatMoney(Math.abs(sum.pl))}</div>
-          </div>
+          <div class="xp-num">${formatMoney(sum.cost)} <span class="muted">invested</span></div>
         </div>
-      </div>`;
+      </div>
+      <div class="biz-list">`;
     for (const def of ESTATE_DEFS) html += estateCardHTML(def);
+    html += '</div>';
     return html;
   }
 
+  /** One property tier, laid out exactly like a business card. */
   function estateCardHTML(def) {
     const rec = (state.assets.estate && state.assets.estate[def.id]) || { count: 0, cost: 0 };
-    const value = Assets.unitValue(def);
+    const owned = rec.count > 0;
+    const value = Assets.unitValue(def);                 // current price of one unit
     const canBuy = state.balance >= value;
     const paybackSec = value / def.rentPerSec;
     const sellNet = value * (1 - ASSETS_CFG.ESTATE_SELL_FEE);
     return `
-      <div class="card asset-card">
-        <div class="asset-visual" style="--ph: hsl(${140 + def.tier * 30}, 42%, 44%)">
-          <span class="asset-visual-icon">${def.icon}</span>
-          ${rec.count > 0 ? `<span class="owned-badge">×${rec.count}</span>` : ''}
-        </div>
-        <div class="asset-body">
-          <div class="asset-sym">${def.name}</div>
-          <div class="mult-row"><span>Market value</span><b>${formatMoney(value)} <span class="up">+${(def.apprPerDay * 100).toFixed(1)}%/day</span></b></div>
-          <div class="mult-row"><span>Rent per unit</span><b class="gold">${formatRate(def.rentPerSec)}</b></div>
-          <div class="mult-row"><span>ROI payback</span><b>${formatDuration(paybackSec)}</b></div>
-          <div class="chip-row">
-            <button class="btn btn-sm ${canBuy ? 'btn-gold' : ''}" data-buyestate="${def.id}" ${canBuy ? '' : 'disabled'}>Buy ${formatMoney(value)}</button>
-            ${rec.count > 0 ? `<button class="btn btn-sm" data-sellestate="${def.id}">Sell ${formatMoney(sellNet)}</button>` : ''}
+      <div class="card biz-card ${owned ? '' : 'not-owned'}">
+        <div class="biz-head">
+          <div class="biz-icon">${def.icon}</div>
+          <div class="biz-title-wrap">
+            <div class="biz-name">${def.name}</div>
+            <div class="biz-blurb">Tier ${def.tier} property · appreciates +${(def.apprPerDay * 100).toFixed(1)}%/day</div>
           </div>
+          ${owned ? `<div class="biz-level">×${rec.count}</div>` : ''}
         </div>
+
+        <div class="biz-stats">
+          <div><span class="muted">Rent per unit</span><b class="gold">${formatRate(def.rentPerSec)}</b></div>
+          <div><span class="muted">Unit price</span><b>${formatMoney(value)}</b></div>
+        </div>
+
+        <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buyestate="${def.id}" ${canBuy ? '' : 'disabled'}>
+          Buy a unit · ${formatMoney(value)}</button>
+        <div class="progress-caption">ROI payback ${formatDuration(paybackSec)}${owned ? ` · you own ${rec.count} (rent ${formatRate(rec.count * def.rentPerSec)})` : ''}</div>
+        ${owned ? `<button class="sell-link" data-sellestate="${def.id}">Sell one unit (${formatMoney(sellNet)} after fee)</button>` : ''}
       </div>`;
   }
 

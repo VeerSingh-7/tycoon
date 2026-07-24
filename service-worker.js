@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v28'; // v28: move real estate from Invest to the Business tab
+const CACHE_NAME = 'tycoon-v29'; // v29: real estate as a Business-tab property business (biz-card layout); save v11
 
 const ASSETS = [
   'index.html',

@@ -1,13 +1,12 @@
 /* =========================================================================
  * invest.js — Phase 4 (overhauled) UI: our own pro mobile trading screen
  * -------------------------------------------------------------------------
- * Dark + gold identity, rounded cards, our own candlestick canvas. Screens:
- *   list       — Portfolio card (→ Holdings) + search + a Stocks / Crypto /
- *                Property toggle, then a clean list of the selected group
+ * Stocks + crypto only (real estate lives on the Business tab). Screens:
+ *   list       — Portfolio card (→ Holdings) + a Stocks / Crypto toggle, then
+ *                a clean list of the selected group
  *   detail     — ticker/name header, big price + today & month %, inline chart
  *                (tap → fullscreen), Your Investment, Stats, Buyout / Manage,
- *                pinned Buy / Sell bar. Property has its own unit-based detail
- *                (no chart) in the same styling: rent, appreciation, ROI.
+ *                pinned Buy / Sell bar
  *   fullscreen — big chart + 1D/1W/1M/3M/1Y/Max timeframe row
  *   ticket     — Buy/Sell amount (slider + quick %), then Review order
  *
