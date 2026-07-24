@@ -12,6 +12,7 @@
 
 const Businesses = (() => {
   let container;
+  const view = { tab: 'biz' }; // 'biz' | 'estate' — survives re-renders
 
   function mount(el) {
     container = el;
@@ -27,10 +28,13 @@ const Businesses = (() => {
     const d = btn.dataset;
     let changed = false;
 
-    if (d.buy) changed = buyBusinessLevel(d.buy);
+    if (d.biztab) { view.tab = d.biztab; render(); return; }
+    else if (d.buy) changed = buyBusinessLevel(d.buy);
     else if (d.upgrade) changed = buyBusinessUpgrade(d.biz, d.upgrade);
     else if (d.hire) changed = hireStaff(d.hire);
     else if (d.mgmt !== undefined) changed = buyManagementUpgrade();
+    else if (d.buyestate) changed = Assets.buyEstate(d.buyestate);
+    else if (d.sellestate) changed = Assets.sellEstate(d.sellestate);
     else if (d.sell) {
       const def = BUSINESS_BY_ID[d.sell];
       const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
@@ -50,22 +54,86 @@ const Businesses = (() => {
 
   /* ------------------------------ Render ------------------------------ */
 
+  const tabToggleHTML = () => {
+    const seg = (id, label) => `<button class="seg ${view.tab === id ? 'seg-active' : ''}" data-biztab="${id}">${label}</button>`;
+    return `<div class="seg-row">${seg('biz', 'Businesses')}${seg('estate', 'Real Estate')}</div>`;
+  };
+
   function render() {
     if (!container) return;
-    const level = playerLevel();
+    container.innerHTML = view.tab === 'estate' ? estateTabHTML() : bizTabHTML();
+  }
 
+  function bizTabHTML() {
+    const level = playerLevel();
     let html = `
       <div class="section-head">
         <h2>Businesses</h2>
         <div class="section-stat">${formatRate(totalBusinessIncomePerSec())}</div>
       </div>
+      ${tabToggleHTML()}
       ${headerHTML(level)}
       ${managementHTML()}
       <div class="biz-list">
     `;
     for (const def of BUSINESS_DEFS) html += businessCardHTML(def, level);
     html += '</div>';
-    container.innerHTML = html;
+    return html;
+  }
+
+  /* --------------------------- Real estate ---------------------------- */
+  // Buy property units for rent + appreciation. Rent feeds passive income
+  // (engine.totalPassiveIncomePerSec) exactly as before — only the UI moved
+  // here from the Invest tab.
+
+  function estateTabHTML() {
+    Assets.ensure();
+    const sum = Assets.estateSummary();
+    let html = `
+      <div class="section-head">
+        <h2>Real Estate</h2>
+        <div class="section-stat">${formatRate(Assets.rentPerSec())} rent</div>
+      </div>
+      ${tabToggleHTML()}
+      <div class="card">
+        <div class="card-row">
+          <div>
+            <div class="card-title">🏠 Property Portfolio</div>
+            <div class="card-sub">${sum.units} unit${sum.units === 1 ? '' : 's'} · invested ${formatMoney(sum.cost)}</div>
+          </div>
+          <div class="pf-numbers">
+            <div class="pf-value">${formatMoney(sum.value)}</div>
+            <div class="pf-pl ${sum.pl >= 0 ? 'up' : 'down'}">${sum.pl >= 0 ? '+' : '-'}${formatMoney(Math.abs(sum.pl))}</div>
+          </div>
+        </div>
+      </div>`;
+    for (const def of ESTATE_DEFS) html += estateCardHTML(def);
+    return html;
+  }
+
+  function estateCardHTML(def) {
+    const rec = (state.assets.estate && state.assets.estate[def.id]) || { count: 0, cost: 0 };
+    const value = Assets.unitValue(def);
+    const canBuy = state.balance >= value;
+    const paybackSec = value / def.rentPerSec;
+    const sellNet = value * (1 - ASSETS_CFG.ESTATE_SELL_FEE);
+    return `
+      <div class="card asset-card">
+        <div class="asset-visual" style="--ph: hsl(${140 + def.tier * 30}, 42%, 44%)">
+          <span class="asset-visual-icon">${def.icon}</span>
+          ${rec.count > 0 ? `<span class="owned-badge">×${rec.count}</span>` : ''}
+        </div>
+        <div class="asset-body">
+          <div class="asset-sym">${def.name}</div>
+          <div class="mult-row"><span>Market value</span><b>${formatMoney(value)} <span class="up">+${(def.apprPerDay * 100).toFixed(1)}%/day</span></b></div>
+          <div class="mult-row"><span>Rent per unit</span><b class="gold">${formatRate(def.rentPerSec)}</b></div>
+          <div class="mult-row"><span>ROI payback</span><b>${formatDuration(paybackSec)}</b></div>
+          <div class="chip-row">
+            <button class="btn btn-sm ${canBuy ? 'btn-gold' : ''}" data-buyestate="${def.id}" ${canBuy ? '' : 'disabled'}>Buy ${formatMoney(value)}</button>
+            ${rec.count > 0 ? `<button class="btn btn-sm" data-sellestate="${def.id}">Sell ${formatMoney(sellNet)}</button>` : ''}
+          </div>
+        </div>
+      </div>`;
   }
 
   /** Player level + XP progress + slot usage. */
