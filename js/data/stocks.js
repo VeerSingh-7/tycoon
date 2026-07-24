@@ -39,7 +39,7 @@ const STOCK_ROSTER = [
   ['novanordisk',  'Nordvia',            'NVK',  'pharma',      120,   1923],
   ['chokacola',    'Choka-Cola',         'CHK',  'consumer',    62,    1886],
   ['chevrol',      'Chevrol',            'CVR',  'energy',      155,   1879],
-  ['bankameria',   'Apex Financial',     'APX',  'bank',        40,    1904],
+  ['bankameria',   'Bank of Ameria',     'BKA',  'bank',        40,    1904],
   ['lithosystems', 'Litho Systems',      'LTH',  'semi',        900,   1984],
   ['samsong',      'Samsong',            'SMS',  'tech',        55,    1938],
   ['maisonlux',    'Maison Lux',         'MLX',  'luxury',      720,   1987],

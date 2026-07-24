@@ -20,7 +20,8 @@
 
 const Logos = (() => {
   const cache = {};        // id -> inner SVG string (built once)
-  const missing = new Set(); // ids whose override image 404'd this session
+  const missing = new Set(); // slugs whose .svg AND .png both 404'd this session
+  const resolved = {};     // slug -> 'svg' | 'png' (the override file that loaded)
 
   /* ------------------------------ Hashing ------------------------------- */
 
@@ -152,26 +153,39 @@ const Logos = (() => {
   /**
    * THE one entry point: a logo tile for any asset.
    * cls: '' (40px row) | 'lg' (detail) | 'sm' (ticket).
-   * If img/logos/<ticker>.svg exists it covers the generated logo; a 404 is
-   * remembered so re-renders never re-request it.
+   * If img/logos/<ticker>.svg OR .png exists it covers the generated logo (we
+   * try .svg first, then .png). If neither exists the slug is remembered so
+   * re-renders never re-request it.
    */
   function tile(def, cls = '') {
     const slug = slugOf(def);
-    const img = missing.has(slug)
-      ? ''
-      : `<img src="img/logos/${slug}.svg" alt="" loading="lazy" decoding="async" onload="Logos.hit(this)" onerror="Logos.miss(this,'${slug}')">`;
+    let img = '';
+    if (!missing.has(slug)) {
+      const ext = resolved[slug] || 'svg'; // start from the ext known to work
+      img = `<img src="img/logos/${slug}.${ext}" alt="" loading="lazy" decoding="async" onload="Logos.hit(this,'${slug}','${ext}')" onerror="Logos.miss(this,'${slug}','${ext}')">`;
+    }
     return `<span class="logo-tile ${cls}">${svg(def)}${img}</span>`;
   }
 
-  /** onload hook: a designed override loaded — hide the generated mark under
-   *  it so the tile takes the override's own shape (e.g. a circular logo). */
-  function hit(el) {
+  /** onload hook: a designed override loaded — remember which extension worked
+   *  and hide the generated mark so the tile takes the override's own shape. */
+  function hit(el, slug, ext) {
+    if (slug) resolved[slug] = ext;
     const tile = el && el.parentNode;
     if (tile && tile.classList) tile.classList.add('has-override');
   }
 
-  /** onerror hook: drop the broken override and never ask for it again. */
-  function miss(el, slug) {
+  /** onerror hook: if the .svg wasn't there, fall back to .png before giving
+   *  up; if the .png is also missing, drop it and never ask for either again. */
+  function miss(el, slug, ext) {
+    if (ext === 'svg') {
+      // Point both hooks at the .png attempt so a successful load records 'png'
+      // (not the failed 'svg'), and a second failure marks the slug missing.
+      el.onload = function () { Logos.hit(el, slug, 'png'); };
+      el.onerror = function () { Logos.miss(el, slug, 'png'); };
+      el.src = `img/logos/${slug}.png`;
+      return;
+    }
     missing.add(slug);
     if (el && el.remove) el.remove();
   }

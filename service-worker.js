@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v35'; // v35: chart advances at timeframe cadence again; T212-style absolute date axis; new 1M timeframe
+const CACHE_NAME = 'tycoon-v36'; // v36: Banks & Fintech designed logos (MNP/GDS/BKA/VSA/MIC/YRK) + .png override support
 
 const ASSETS = [
   'index.html',
@@ -44,6 +44,13 @@ const ASSETS = [
   'img/logos/tzla.svg',
   'img/logos/amz.svg',
   'img/logos/fbk.svg',
+  // Banks & Fintech logos.
+  'img/logos/mnp.svg',
+  'img/logos/gds.svg',
+  'img/logos/bka.svg',
+  'img/logos/vsa.svg',
+  'img/logos/mic.svg',
+  'img/logos/yrk.svg',
 ];
 
 // Precache the app shell on install.
