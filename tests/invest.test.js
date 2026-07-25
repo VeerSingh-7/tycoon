@@ -75,26 +75,34 @@ const tip = Market.candles('mango', '1s').slice(-1)[0].close;
 const real = Market.priceAt(MANGO, globalThis.NOW / 1000);
 check('chart live close === real-time priceAt(now)', Math.abs(tip - real) < 1e-9);
 
-/* E) quoteEpoch advances every second (drives the once-per-second chart redraw). */
-globalThis.NOW = 1700000000000;
-const e0 = Market.quoteEpoch(); globalThis.NOW += 1000; const e1 = Market.quoteEpoch();
-check('quoteEpoch advances each second', e1 === e0 + 1);
-
 /* D2) Each timeframe advances exactly one bar per its interval (1MIN every
- *     minute, 1M every ~month …) while the live edge tracks real time within. */
+ *     minute, 1M every ~month …), and — critically — the chart's REDRAW key
+ *     (floor(now / tfBucketSecs), exactly what invest.js chartSigOf uses) only
+ *     changes at the interval boundary, so the chart does NOT move every second
+ *     on longer timeframes. The forming candle's close is real-time when it does. */
 const TFS = [['1s', 1], ['1m', 60], ['1H', 3600], ['1D', 86400], ['1W', 604800], ['1M', 2592000]];
 for (const [tf, secs] of TFS) {
   const base = 1700000000 - (1700000000 % secs);      // align to a bucket boundary
+  const bsecs = Market.tfBucketSecs('mango', tf);
+  const redrawKey = (t) => Math.floor(t / bsecs);      // mirrors chartSigOf
+  check(tf + ': tfBucketSecs === interval', bsecs === secs);
+
   globalThis.NOW = base * 1000;
   const startAligned = Market.candles('mango', tf).slice(-1)[0].time;
+  const k0 = redrawKey(base);
+
   globalThis.NOW = (base + secs - 1) * 1000;          // one second before the boundary
   const within = Market.candles('mango', tf).slice(-1)[0];
   check(tf + ': no new bar until the interval passes', within.time === startAligned);
-  check(tf + ': live edge is real-time within the interval',
+  check(tf + ': chart redraw key is stable within the interval (not per-second)',
+    redrawKey(base + secs - 1) === k0);
+  check(tf + ': live edge is real-time when it redraws',
     Math.abs(within.close - Market.priceAt(MANGO, globalThis.NOW / 1000)) < 1e-9);
+
   globalThis.NOW = (base + secs) * 1000;              // cross the boundary
   check(tf + ': exactly one new bar per interval',
     Market.candles('mango', tf).slice(-1)[0].time === startAligned + secs);
+  check(tf + ': chart redraws once per interval', redrawKey(base + secs) === k0 + 1);
 }
 
 /* F) No penny coins: every coin's reference price is a real (>= $1) value. */

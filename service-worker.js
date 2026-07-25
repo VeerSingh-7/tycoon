@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v43'; // v43: calm staggered quote (~17s) + real-time charts; sleek Finances button
+const CACHE_NAME = 'tycoon-v44'; // v44: chart advances at the timeframe's cadence (1MIN→minute, 1W→week…), not every second
 
 const ASSETS = [
   'index.html',

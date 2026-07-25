@@ -185,10 +185,6 @@ const Market = (() => {
     return ((priceAt(def, t) - past) / past) * 100;
   }
 
-  /** A once-per-second stamp: the CHART redraws when this changes, so its live
-   *  edge advances with real time (independent of the calmer quote cadence). */
-  function quoteEpoch() { return Math.floor(nowSec()); }
-
   /* ------------------------------- Candles ------------------------------- */
 
   /**
@@ -517,7 +513,7 @@ const Market = (() => {
 
   return {
     ensure, tick, applyOffline,
-    price, priceAt, buyPrice, sellPrice, changePct, candles, tfBucketSecs, quoteEpoch,
+    price, priceAt, buyPrice, sellPrice, changePct, candles, tfBucketSecs,
     holding, buy, buyShares, sell, sellShares, portfolioSummary,
     dispPrice, dispChangePct,
     stats, params, supplyOf, timeframes: MARKET.TIMEFRAMES,

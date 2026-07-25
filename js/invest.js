@@ -37,16 +37,13 @@ const Invest = (() => {
   let chartSig = null;                                       // last redraw signature (gates redraws)
   let fs = null;                                             // fullscreen {chart, tf, sig}
 
-  // Redraw signature for an asset+timeframe. It changes when a NEW bar forms
-  // for the timeframe (so the chart advances at that cadence — 1S per second,
-  // 1W weekly, 1M monthly …) OR when the displayed quote ticks (so the live
-  // price on the chart always equals the header/list number to the penny, on
-  // every timeframe). Between those, nothing redraws, so long timeframes don't
-  // churn on every render tick.
+  // Redraw key = which bar is forming for this asset+timeframe. It changes ONLY
+  // when a new bar's interval passes, so the chart advances at the timeframe's
+  // own real-time cadence — 1S every second, 1MIN every minute, 1H hourly, 1D
+  // daily, 1W weekly, 1M monthly, MAX its bucket — and NOT on every render tick.
   function chartSigOf(id, tf) {
     const secs = Market.tfBucketSecs(id, tf);
-    const bar = Math.floor((Date.now() / 1000) / secs);
-    return bar + '|' + Market.quoteEpoch(id);
+    return String(Math.floor((Date.now() / 1000) / secs));
   }
   let trade = null;                                          // full-screen trade page
   let bodyTimer = 0;                                         // search debounce
