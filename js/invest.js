@@ -88,6 +88,36 @@ const Invest = (() => {
     return pct.toPrecision(2) + '%';
   };
 
+  // Row subtitles show a human-readable sector / "Crypto" — never a ticker.
+  const SECTOR_LABELS = {
+    tech: 'Technology', semi: 'Semiconductors', bank: 'Banking', fintech: 'Fintech',
+    pharma: 'Pharmaceuticals', energy: 'Energy', retail: 'Retail', auto: 'Automotive',
+    aerospace: 'Aerospace & Defense', industrial: 'Industrials', telecom: 'Telecom',
+    media: 'Media', utility: 'Utilities', materials: 'Materials',
+    consumer: 'Consumer Goods', luxury: 'Luxury',
+  };
+  const subLabel = (def) => (def.group === 'crypto' ? 'Crypto' : (SECTOR_LABELS[def.sector] || 'Stock'));
+  const unitOf = (def) => (def.group === 'crypto' ? 'coins' : 'shares');
+
+  /** A tiny Trading-212-style performance sparkline (last 24h) for a list row:
+   *  green if the price is up over the window, red if down. Built once per row
+   *  from the same procedural price series the chart uses, so it's accurate. */
+  function sparkSVG(def) {
+    const now = Date.now() / 1000, span = MARKET.DAY, N = 24;
+    const pts = [];
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < N; i++) {
+      const p = Market.priceAt(def, now - span + span * (i / (N - 1)));
+      pts.push(p); if (p < min) min = p; if (p > max) max = p;
+    }
+    const up = pts[N - 1] >= pts[0];
+    const W = 58, H = 22, rng = (max - min) || 1;
+    const d = pts.map((p, i) =>
+      `${(W * i / (N - 1)).toFixed(1)},${(H - 1 - ((p - min) / rng) * (H - 2)).toFixed(1)}`).join(' ');
+    return `<svg class="spark ${up ? 'up' : 'down'}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">` +
+      `<polyline points="${d}" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+
   /* --------------------------- Segments ----------------------------- */
   // One simple toggle: Stocks | Crypto. Holdings is reached by tapping the
   // Portfolio card. (Real estate lives on the Business tab.)
@@ -200,9 +230,7 @@ const Invest = (() => {
 
   function rowHTML(def, p, ch) {
     const h = Market.holding(def.id);
-    const sub = h.shares > 0
-      ? `Holding ${fmtShares(h.shares)} · ${def.ticker}`
-      : `${def.ticker} · ${def.group === 'stock' ? def.sector : def.group}`;
+    const sub = h.shares > 0 ? `Holding ${fmtShares(h.shares)}` : subLabel(def);
     return `
       <button class="asset-row" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
@@ -210,6 +238,7 @@ const Invest = (() => {
           <div class="asset-sym">${def.name}</div>
           <div class="asset-name">${sub}</div>
         </div>
+        ${sparkSVG(def)}
         <div class="asset-price-wrap">
           <div class="asset-price" data-price="${def.id}">${formatMoney(p)}</div>
           <div class="asset-change ${plCls(ch)}" data-change="${def.id}">${changeText(ch)}</div>
@@ -266,8 +295,9 @@ const Invest = (() => {
         ${Logos.tile(def)}
         <div class="asset-name-wrap">
           <div class="asset-sym">${def.name}</div>
-          <div class="asset-name">${fmtShares(h.shares)} ${def.ticker}</div>
+          <div class="asset-name">${fmtShares(h.shares)} ${unitOf(def)}</div>
         </div>
+        ${sparkSVG(def)}
         <div class="asset-price-wrap">
           <div class="asset-price" data-pfval="${def.id}">${formatMoney(value)}</div>
           <div class="asset-change ${plCls(pl)}" data-pfpl="${def.id}">${plStr(pl, pct)}</div>
@@ -318,7 +348,7 @@ const Invest = (() => {
       <div class="detail-head">
         ${Logos.tile(def, 'lg')}
         <div><div class="asset-sym big">${def.name}</div>
-          <div class="asset-name">${def.ticker} · ${def.group === 'stock' ? def.sector + ' · stock' : def.group}${def.unit ? ' · ' + def.unit : ''}</div></div>
+          <div class="asset-name">${subLabel(def)}</div></div>
       </div>
       <div class="detail-price-row">
         <div class="detail-price" id="invPrice">${formatMoney(Market.dispPrice(def.id))}</div>
@@ -517,7 +547,7 @@ const Invest = (() => {
     ov.innerHTML = `
       <div class="fs-head">
         ${Logos.tile(def)}
-        <div class="fs-id"><div class="asset-sym big">${def.name}</div><div class="asset-name">${def.ticker}</div></div>
+        <div class="fs-id"><div class="asset-sym big">${def.name}</div><div class="asset-name">${subLabel(def)}</div></div>
         <div class="fs-price" id="fsPrice">${formatMoney(Market.dispPrice(def.id))}</div>
         <button class="icon-btn" id="fsClose" aria-label="Close full screen">✕</button>
       </div>
@@ -585,7 +615,7 @@ const Invest = (() => {
       return String(r);
     }
     function altStr(d) {
-      return st.mode === 'cash' ? `≈ ${fmtShares(d.shares)} ${def.ticker}` : `≈ ${formatMoney(d.cash)}`;
+      return st.mode === 'cash' ? `≈ ${fmtShares(d.shares)} ${unitOf(def)}` : `≈ ${formatMoney(d.cash)}`;
     }
 
     function close() { ov.remove(); trade = null; lockScroll(false); }
@@ -598,7 +628,7 @@ const Invest = (() => {
         <div class="trade-head">
           ${Logos.tile(def, 'sm')}
           <div class="trade-id"><div class="asset-sym">${side === 'buy' ? 'Buy' : 'Sell'} ${def.name}</div>
-            <div class="asset-name">${def.ticker}</div></div>
+            <div class="asset-name">${subLabel(def)}</div></div>
           <button class="icon-btn" id="tkClose" aria-label="Close">✕</button>
         </div>
         <div class="trade-live"><span class="muted">${side === 'buy' ? 'Ask' : 'Bid'}</span> <b id="tkPx">${formatMoney(d.p)}</b></div>
@@ -612,7 +642,7 @@ const Invest = (() => {
           <div class="amount-input-wrap">
             ${st.mode === 'cash' ? '<span class="amt-prefix">$</span>' : ''}
             <input id="tkAmt" class="amount-input" inputmode="decimal" type="text" value="${amtStr()}" placeholder="0" aria-label="Amount">
-            ${st.mode === 'shares' ? `<span class="amt-suffix">${def.ticker}</span>` : ''}
+            ${st.mode === 'shares' ? `<span class="amt-suffix">${unitOf(def)}</span>` : ''}
           </div>
           <div class="amount-tip">Tap the number to type an exact ${st.mode === 'cash' ? 'cash amount' : 'number of shares'}</div>
           <div class="amount-alt" id="tkAlt">${altStr(d)}</div>
@@ -688,11 +718,11 @@ const Invest = (() => {
         <div class="trade-head">
           <button class="icon-btn" id="tkBack" aria-label="Back">‹</button>
           <div class="trade-id"><div class="asset-sym">Review order</div>
-            <div class="asset-name">${side === 'buy' ? 'Buy' : 'Sell'} ${def.ticker}</div></div>
+            <div class="asset-name">${side === 'buy' ? 'Buy' : 'Sell'} ${def.name}</div></div>
           <button class="icon-btn" id="tkClose2" aria-label="Close">✕</button>
         </div>
         <div class="review-list">
-          <div class="mult-row"><span>Action</span><b class="${side === 'buy' ? 'gold' : ''}">${side === 'buy' ? 'BUY' : 'SELL'} ${def.ticker}</b></div>
+          <div class="mult-row"><span>Action</span><b class="${side === 'buy' ? 'gold' : ''}">${side === 'buy' ? 'BUY' : 'SELL'} ${def.name}</b></div>
           <div class="mult-row"><span>Shares</span><b>${fmtShares(d.shares)}</b></div>
           <div class="mult-row"><span>Price (${side === 'buy' ? 'ask' : 'bid'})</span><b>${formatMoney(d.p)}</b></div>
           <div class="mult-row mult-total"><span>${side === 'buy' ? 'Total cost' : 'Total proceeds'}</span><b class="gold">${formatMoney(d.cash)}</b></div>
@@ -723,7 +753,7 @@ const Invest = (() => {
         close();
         if (ok) {
           UI.renderBalance();
-          UI.showToast(`${side === 'buy' ? '🟢 Bought' : '🔴 Sold'} ${fmtShares(c.shares)} ${def.ticker}`, { tone: 'good' });
+          UI.showToast(`${side === 'buy' ? '🟢 Bought' : '🔴 Sold'} ${fmtShares(c.shares)} ${unitOf(def)}`, { tone: 'good' });
           render();
         }
       };

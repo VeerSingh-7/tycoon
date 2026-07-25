@@ -2,11 +2,13 @@
  * logos.js — Asset icon: a simple auto-generated monogram (no image files)
  * -------------------------------------------------------------------------
  * ONE entry point — Logos.tile(def, cls) — renders a clean coloured circle
- * with the asset's ticker letters centred in white and bold, everywhere an
+ * with the asset's NAME initials centred in white and bold, everywhere an
  * asset appears (markets list, detail, portfolio, buy/sell ticket).
  *
- *   - The circle colour is derived DETERMINISTICALLY from the ticker, so each
- *     asset keeps a consistent colour across the whole app and between sessions.
+ *   - The circle colour is derived DETERMINISTICALLY from the asset's id, so
+ *     each asset keeps a consistent colour across the app and between sessions
+ *     (and it doesn't change when a company is renamed).
+ *   - The letters are the name's initials (1–2), never a stock ticker.
  *   - Pure inline SVG — there are NO image files and no network requests.
  *
  * EASY TO REMOVE LATER: every asset icon in the app is produced by this single
@@ -23,19 +25,20 @@ const Logos = (() => {
     return h >>> 0;
   }
 
-  /** Deterministic, legible circle colour from the ticker (white text sits on
-   *  every hue: fixed saturation/lightness keeps it dark enough for contrast). */
-  function colorOf(ticker) {
-    const hue = hashStr(ticker) % 360;
+  /** Deterministic, legible circle colour from a key (white text sits on every
+   *  hue: fixed saturation/lightness keeps it dark enough for contrast). */
+  function colorOf(key) {
+    const hue = hashStr(key) % 360;
     return `hsl(${hue}, 60%, 40%)`;
   }
 
-  /** Font size that keeps 2–5 letter tickers inside the circle. */
-  function fontSizeFor(len) {
-    if (len <= 2) return 42;
-    if (len === 3) return 36;
-    if (len === 4) return 29;
-    return 24;
+  /** 1–2 letter initials from the company/coin NAME (first letters of the first
+   *  two words; a single word contributes its first two letters). */
+  function initialsOf(name) {
+    const words = String(name || '').trim().split(/[^A-Za-z0-9]+/).filter(Boolean);
+    if (!words.length) return '?';
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[1][0]).toUpperCase();
   }
 
   /**
@@ -44,15 +47,14 @@ const Logos = (() => {
    * so the icon is the same size the old logos were.
    */
   function tile(def, cls = '') {
-    const ticker = String((def && (def.ticker || def.id)) || '?').toUpperCase();
-    const fill = colorOf(ticker);
-    const fs = fontSizeFor(ticker.length);
+    const letters = initialsOf(def && def.name);
+    const fill = colorOf(String((def && def.id) || (def && def.name) || '?'));
     const svg =
       `<svg viewBox="0 0 100 100" aria-hidden="true">` +
         `<circle cx="50" cy="50" r="50" fill="${fill}"/>` +
         `<text x="50" y="50" dy=".35em" text-anchor="middle" ` +
           `font-family="-apple-system,'Segoe UI',Roboto,sans-serif" ` +
-          `font-size="${fs}" font-weight="800" fill="#fff">${ticker}</text>` +
+          `font-size="40" font-weight="800" fill="#fff">${letters}</text>` +
       `</svg>`;
     return `<span class="logo-tile ${cls}">${svg}</span>`;
   }

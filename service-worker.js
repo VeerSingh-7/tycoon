@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v39'; // v39: removed image logos — asset icons are now generated monogram circles (no image files)
+const CACHE_NAME = 'tycoon-v40'; // v40: all assets renamed (custom, trademark-free), coins repriced, real-time accurate quotes, T212 rows
 
 const ASSETS = [
   'index.html',

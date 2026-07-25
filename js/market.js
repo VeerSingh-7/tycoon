@@ -162,32 +162,16 @@ const Market = (() => {
   }
 
   /* ---------------------- Displayed "ticker" prices ----------------------- */
-  // Every place a quote is shown (market list, detail header, portfolio) reads
-  // the SAME per-asset display price, so one stock is always consistent across
-  // the whole section. Each asset ticks on its OWN ~15s phase (staggered by a
-  // hash of its id), so different stocks update at different moments rather than
-  // all flipping in lockstep. The chart stays fully live/continuous.
-  const TICKER_STEP = 15; // seconds between an asset's ticker updates
-  function dispTimeFor(def) {
-    const off = hashStr(def.id) % TICKER_STEP;         // 0..14 per-asset phase
-    return Math.floor((nowSec() - off) / TICKER_STEP) * TICKER_STEP + off;
-  }
-  function dispPrice(id) { const d = ASSET_BY_ID[id]; return priceAt(d, dispTimeFor(d)); }
-  function dispChangePct(id, sinceSec = DAY) {
-    const def = ASSET_BY_ID[id];
-    const t = dispTimeFor(def);
-    const past = priceAt(def, t - sinceSec);
-    if (past <= 0) return 0;
-    return ((priceAt(def, t) - past) / past) * 100;
-  }
+  // The quote shown everywhere (market list, detail header, portfolio) is the
+  // REAL current price at "now" — the exact same value the chart plots — so the
+  // number and the chart line always agree to the penny and both tick with real
+  // time. No staggering, no separate sampling: one true price per asset.
+  function dispPrice(id) { return priceAt(ASSET_BY_ID[id], nowSec()); }
+  function dispChangePct(id, sinceSec = DAY) { return changePct(id, sinceSec); }
 
-  /** The timestamp (staggered 15s grid) the current quote is sampled at. It
-   *  changes only when dispPrice changes, so the chart can redraw exactly in
-   *  step with the header/list quote and never show a different live price. */
-  function quoteEpoch(id) {
-    const d = ASSET_BY_ID[id];
-    return d ? dispTimeFor(d) : 0;
-  }
+  /** A once-per-second stamp: the chart redraws when this changes, so the live
+   *  edge advances with real time (and always matches the displayed quote). */
+  function quoteEpoch() { return Math.floor(nowSec()); }
 
   /* ------------------------------- Candles ------------------------------- */
 
@@ -244,17 +228,9 @@ const Market = (() => {
       const b1 = Math.min(b0 + bucket, now);
       out.push(aggregate(def, b0, b1));
     }
-    // Pin the forming (last) candle's close to the SAME displayed quote the
-    // header, market list and portfolio show, so the chart's live price is
-    // identical to the penny — and identical across every timeframe — instead
-    // of drifting (e.g. 267.68 on the chart vs 267.70 in the header).
-    const tip = out[out.length - 1];
-    if (tip) {
-      const q = dispPrice(id);
-      tip.close = q;
-      if (q > tip.high) tip.high = q;
-      if (q < tip.low) tip.low = q;
-    }
+    // The forming candle's close is priceAt(now) — exactly the displayed quote
+    // (dispPrice is also priceAt(now)) — so the chart's live price always equals
+    // the header/list number, on every timeframe. Nothing to pin.
     return out;
   }
 

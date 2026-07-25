@@ -25,7 +25,24 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v11: real estate moved from the Invest tab to the Business tab. The property
 //      data (state.assets.estate) is UNCHANGED — every owned unit keeps its
 //      count, cost basis, value and rent. Pure in-place migration, no reset.
-const SAVE_VERSION = 11;
+// v12: every asset was renamed (custom, trademark-free) — names/tickers only,
+//      ids unchanged, so holdings carry over automatically. Seven formerly
+//      sub-dollar coins were repriced to real values (with matching supply
+//      cuts); holders get a reverse-split (shares ÷ price factor) so their coin
+//      VALUE and ownership % are preserved exactly — nothing sold or reset.
+const SAVE_VERSION = 12;
+
+// Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
+// A holder's share count is divided by this so value stays identical.
+const V12_COIN_SPLIT = {
+  ripplet:      30 / 0.55,
+  dogecorn:     24 / 0.12,
+  cardino:      18 / 0.45,
+  polkadotty:   65 / 6.5,
+  shibanovu:    12 / 0.00002,
+  safemoonshot: 8 / 0.000004,
+  frogcoin:     5 / 0.0000012,
+};
 
 // Offline earnings: pay 100% for a window, avoiding both "free idle game" and
 // the genre's usual stingy offline rates. Phase 1 cap = 2 hours (raised later).
@@ -211,6 +228,19 @@ function migrate(loaded) {
   // value and rent all carry over exactly. Nothing to transform.
   if (loaded.version < 11) {
     loaded.version = 11;
+  }
+  // v11 -> v12: assets renamed (ids unchanged, so holdings carry over as-is).
+  // Seven coins were repriced with matching supply cuts; reverse-split any
+  // holding in them so its VALUE and ownership % are unchanged (shares ÷ factor,
+  // cost basis untouched → same dollars in, same dollars out). Nothing is sold.
+  if (loaded.version < 12) {
+    if (loaded.portfolio) {
+      for (const id of Object.keys(V12_COIN_SPLIT)) {
+        const h = loaded.portfolio[id];
+        if (h && h.shares > 0) h.shares = h.shares / V12_COIN_SPLIT[id];
+      }
+    }
+    loaded.version = 12;
   }
   return loaded;
 }

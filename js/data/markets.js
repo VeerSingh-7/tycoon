@@ -69,23 +69,28 @@ const SECTOR_PROFILES = {
 };
 
 /* ------------------------------ Crypto ---------------------------------- */
-// All fictional parody coins. `supply` is the total coin supply — buy 100%
-// of it and the coin is fully YOURS (owner income + Manage panel), exactly
-// like buying out a company. Risk ladder: vol 0.09 (blue-chip) → 0.18 (degen).
-// Market caps span ~$0.5B (attainable) to ~$1.4T (endgame trophy).
+// All ORIGINAL, custom coin names (no real coin is referenced). `supply` is the
+// total coin supply — buy 100% of it and the coin is fully YOURS (owner income
+// + Manage panel), exactly like buying out a company. Risk ladder: vol 0.09
+// (blue-chip) → 0.18 (degen). Every coin trades at a real, non-fractional price
+// (no sub-dollar "penny" coins); market caps span ~$0.5B to ~$1.4T.
+//
+// NOTE: the six formerly sub-dollar coins were repriced (with a matching supply
+// cut). Holders are made whole by a reverse-split in state.js v12 (their coin
+// value and ownership % are preserved), so nothing is lost.
 
 const CRYPTO_DEFS = [
   // id            name             ticker   refPrice   supply    vol    drift  founded
-  { id: 'bitcorn',   name: 'Bitcorn',      ticker: 'BTC',  group: 'crypto', refPrice: 65000,     supply: 2.1e7,   vol: 0.090, drift: 0.10, founded: 2009, unit: 'per coin' },
-  { id: 'ethereal',  name: 'Ethereal',     ticker: 'ETH',  group: 'crypto', refPrice: 3200,      supply: 1.2e8,   vol: 0.105, drift: 0.12, founded: 2015, unit: 'per coin' },
-  { id: 'litebit',   name: 'Litebit',      ticker: 'LTB',  group: 'crypto', refPrice: 80,        supply: 8.4e7,   vol: 0.095, drift: 0.04, founded: 2011, unit: 'per coin' },
-  { id: 'ripplet',   name: 'Ripplet',      ticker: 'RPL',  group: 'crypto', refPrice: 0.55,      supply: 5.5e10,  vol: 0.100, drift: 0.05, founded: 2012, unit: 'per coin' },
-  { id: 'dogecorn',  name: 'Dogecorn',     ticker: 'DOGE', group: 'crypto', refPrice: 0.12,      supply: 1.4e11,  vol: 0.130, drift: 0.05, founded: 2013, unit: 'per coin' },
-  { id: 'cardino',   name: 'Cardino',      ticker: 'ADA',  group: 'crypto', refPrice: 0.45,      supply: 3.5e10,  vol: 0.110, drift: 0.06, founded: 2017, unit: 'per coin' },
-  { id: 'solami',    name: 'Solami',       ticker: 'SOL',  group: 'crypto', refPrice: 150,       supply: 4.6e8,   vol: 0.115, drift: 0.13, founded: 2020, unit: 'per coin' },
-  { id: 'polkadotty',name: 'Polkadotty',   ticker: 'DOTY', group: 'crypto', refPrice: 6.5,       supply: 1.4e9,   vol: 0.110, drift: 0.06, founded: 2020, unit: 'per coin' },
-  { id: 'avalunch',  name: 'Avalunch',     ticker: 'AVAX', group: 'crypto', refPrice: 30,        supply: 4.4e8,   vol: 0.120, drift: 0.08, founded: 2020, unit: 'per coin' },
-  { id: 'shibanovu', name: 'Shiba Novu',   ticker: 'SHNV', group: 'crypto', refPrice: 0.00002,   supply: 5.89e14, vol: 0.140, drift: 0.05, founded: 2020, unit: 'per coin' },
-  { id: 'safemoonshot', name: 'SafeMoonshot', ticker: 'SAFE', group: 'crypto', refPrice: 0.000004, supply: 9.99e14, vol: 0.180, drift: 0.03, founded: 2021, unit: 'per coin' },
-  { id: 'frogcoin',  name: 'Frogcoin',     ticker: 'FROG', group: 'crypto', refPrice: 0.0000012, supply: 4.2e14,  vol: 0.160, drift: 0.06, founded: 2023, unit: 'per coin' },
+  { id: 'bitcorn',   name: 'Aurum Chain',     ticker: 'AURM', group: 'crypto', refPrice: 65000,  supply: 2.1e7,   vol: 0.090, drift: 0.10, founded: 2009, unit: 'per coin' },
+  { id: 'ethereal',  name: 'Nexus Protocol',  ticker: 'NXS',  group: 'crypto', refPrice: 3200,   supply: 1.2e8,   vol: 0.105, drift: 0.12, founded: 2015, unit: 'per coin' },
+  { id: 'litebit',   name: 'Lumina Coin',     ticker: 'LMN',  group: 'crypto', refPrice: 80,     supply: 8.4e7,   vol: 0.095, drift: 0.04, founded: 2011, unit: 'per coin' },
+  { id: 'ripplet',   name: 'Cascade Ledger',  ticker: 'CSCL', group: 'crypto', refPrice: 30,     supply: 1.00833e9, vol: 0.100, drift: 0.05, founded: 2012, unit: 'per coin' },
+  { id: 'dogecorn',  name: 'Kobold Coin',     ticker: 'KBLD', group: 'crypto', refPrice: 24,     supply: 7.0e8,   vol: 0.130, drift: 0.05, founded: 2013, unit: 'per coin' },
+  { id: 'cardino',   name: 'Helios Chain',    ticker: 'HLIO', group: 'crypto', refPrice: 18,     supply: 8.75e8,  vol: 0.110, drift: 0.06, founded: 2017, unit: 'per coin' },
+  { id: 'solami',    name: 'Solstice',        ticker: 'SLST', group: 'crypto', refPrice: 150,    supply: 4.6e8,   vol: 0.115, drift: 0.13, founded: 2020, unit: 'per coin' },
+  { id: 'polkadotty',name: 'Polaris Network', ticker: 'PLRS', group: 'crypto', refPrice: 65,     supply: 1.4e8,   vol: 0.110, drift: 0.06, founded: 2020, unit: 'per coin' },
+  { id: 'avalunch',  name: 'Avalon Chain',    ticker: 'AVLN', group: 'crypto', refPrice: 30,     supply: 4.4e8,   vol: 0.120, drift: 0.08, founded: 2020, unit: 'per coin' },
+  { id: 'shibanovu', name: 'Nova Token',      ticker: 'NOVA', group: 'crypto', refPrice: 12,     supply: 9.81667e8, vol: 0.140, drift: 0.05, founded: 2020, unit: 'per coin' },
+  { id: 'safemoonshot', name: 'Zenith Coin',  ticker: 'ZNTH', group: 'crypto', refPrice: 8,      supply: 4.995e8, vol: 0.180, drift: 0.03, founded: 2021, unit: 'per coin' },
+  { id: 'frogcoin',  name: 'Pulse Coin',      ticker: 'PLSE', group: 'crypto', refPrice: 5,      supply: 1.008e8, vol: 0.160, drift: 0.06, founded: 2023, unit: 'per coin' },
 ];
