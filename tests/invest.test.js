@@ -80,6 +80,23 @@ globalThis.NOW = 1700000000000;
 const e0 = Market.quoteEpoch(); globalThis.NOW += 1000; const e1 = Market.quoteEpoch();
 check('quoteEpoch advances each second', e1 === e0 + 1);
 
+/* D2) Each timeframe advances exactly one bar per its interval (1MIN every
+ *     minute, 1M every ~month …) while the live edge tracks real time within. */
+const TFS = [['1s', 1], ['1m', 60], ['1H', 3600], ['1D', 86400], ['1W', 604800], ['1M', 2592000]];
+for (const [tf, secs] of TFS) {
+  const base = 1700000000 - (1700000000 % secs);      // align to a bucket boundary
+  globalThis.NOW = base * 1000;
+  const startAligned = Market.candles('mango', tf).slice(-1)[0].time;
+  globalThis.NOW = (base + secs - 1) * 1000;          // one second before the boundary
+  const within = Market.candles('mango', tf).slice(-1)[0];
+  check(tf + ': no new bar until the interval passes', within.time === startAligned);
+  check(tf + ': live edge is real-time within the interval',
+    Math.abs(within.close - Market.priceAt(MANGO, globalThis.NOW / 1000)) < 1e-9);
+  globalThis.NOW = (base + secs) * 1000;              // cross the boundary
+  check(tf + ': exactly one new bar per interval',
+    Market.candles('mango', tf).slice(-1)[0].time === startAligned + secs);
+}
+
 /* F) No penny coins: every coin's reference price is a real (>= $1) value. */
 check('no fractional coins (all refPrice >= $1)', CRYPTO_DEFS.every((d) => d.refPrice >= 1));
 

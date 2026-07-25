@@ -244,9 +244,11 @@ const Market = (() => {
       const b1 = Math.min(b0 + bucket, now);
       out.push(aggregate(def, b0, b1));
     }
-    // The forming candle's close is priceAt(now) — exactly the displayed quote
-    // (dispPrice is also priceAt(now)) — so the chart's live price always equals
-    // the header/list number, on every timeframe. Nothing to pin.
+    // The forming (last) candle's close is priceAt(now), so the chart's live
+    // edge moves in real time on every timeframe. A NEW candle appears only when
+    // `now` crosses the next bucket boundary (lastStart above), so 1MIN advances
+    // once a minute, 1M once a month, etc. The header/list quote is a separate,
+    // calmer ~17s staggered value (see dispPrice) — intentionally not pinned here.
     return out;
   }
 
