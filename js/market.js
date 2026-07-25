@@ -162,15 +162,31 @@ const Market = (() => {
   }
 
   /* ---------------------- Displayed "ticker" prices ----------------------- */
-  // The quote shown everywhere (market list, detail header, portfolio) is the
-  // REAL current price at "now" — the exact same value the chart plots — so the
-  // number and the chart line always agree to the penny and both tick with real
-  // time. No staggering, no separate sampling: one true price per asset.
-  function dispPrice(id) { return priceAt(ASSET_BY_ID[id], nowSec()); }
-  function dispChangePct(id, sinceSec = DAY) { return changePct(id, sinceSec); }
+  // The QUOTE shown as a number (market list price, detail header, and the
+  // Today/Month % on both) updates on a calm ~17s cadence, and each asset ticks
+  // on its OWN phase (staggered by a hash of its id) so different stocks change
+  // at different moments — a living ticker, not a per-second flicker. Because
+  // the list and the detail read the SAME dispPrice / dispChangePct, a stock's
+  // price and its Today % are identical before and after you tap it.
+  //
+  // The CHART is separate: it plots priceAt("now") and redraws every second, so
+  // the timeframes move in real time (1S every second, etc.).
+  const TICKER_STEP = 17; // seconds between an asset's displayed-quote updates
+  function dispTimeFor(def) {
+    const off = hashStr(def.id) % TICKER_STEP;          // 0..16 per-asset phase
+    return Math.floor((nowSec() - off) / TICKER_STEP) * TICKER_STEP + off;
+  }
+  function dispPrice(id) { const d = ASSET_BY_ID[id]; return priceAt(d, dispTimeFor(d)); }
+  function dispChangePct(id, sinceSec = DAY) {
+    const def = ASSET_BY_ID[id];
+    const t = dispTimeFor(def);
+    const past = priceAt(def, t - sinceSec);
+    if (past <= 0) return 0;
+    return ((priceAt(def, t) - past) / past) * 100;
+  }
 
-  /** A once-per-second stamp: the chart redraws when this changes, so the live
-   *  edge advances with real time (and always matches the displayed quote). */
+  /** A once-per-second stamp: the CHART redraws when this changes, so its live
+   *  edge advances with real time (independent of the calmer quote cadence). */
   function quoteEpoch() { return Math.floor(nowSec()); }
 
   /* ------------------------------- Candles ------------------------------- */

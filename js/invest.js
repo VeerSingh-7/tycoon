@@ -110,7 +110,8 @@ const Invest = (() => {
       const p = Market.priceAt(def, now - span + span * (i / (N - 1)));
       pts.push(p); if (p < min) min = p; if (p > max) max = p;
     }
-    const up = pts[N - 1] >= pts[0];
+    // Colour by the SAME Today % the row's arrow shows, so they always agree.
+    const up = Market.dispChangePct(def.id) >= 0;
     const W = 58, H = 22, rng = (max - min) || 1;
     const d = pts.map((p, i) =>
       `${(W * i / (N - 1)).toFixed(1)},${(H - 1 - ((p - min) / rng) * (H - 2)).toFixed(1)}`).join(' ');
@@ -180,31 +181,20 @@ const Invest = (() => {
   // stocks / crypto / portfolio page. (Room to add more sections later.)
 
   function renderHub() {
-    const g = grandTotal();
     container.innerHTML = `
       <div class="section-head"><h2>Invest</h2></div>
-      <div class="card hub-card" data-act="finances" role="button" tabindex="0">
-        <div class="hub-info">
-          <div class="card-title">Finances</div>
-          <div class="card-sub">Stocks · Crypto · Portfolio</div>
-        </div>
-        <div class="hub-meta">
-          <div class="hub-value" id="hubVal">${formatMoney(g.value)}</div>
-          <div class="pf-pl ${plCls(g.pl)}" id="hubPl">${plStr(g.pl, g.plPct)}</div>
-        </div>
+      <div class="card hub-card" data-act="finances" role="button" tabindex="0" aria-label="Open Finances">
+        <span class="hub-logo">
+          <svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+            <path d="M6 30 L16 20 L23 25 L34 11 L34 32 L6 32 Z" fill="rgba(255,255,255,0.20)"/>
+            <polyline points="6,30 16,20 23,25 34,11" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="34" cy="11" r="3" fill="#fff"/>
+          </svg>
+        </span>
+        <span class="hub-title">Finances</span>
         <span class="hub-arrow">›</span>
       </div>
     `;
-  }
-
-  /** Keep the hub's portfolio value + P/L live. */
-  function patchHub() {
-    const val = document.getElementById('hubVal');
-    if (!val) return;
-    const g = grandTotal();
-    val.textContent = formatMoney(g.value);
-    const pl = document.getElementById('hubPl');
-    if (pl) { pl.textContent = plStr(g.pl, g.plPct); pl.className = `pf-pl ${plCls(g.pl)}`; }
   }
 
   /* ------------------------------ List view ------------------------------ */
@@ -808,8 +798,8 @@ const Invest = (() => {
   function refresh() {
     if (!container) return;
 
-    // Hub: just keep the Finances card's portfolio value + P/L live.
-    if (view.mode === 'hub') { patchHub(); return; }
+    // Hub: static Finances button — nothing to update.
+    if (view.mode === 'hub') return;
 
     // Portfolio page: patch owned rows' value + P/L in place each tick (the
     // numbers only actually change on each asset's own staggered ~15s phase).

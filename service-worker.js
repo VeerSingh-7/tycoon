@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v42'; // v42: Invest tab lands on a Finances hub button that opens the markets/portfolio page
+const CACHE_NAME = 'tycoon-v43'; // v43: calm staggered quote (~17s) + real-time charts; sleek Finances button
 
 const ASSETS = [
   'index.html',
