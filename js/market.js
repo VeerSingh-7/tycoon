@@ -163,18 +163,23 @@ const Market = (() => {
 
   /* ---------------------- Displayed "ticker" prices ----------------------- */
   // The QUOTE shown as a number (market list price, detail header, and the
-  // Today/Month % on both) updates on a calm ~17s cadence, and each asset ticks
-  // on its OWN phase (staggered by a hash of its id) so different stocks change
-  // at different moments — a living ticker, not a per-second flicker. Because
-  // the list and the detail read the SAME dispPrice / dispChangePct, a stock's
-  // price and its Today % are identical before and after you tap it.
+  // Today/Month % on both) refreshes on a calm 20-30s cadence, and each asset
+  // has its OWN interval + phase (from a hash of its id) so different assets
+  // change at different moments — a living ticker, not a per-second flicker.
+  // The list and detail read the SAME dispPrice / dispChangePct, so a stock's
+  // price and Today % are identical before and after you tap it.
   //
-  // The CHART is separate: it plots priceAt("now") and redraws every second, so
-  // the timeframes move in real time (1S every second, etc.).
-  const TICKER_STEP = 17; // seconds between an asset's displayed-quote updates
+  // KEY: dispTimeFor returns an INTEGER second, and the chart samples its live
+  // edge at floor(now) too (see candles). So at the exact second an asset's
+  // quote refreshes, the 1S chart shows that same price — to the penny.
+  //
+  // The CHART otherwise advances per timeframe (1S every second, 1MIN every
+  // minute, …) — the quote cadence is independent of it.
+  function tickerStep(def) { return 20 + (hashStr(def.id + '#step') % 11); } // 20..30s, per asset
   function dispTimeFor(def) {
-    const off = hashStr(def.id) % TICKER_STEP;          // 0..16 per-asset phase
-    return Math.floor((nowSec() - off) / TICKER_STEP) * TICKER_STEP + off;
+    const step = tickerStep(def);
+    const off = hashStr(def.id) % step;                 // per-asset phase, 0..step-1
+    return Math.floor((nowSec() - off) / step) * step + off; // integer second
   }
   function dispPrice(id) { const d = ASSET_BY_ID[id]; return priceAt(d, dispTimeFor(d)); }
   function dispChangePct(id, sinceSec = DAY) {
@@ -215,7 +220,12 @@ const Market = (() => {
   function candles(id, tfId) {
     const def = ASSET_BY_ID[id];
     const p = params(def);
-    const now = nowSec();
+    // Sample the live edge at the current INTEGER second so the forming candle's
+    // close is priceAt(<whole second>) — the exact same value dispPrice reads at
+    // its (integer) refresh second. That makes the 1S chart tick match the shown
+    // quote to the penny the second it changes. (Whole-second `now` doesn't move
+    // any bucket boundary, so per-timeframe cadence is unchanged.)
+    const now = Math.floor(nowSec());
     const tf = MARKET.TIMEFRAMES.find((t) => t.id === tfId) || MARKET.TIMEFRAMES[0];
 
     let bucket = tf.bucket, n;

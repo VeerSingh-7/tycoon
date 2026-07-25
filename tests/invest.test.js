@@ -43,13 +43,13 @@ const MANGO = ASSET_BY_ID['mango'];
 /* A) The displayed quote updates on a calm ~17s cadence (not every second). */
 globalThis.NOW = 1700000000000;
 let prev = Market.dispPrice('mango'), changes = 0;
-for (let s = 1; s <= 34; s++) { globalThis.NOW += 1000; const v = Market.dispPrice('mango'); if (v !== prev) changes++; prev = v; }
-check('quote changes ~1-3 times over 34s (≈ every 17s), got ' + changes, changes >= 1 && changes <= 3);
+for (let s = 1; s <= 60; s++) { globalThis.NOW += 1000; const v = Market.dispPrice('mango'); if (v !== prev) changes++; prev = v; }
+check('quote changes ~2-3 times over 60s (≈ every 20-30s), got ' + changes, changes >= 2 && changes <= 3);
 
 /* B) Different assets change at different (staggered) moments. */
 function changeSecond(id) {
   const base = globalThis.NOW; let p = Market.dispPrice(id), at = -1;
-  for (let s = 1; s <= 17; s++) { globalThis.NOW = base + s * 1000; const v = Market.dispPrice(id); if (at < 0 && v !== p) at = s; p = v; }
+  for (let s = 1; s <= 31; s++) { globalThis.NOW = base + s * 1000; const v = Market.dispPrice(id); if (at < 0 && v !== p) at = s; p = v; }
   globalThis.NOW = base; return at;
 }
 globalThis.NOW = 1700000000000;
@@ -64,16 +64,30 @@ check('list Today% === detail Today% (dispChangePct default is DAY)',
   Market.dispChangePct('mango') === Market.dispChangePct('mango', MARKET.DAY));
 
 /* D) The chart is real-time: 1S advances exactly one bar per second, and the
- *    forming candle's close is priceAt("now") (not the calmer quote). */
+ *    forming candle's close is priceAt(<current whole second>). */
 globalThis.NOW = 1700000000000;
 const c0 = Market.candles('mango', '1s'); const t0 = c0[c0.length - 1].time;
 globalThis.NOW += 1000;
 const c1 = Market.candles('mango', '1s'); const t1 = c1[c1.length - 1].time;
 check('1S chart advances one bar per real second', t1 === t0 + 1);
-globalThis.NOW = 1700000000000 + 3000;
+globalThis.NOW = 1700000000000 + 3400;                 // mid-second wall clock
 const tip = Market.candles('mango', '1s').slice(-1)[0].close;
-const real = Market.priceAt(MANGO, globalThis.NOW / 1000);
-check('chart live close === real-time priceAt(now)', Math.abs(tip - real) < 1e-9);
+const whole = Market.priceAt(MANGO, Math.floor(globalThis.NOW / 1000));
+check('chart live close === priceAt(current whole second)', Math.abs(tip - whole) < 1e-9);
+
+/* D3) At the exact second an asset's quote refreshes, the 1S chart's live close
+ *     equals the new quote to the penny — for every stock and crypto. */
+for (const id of ['mango', 'googol', 'faceblock', 'bitcorn', 'dogecorn', 'shibanovu']) {
+  let sawUpdate = false, matched = true, prevQ = null;
+  for (let s = 0; s < 90; s++) {
+    globalThis.NOW = (1700000000 + s) * 1000 + 300;    // 0.3s into each whole second
+    const q = Market.dispPrice(id);
+    const cTip = Market.candles(id, '1s').slice(-1)[0].close;
+    if (prevQ !== null && q !== prevQ) { sawUpdate = true; if (Math.abs(q - cTip) > 1e-9) matched = false; }
+    prevQ = q;
+  }
+  check(id + ': 1S chart tip === quote at each refresh second', sawUpdate && matched);
+}
 
 /* D2) Each timeframe advances exactly one bar per its interval (1MIN every
  *     minute, 1M every ~month …), and — critically — the chart's REDRAW key

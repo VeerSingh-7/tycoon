@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v44'; // v44: chart advances at the timeframe's cadence (1MIN→minute, 1W→week…), not every second
+const CACHE_NAME = 'tycoon-v45'; // v45: quote refreshes every 20-30s and the 1S chart tick matches it exactly at that second
 
 const ASSETS = [
   'index.html',
