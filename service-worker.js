@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v38'; // v38: evenly spaced time axis; sub-cent prices no longer show as $0.00
+const CACHE_NAME = 'tycoon-v39'; // v39: removed image logos — asset icons are now generated monogram circles (no image files)
 
 const ASSETS = [
   'index.html',
@@ -38,19 +38,6 @@ const ASSETS = [
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-512-maskable.png',
-  // Designed asset logos (override the generated marks in js/logos.js).
-  'img/logos/mngo.svg',
-  'img/logos/ggl.svg',
-  'img/logos/tzla.svg',
-  'img/logos/amz.svg',
-  'img/logos/fbk.svg',
-  // Banks & Fintech logos.
-  'img/logos/mnp.svg',
-  'img/logos/gds.svg',
-  'img/logos/bka.svg',
-  'img/logos/vsa.svg',
-  'img/logos/mic.svg',
-  'img/logos/yrk.svg',
 ];
 
 // Precache the app shell on install.

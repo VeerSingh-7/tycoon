@@ -4,9 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tycoon — Logo Preview (dev)</title>
-<!-- Dev-only page: renders every procedural logo so you can judge them at a
-     glance and decide which to hand-swap via img/logos/<id>.png. Not part of
-     the app shell / service-worker cache. -->
+<!-- Dev-only page: renders every asset's generated monogram icon so you can
+     judge them at a glance. Not part of the app shell / service-worker cache. -->
 <style>
   body { background:#0d0f14; color:#eef1f6; font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
          margin:0; padding:24px; }
@@ -16,7 +15,6 @@
   .cell { text-align:center; }
   .cell .logo-tile { width:64px; height:64px; position:relative; display:inline-block; }
   .cell .logo-tile svg { width:100%; height:100%; display:block; }
-  .cell .logo-tile img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:24%; }
   .nm { font-size:10px; color:#8a93a6; margin-top:5px; word-break:break-word; }
 </style>
 </head>
