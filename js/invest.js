@@ -17,7 +17,7 @@
 
 const Invest = (() => {
   const view = {
-    mode: 'list', seg: 'stock', pfSeg: 'stock', q: '',
+    mode: 'hub', seg: 'stock', pfSeg: 'stock', q: '',
     assetId: null, tf: MARKET.DEFAULT_TF,
     returnTo: 'list', // where a detail's back button goes (list or portfolio)
     scrollY: 0,       // saved list/portfolio scroll to restore on back
@@ -136,6 +136,8 @@ const Invest = (() => {
     container = el;
     container.addEventListener('click', onClick);
     destroyChart();
+    // Entering the Invest tab always lands on the Finances hub.
+    view.mode = 'hub';
     render();
   }
 
@@ -147,7 +149,9 @@ const Invest = (() => {
     const a = t.dataset.act;
     const id = t.dataset.id;
 
-    if (a === 'open') { view.scrollY = getScroll(); view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); setScroll(0); }
+    if (a === 'finances') { view.mode = 'list'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'hub') { view.mode = 'hub'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'open') { view.scrollY = getScroll(); view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); setScroll(0); }
     // From a detail, go back to wherever it was opened from (Portfolio or
     // Markets) AND restore the exact scroll position you left. The Portfolio
     // page's own back-link always returns to Markets.
@@ -165,9 +169,42 @@ const Invest = (() => {
 
   function render() {
     if (!container) return;
-    if (view.mode === 'detail') renderDetail();
+    if (view.mode === 'hub') renderHub();
+    else if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'portfolio') renderPortfolio();
     else renderList();
+  }
+
+  /* ------------------------------- Hub view ------------------------------ */
+  // The Invest tab lands here: a single "Finances" button that opens the
+  // stocks / crypto / portfolio page. (Room to add more sections later.)
+
+  function renderHub() {
+    const g = grandTotal();
+    container.innerHTML = `
+      <div class="section-head"><h2>Invest</h2></div>
+      <div class="card hub-card" data-act="finances" role="button" tabindex="0">
+        <div class="hub-info">
+          <div class="card-title">Finances</div>
+          <div class="card-sub">Stocks · Crypto · Portfolio</div>
+        </div>
+        <div class="hub-meta">
+          <div class="hub-value" id="hubVal">${formatMoney(g.value)}</div>
+          <div class="pf-pl ${plCls(g.pl)}" id="hubPl">${plStr(g.pl, g.plPct)}</div>
+        </div>
+        <span class="hub-arrow">›</span>
+      </div>
+    `;
+  }
+
+  /** Keep the hub's portfolio value + P/L live. */
+  function patchHub() {
+    const val = document.getElementById('hubVal');
+    if (!val) return;
+    const g = grandTotal();
+    val.textContent = formatMoney(g.value);
+    const pl = document.getElementById('hubPl');
+    if (pl) { pl.textContent = plStr(g.pl, g.plPct); pl.className = `pf-pl ${plCls(g.pl)}`; }
   }
 
   /* ------------------------------ List view ------------------------------ */
@@ -186,6 +223,7 @@ const Invest = (() => {
   function renderList() {
     const g = grandTotal();
     container.innerHTML = `
+      <button class="back-link" data-act="hub">‹ Invest</button>
       <div class="section-head"><h2>Markets</h2></div>
       <div class="card pf-card pf-card-lg" data-act="portfolio" role="button">
         <div class="card-row">
@@ -769,6 +807,9 @@ const Invest = (() => {
 
   function refresh() {
     if (!container) return;
+
+    // Hub: just keep the Finances card's portfolio value + P/L live.
+    if (view.mode === 'hub') { patchHub(); return; }
 
     // Portfolio page: patch owned rows' value + P/L in place each tick (the
     // numbers only actually change on each asset's own staggered ~15s phase).

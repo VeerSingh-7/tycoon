@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v41'; // v41: removed the asset icon circle/initials — stocks & crypto show just the name
+const CACHE_NAME = 'tycoon-v42'; // v42: Invest tab lands on a Finances hub button that opens the markets/portfolio page
 
 const ASSETS = [
   'index.html',

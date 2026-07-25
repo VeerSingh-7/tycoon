@@ -612,6 +612,19 @@ html, body {
 .pf-card-lg .pf-pl { font-size: 13px; margin-top: 2px; }
 .pf-view-btn { margin-top: 16px; }
 
+/* Invest hub — the "Finances" button that opens the markets/portfolio page. */
+.hub-card {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; text-align: left; cursor: pointer; padding: 22px 20px;
+}
+.hub-info { flex: 1; min-width: 0; }
+.hub-card .card-title { font-size: 19px; }
+.hub-card .card-sub { font-size: 13px; margin-top: 4px; }
+.hub-meta { text-align: right; flex-shrink: 0; }
+.hub-value { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.hub-meta .pf-pl { font-size: 12.5px; margin-top: 2px; }
+.hub-arrow { font-size: 28px; color: var(--muted); line-height: 1; flex-shrink: 0; margin-left: 2px; }
+
 /* Portfolio page — "Not owned" empty state with a buy CTA. */
 .pf-empty {
   text-align: center; padding: 44px 24px 24px;
