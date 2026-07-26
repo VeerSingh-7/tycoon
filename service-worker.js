@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v46'; // v46: TEMPORARY infinite money (balance pinned to $1T each tick)
+const CACHE_NAME = 'tycoon-v47'; // v47: TEMPORARY infinite money — top bar shows ∞
 
 const ASSETS = [
   'index.html',

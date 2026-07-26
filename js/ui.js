@@ -160,7 +160,10 @@ const UI = (() => {
     } else {
       displayedBalance += diff * 0.18; // easing factor
     }
-    if (balanceEl) balanceEl.textContent = formatMoney(displayedBalance);
+    // TEMPORARY: infinite money — show ∞ in the top bar (real balance stays a
+    // large finite number so all buy/format math elsewhere keeps working).
+    if (balanceEl) balanceEl.textContent =
+      (typeof INFINITE_MONEY !== 'undefined' && INFINITE_MONEY) ? '∞' : formatMoney(displayedBalance);
     if (incomeEl) incomeEl.textContent = formatRate(totalPassiveIncomePerSec());
 
     // Player level badge (levels come from lifetime earnings — engine.js).
