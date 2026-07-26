@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v54'; // v54: Invest tab → Services hub (Finances + Marketing & Growth + Talent Acquisition)
+const CACHE_NAME = 'tycoon-v55'; // v55: Services hub — Hiring & Talent rename, per-card colours + subtitles
 
 const ASSETS = [
   'index.html',

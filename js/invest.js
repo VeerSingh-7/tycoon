@@ -172,7 +172,7 @@ const Invest = (() => {
     if (!container) return;
     if (view.mode === 'hub') renderHub();
     else if (view.mode === 'marketing') renderComing('Marketing &amp; Growth', 'Run campaigns, build your brand and reach new customers across your empire.');
-    else if (view.mode === 'hiring') renderComing('Talent Acquisition', 'Recruit and manage top talent to power every business you own.');
+    else if (view.mode === 'hiring') renderComing('Hiring &amp; Talent', 'Recruit and manage top talent to power every business you own.');
     else if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'portfolio') renderPortfolio();
     else renderList();
@@ -197,11 +197,14 @@ const Invest = (() => {
         <path d="M9 31 C9 24 14 22 20 22 C26 22 31 24 31 31" fill="rgba(255,255,255,0.20)" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   };
 
-  function hubCard(act, title) {
+  function hubCard(act, title, sub) {
     return `
-      <div class="card hub-card" data-act="${act}" role="button" tabindex="0" aria-label="Open ${title}">
+      <div class="card hub-card hub-${act}" data-act="${act}" role="button" tabindex="0" aria-label="Open ${title}">
         <span class="hub-logo">${HUB_ICONS[act]}</span>
-        <span class="hub-title">${title}</span>
+        <span class="hub-text">
+          <span class="hub-title">${title}</span>
+          <span class="hub-sub">${sub}</span>
+        </span>
         <span class="hub-arrow">›</span>
       </div>`;
   }
@@ -209,9 +212,9 @@ const Invest = (() => {
   function renderHub() {
     container.innerHTML = `
       <div class="section-head"><h2>Services</h2></div>
-      ${hubCard('finances', 'Finances')}
-      ${hubCard('marketing', 'Marketing &amp; Growth')}
-      ${hubCard('hiring', 'Talent Acquisition')}
+      ${hubCard('finances', 'Finances', 'Trade stocks &amp; crypto and grow your portfolio')}
+      ${hubCard('marketing', 'Marketing &amp; Growth', 'Run campaigns to build your brand and reach')}
+      ${hubCard('hiring', 'Hiring &amp; Talent', 'Recruit and manage top talent for your empire')}
     `;
   }
 

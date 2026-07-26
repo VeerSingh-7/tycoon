@@ -614,20 +614,49 @@ html, body {
 
 /* Invest hub — a clean, sleek "Finances" button that opens the markets page. */
 .hub-card {
-  display: flex; align-items: center; gap: 18px;
-  width: 100%; text-align: left; cursor: pointer; padding: 26px 22px;
+  display: flex; align-items: center; gap: 16px;
+  width: 100%; text-align: left; cursor: pointer; padding: 20px 20px;
   transition: transform 0.06s ease;
 }
 .hub-card:active { transform: scale(0.985); }
 .hub-logo {
-  width: 56px; height: 56px; border-radius: 16px; flex-shrink: 0;
+  width: 54px; height: 54px; border-radius: 16px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #3b82f6, #22c55e);
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.28);
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.28);
 }
 .hub-logo-svg { width: 32px; height: 32px; display: block; }
-.hub-title { flex: 1; font-size: 22px; font-weight: 800; letter-spacing: 0.2px; }
-.hub-arrow { font-size: 30px; color: var(--muted); line-height: 1; flex-shrink: 0; }
+.hub-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hub-title { font-size: 19px; font-weight: 800; letter-spacing: 0.2px; }
+.hub-sub { font-size: 12.5px; font-weight: 500; color: var(--muted); line-height: 1.35; }
+.hub-arrow { font-size: 28px; color: var(--muted); line-height: 1; flex-shrink: 0; }
+
+/* Each service reads as its own modern colour — a soft card wash + tinted
+   border, with a bold matching logo tile. */
+.hub-finances {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.04));
+  border-color: rgba(99, 102, 241, 0.30);
+}
+.hub-finances .hub-logo {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.32);
+}
+.hub-marketing {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(249, 115, 22, 0.05));
+  border-color: rgba(236, 72, 153, 0.30);
+}
+.hub-marketing .hub-logo {
+  background: linear-gradient(135deg, #ec4899, #f97316);
+  box-shadow: 0 6px 18px rgba(236, 72, 153, 0.32);
+}
+.hub-hiring {
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.08), rgba(34, 197, 94, 0.05));
+  border-color: rgba(20, 184, 166, 0.30);
+}
+.hub-hiring .hub-logo {
+  background: linear-gradient(135deg, #14b8a6, #22c55e);
+  box-shadow: 0 6px 18px rgba(20, 184, 166, 0.32);
+}
 
 /* Portfolio page — "Not owned" empty state with a buy CTA. */
 .pf-empty {
