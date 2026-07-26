@@ -1140,3 +1140,39 @@ html, body {
 .tc-bar { height: 6px; background: var(--bg-elev-2); border-radius: 99px; overflow: hidden; }
 .tc-bar-fill { height: 100%; background: var(--green); border-radius: 99px; }
 .tc-bar-fill.alt { background: var(--gold); }
+
+/* Phase 4 — strategy, manufacturing, regions, acquisition, events. */
+.tc-strat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tc-strat {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+  color: var(--text); font-family: inherit; padding: 11px 12px; cursor: pointer;
+}
+.tc-strat.on { border-color: var(--gold); background: var(--gold-glow); }
+.tc-strat b { font-size: 13px; font-weight: 700; }
+.tc-strat small { font-size: 10.5px; color: var(--muted); line-height: 1.35; }
+
+.tc-region-list, .tc-acq-list { display: flex; flex-direction: column; gap: 8px; }
+.tc-region {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+  padding: 11px 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between;
+}
+.tc-region.is-on { border-color: var(--green); }
+.tc-region-main { min-width: 0; }
+.tc-region-name { font-size: 14px; font-weight: 700; }
+.tc-region-trade { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.tc-region-right { flex-shrink: 0; }
+
+.tc-event {
+  position: relative; background: var(--bg-elev); border: 1px solid var(--gold);
+  border-radius: 14px; padding: 16px 14px 14px; margin-bottom: 6px; text-align: center;
+  box-shadow: 0 0 22px var(--gold-glow);
+}
+.tc-event-x {
+  position: absolute; top: 8px; right: 8px; background: none; border: none;
+  color: var(--muted); font-size: 15px; cursor: pointer; padding: 4px 8px;
+}
+.tc-event-icon { font-size: 34px; }
+.tc-event-title { font-size: 16px; font-weight: 800; margin: 4px 0 5px; }
+.tc-event-desc { font-size: 13px; color: var(--muted); line-height: 1.45; margin-bottom: 13px; }
+.tc-event-btns { display: flex; gap: 8px; }

@@ -166,6 +166,14 @@ const TechCo = (() => {
     if (c.innovBonus == null) c.innovBonus = 0;// innovation from sprints
     if (!c.leaders) c.leaders = {};            // categories the player is #1 in (claimed)
     if (c.undercutUntil == null) c.undercutUntil = 0;
+    // Phase 4 — manufacturing, financial strategy, global expansion, events.
+    if (c.manufacturing == null) c.manufacturing = hasManufacturing(id) ? 'outsource' : 'none';
+    if (c.strategy == null) c.strategy = 'balanced';
+    if (!c.regions) c.regions = { na: true };  // home region unlocked
+    if (c.acqBonus == null) c.acqBonus = 0;    // permanent income from acquisitions
+    if (c.event === undefined) c.event = null; // active themed event, if any
+    if (c.nextEventAt == null) c.nextEventAt = now() + EVENT_FIRST_DELAY;
+    if (c.supplyUntil == null) c.supplyUntil = 0;
   }
 
   function co(id) { const c = ensureCompany(id); normalize(c, id); return c; }
@@ -198,7 +206,8 @@ const TechCo = (() => {
    *  its current health, and company-wide research multipliers. */
   function productIncome(id, p) {
     const pr = PRICINGS[p.pricing];
-    return baseIncome(id) * p.incomeFrac * pr.incomeFactor * (Math.max(0, p.health) / 100) * researchMult(id);
+    return baseIncome(id) * p.incomeFrac * pr.incomeFactor * (Math.max(0, p.health) / 100)
+      * researchMult(id) * manufacturingMult(id, p); // in-house lifts physical margins
   }
 
   /** A live product's market-share contribution (percentage points). */
@@ -215,7 +224,7 @@ const TechCo = (() => {
   function buildSpeedMult(id) { return clamp(1 - groupEff(id, 'eng') * 0.02, 0.4, 1); }     // faster builds
   function concurrentSlots(id) { return clamp(1 + Math.floor(groupEff(id, 'eng') / 4), 1, 5); }
   function shareMult(id) { return clamp(1 + groupEff(id, 'mkt') * 0.02, 1, 2.2); }
-  function satTarget(id) { return clamp(50 + groupEff(id, 'ops') * 2, 0, 100); }
+  function satTarget(id) { return clamp(50 + groupEff(id, 'ops') * 2 - strategySatPenalty(id), 0, 100); }
   function staffReceptionBonus(id) {
     return clamp(groupEff(id, 'eng') * 0.015 + groupEff(id, 'mkt') * 0.03, 0, 2);
   }
@@ -264,7 +273,8 @@ const TechCo = (() => {
   // Operating-cost rate after Operations staff + research cost-cuts.
   function opexRate(id) {
     const opsCut = clamp(groupEff(id, 'ops') * 0.012, 0, 0.28);
-    return clamp(CFG.OPEX - opsCut - researchCostCut(id), 0.15, CFG.OPEX);
+    // Strategy stance and global-reach cost drag also move the operating rate.
+    return clamp(CFG.OPEX - opsCut - researchCostCut(id) + strategyOpexDelta(id) + globalOpexAdd(id), 0.15, 0.70);
   }
   // Live catalog = base products + any flagship products unlocked by research.
   function catalogFor(id) { return def(id).catalog.concat(co(id).unlocked); }
@@ -276,7 +286,7 @@ const TechCo = (() => {
     return true;
   };
   const researchCost = (id, tier) => baseIncome(id) * RESEARCH_TIERS[tier].costMult;
-  const researchSuccess = (id, tier) => clamp(RESEARCH_TIERS[tier].success + groupEff(id, 'eng') * 0.008, RESEARCH_TIERS[tier].success, 0.95);
+  const researchSuccess = (id, tier) => clamp(RESEARCH_TIERS[tier].success + groupEff(id, 'eng') * 0.008 + strategyResearchBonus(id), RESEARCH_TIERS[tier].success, 0.98);
 
   function startResearch(id, tier) {
     const c = co(id);
@@ -476,6 +486,150 @@ const TechCo = (() => {
     }
   }
 
+  /* ==================== Phase 4: Industry-specific extras ================== */
+
+  // Manufacturing — only for companies with physical products (Halcyon, Vireo
+  // hardware, Cygnus robotics). Software/social companies skip it entirely.
+  const MANU = {
+    outsource: { label: 'Outsource', note: 'Cheap & fast — lower margin, less control', physMult: 0.95, quality: -0.2 },
+    inhouse:   { label: 'In-house',  note: 'Costly to set up — better margin & quality, more control', physMult: 1.18, quality: 0.5, setupMult: 60 },
+  };
+  // Financial strategy stance (pick one).
+  const STRATEGIES = {
+    balanced:  { label: 'Balanced',        icon: '⚖️', note: 'No bias — steady as she goes.' },
+    research:  { label: 'Research Focus',  icon: '🔬', note: '+ research success & innovation; lower profit now.' },
+    marketing: { label: 'Marketing Focus', icon: '📣', note: 'Steadily wins market share; lower profit now.' },
+    costcut:   { label: 'Cut Costs',       icon: '✂️', note: 'More profit now, but risks satisfaction & quality.' },
+  };
+  // Global expansion regions (simplified: income boost vs a cost drag).
+  const REGIONS = [
+    { id: 'na',    name: 'North America',        income: 0,    cost: 0,     costMult: 0 },  // home
+    { id: 'eu',    name: 'Europe',               income: 0.12, cost: 0.03,  costMult: 15 },
+    { id: 'apac',  name: 'Asia-Pacific',         income: 0.20, cost: 0.06,  costMult: 28 },
+    { id: 'latam', name: 'Latin America',        income: 0.09, cost: 0.02,  costMult: 10 },
+    { id: 'mea',   name: 'Middle East & Africa', income: 0.10, cost: 0.035, costMult: 12 },
+  ];
+  const REGION_BY_ID = Object.fromEntries(REGIONS.map((r) => [r.id, r]));
+  // Rate-limited themed events (a choice with cost/benefit, dismissible).
+  const EVENTS = [
+    { id: 'viral',  icon: '🚀', title: 'Viral Hit',         desc: 'One of your products is blowing up online.',            a: { label: 'Pour money into it', cost: 12 }, b: { label: 'Let it ride' } },
+    { id: 'breach', icon: '🔓', title: 'Security Incident',  desc: 'A data breach is making headlines.',                    a: { label: 'Fund a full cleanup', cost: 15 }, b: { label: 'Downplay it' } },
+    { id: 'supply', icon: '📦', title: 'Supply Shortage',    desc: 'A key component just became scarce.', phys: true,       a: { label: 'Pay premium for supply', cost: 14 }, b: { label: 'Ride it out' } },
+    { id: 'poach',  icon: '🧲', title: 'Talent Poaching',    desc: 'A rival is trying to hire away your engineers.',        a: { label: 'Make a counter-offer', cost: 13 }, b: { label: 'Let them walk' } },
+  ];
+  const EVENT_INTERVAL = 6 * 60 * 1000;   // ≥6 min between events
+  const EVENT_FIRST_DELAY = 3 * 60 * 1000;
+
+  const hasManufacturing = (id) => def(id).catalog.some((row) => row[1]);
+  function manufacturingMult(id, p) {
+    if (!p.phys) return 1;
+    const m = co(id).manufacturing;
+    return m === 'inhouse' ? MANU.inhouse.physMult : m === 'outsource' ? MANU.outsource.physMult : 1;
+  }
+  function manufacturingQuality(id) {
+    const m = co(id).manufacturing;
+    return m === 'inhouse' ? MANU.inhouse.quality : m === 'outsource' ? MANU.outsource.quality : 0;
+  }
+  const inhouseSetupCost = (id) => baseIncome(id) * MANU.inhouse.setupMult;
+  function setManufacturing(id, mode) {
+    const c = co(id);
+    if (!hasManufacturing(id)) return { ok: false, msg: 'This company makes no physical products.' };
+    if (c.manufacturing === mode) return { ok: false, msg: 'Already set.' };
+    if (mode === 'inhouse') {
+      const cost = inhouseSetupCost(id);
+      if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to build in-house.` };
+      c.cash -= cost;
+    }
+    c.manufacturing = mode;
+    saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: mode === 'inhouse' ? 'Manufacturing brought in-house.' : 'Switched to outsourcing.' };
+  }
+
+  function setStrategy(id, s) {
+    const c = co(id);
+    if (!STRATEGIES[s]) return { ok: false, msg: 'Unknown strategy.' };
+    c.strategy = s;
+    saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: `${STRATEGIES[s].label} in effect.` };
+  }
+  const strategyOpexDelta = (id) => ({ research: 0.05, marketing: 0.05, costcut: -0.10 }[co(id).strategy] || 0);
+  const strategyResearchBonus = (id) => (co(id).strategy === 'research' ? 0.08 : 0);
+  const strategySatPenalty = (id) => (co(id).strategy === 'costcut' ? 15 : 0);
+  const strategyReceptionDelta = (id) => (co(id).strategy === 'costcut' ? -0.4 : 0);
+
+  const globalIncomeMult = (id) => co(id).regions ? Object.keys(co(id).regions).reduce((m, r) => m + (REGION_BY_ID[r] ? REGION_BY_ID[r].income : 0), 1) : 1;
+  const globalOpexAdd = (id) => co(id).regions ? Object.keys(co(id).regions).reduce((s, r) => s + (REGION_BY_ID[r] ? REGION_BY_ID[r].cost : 0), 0) : 0;
+  const regionCost = (id, rid) => baseIncome(id) * REGION_BY_ID[rid].costMult;
+  function unlockRegion(id, rid) {
+    const c = co(id), reg = REGION_BY_ID[rid];
+    if (!reg) return { ok: false, msg: 'Unknown region.' };
+    if (c.regions[rid]) return { ok: false, msg: 'Already operating there.' };
+    const cost = regionCost(id, rid);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to expand to ${reg.name}.` };
+    c.cash -= cost; c.regions[rid] = true;
+    saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: `Now operating in ${reg.name}.` };
+  }
+
+  // Rival acquisition — only when you clearly dominate the rival.
+  const canAcquire = (id, idx) => { const r = co(id).rivals[idx]; return r && r.strength <= playerStrength(id) * 0.5; };
+  const acquireCost = (id, idx) => { const r = co(id).rivals[idx]; return baseIncome(id) * 40 + (r ? r.value * 0.15 : 0); };
+  function acquireRival(id, idx) {
+    const c = co(id), r = c.rivals[idx];
+    if (!r) return { ok: false, msg: 'No such rival.' };
+    if (!canAcquire(id, idx)) return { ok: false, msg: `${r.name} is too strong — weaken it first.` };
+    const cost = acquireCost(id, idx);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to acquire ${r.name}.` };
+    c.cash -= cost;
+    c.edge = (c.edge || 0) + r.strength;   // absorb their market share
+    c.acqBonus = (c.acqBonus || 0) + 0.02; // permanent +2% income
+    c.reputation = clamp(c.reputation + 3, 0, 100);
+    c.rivals.splice(idx, 1);
+    checkLeadership(id);
+    saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: `Acquired ${r.name} — its market share is yours.` };
+  }
+
+  /* ------------------------------- Events --------------------------------- */
+
+  function maybeRollEvent(id) {
+    const c = co(id);
+    if (c.event || now() < c.nextEventAt) return;
+    const pool = EVENTS.filter((e) => !e.phys || hasManufacturing(id));
+    const e = pool[Math.floor(RNG() * pool.length)];
+    c.event = { id: e.id };
+    c.nextEventAt = now() + EVENT_INTERVAL;
+    toast(`${e.icon} <b>${e.title}</b><br>${companyName(id)} — a decision awaits in the More tab.`);
+    saveGame();
+    if (dash && dash.id === id) rebuildDash();
+  }
+  function eventDef(id) { const c = co(id); return c.event ? EVENTS.find((e) => e.id === c.event.id) : null; }
+  function resolveEvent(id, choice) {
+    const c = co(id), e = eventDef(id);
+    if (!e) return { ok: false, msg: 'No active event.' };
+    if (choice === 'dismiss') { c.event = null; saveGame(); if (dash && dash.id === id) rebuildDash(); return { ok: true, msg: 'Dismissed.' }; }
+    const opt = choice === 'a' ? e.a : e.b;
+    if (opt.cost) {
+      const cost = baseIncome(id) * opt.cost;
+      if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)}.` };
+      c.cash -= cost;
+    }
+    const rivalTot = totalRivalStrength(id) || 10;
+    if (e.id === 'viral') c.edge = (c.edge || 0) + rivalTot * (choice === 'a' ? 0.25 : 0.08);
+    else if (e.id === 'breach' && choice === 'b') { c.reputation = clamp(c.reputation - 8, 0, 100); c.satisfaction = clamp(c.satisfaction - 8, 0, 100); }
+    else if (e.id === 'supply' && choice === 'b') c.supplyUntil = now() + (c.manufacturing === 'inhouse' ? 150000 : 300000);
+    else if (e.id === 'poach' && choice === 'b') { c.edge = (c.edge || 0) * 0.7; if (c.staff.eng.count > 1) c.staff.eng.count--; }
+    c.event = null;
+    checkLeadership(id);
+    saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: 'Handled.' };
+  }
+
   /* --------------------------- Reception rolling --------------------------- */
 
   /** Roll a market reception, shifted by budget + quality (+ future staff/R&D).
@@ -495,10 +649,11 @@ const TechCo = (() => {
     const c = co(id);
     let rev = baseIncome(id) * researchMult(id); // baseline operations (× research)
     for (const p of c.products) rev += productIncome(id, p);
-    // Phase 3: market share directly scales income; industry leadership bonuses
-    // stack on top; an active price undercut thins the margin briefly.
+    // Phase 3/4: market share scales income; leadership, global reach and
+    // acquisitions stack on top; a price undercut or supply shortage bite briefly.
     const undercut = (c.undercutUntil && now() < c.undercutUntil) ? 0.9 : 1;
-    return rev * shareIncomeMult(id) * leaderMult(id) * undercut;
+    const supply = (c.supplyUntil && now() < c.supplyUntil) ? 0.85 : 1;
+    return rev * shareIncomeMult(id) * leaderMult(id) * globalIncomeMult(id) * (1 + (c.acqBonus || 0)) * undercut * supply;
   }
   // Net profit = revenue − operating costs − payroll. Overspending on staff
   // makes this negative and burns company cash (see advance()).
@@ -585,6 +740,10 @@ const TechCo = (() => {
       // Rivals grow & occasionally act; your competitive edge fades over time.
       evolveRivals(id, days);
       c.edge = Math.max(0, (c.edge || 0) * (1 - RIVAL_CFG.EDGE_DECAY * Math.min(days, 60)));
+      // Phase 4 — financial-strategy passives.
+      const sd = Math.min(days, 30);
+      if (c.strategy === 'marketing') c.edge = (c.edge || 0) + totalRivalStrength(id) * 0.02 * sd;
+      if (c.strategy === 'research') c.innovBonus = (c.innovBonus || 0) + 3 * sd;
     }
 
     // 4) Company valuation ratchets up toward its growth target.
@@ -593,12 +752,18 @@ const TechCo = (() => {
 
     // 5) Claim any newly-earned industry leaderships (passive check).
     checkLeadership(id);
+
+    // 6) Maybe surface a rate-limited themed event.
+    maybeRollEvent(id);
   }
 
   function completeBuild(id, b) {
     const c = co(id);
-    // Staff (Engineering quality + Marketing) and research push reception upward.
-    const reception = rollReception(b, staffReceptionBonus(id) + researchReceptionBonus(id));
+    // Staff, research, in-house manufacturing quality and strategy all shift the
+    // reception roll (physical products benefit from manufacturing control).
+    const bonus = staffReceptionBonus(id) + researchReceptionBonus(id)
+      + (b.phys ? manufacturingQuality(id) : 0) + strategyReceptionDelta(id);
+    const reception = rollReception(b, bonus);
     const p = makeProduct(id, b, reception);
     c.products.push(p);
     const r = RECEPTIONS[reception];
@@ -795,7 +960,7 @@ const TechCo = (() => {
       case 'staff':    return staffHTML(id);
       case 'rnd':      return researchHTML(id);
       case 'market':   return marketHTML(id);
-      case 'more':     return placeholderHTML('More', '🌍', 'Manufacturing, financial strategy, global expansion, rival acquisitions and events — coming soon.');
+      case 'more':     return moreHTML(id);
       default: return '';
     }
   }
@@ -954,6 +1119,92 @@ const TechCo = (() => {
     `;
   }
 
+  /* -------------------------------- More tab ------------------------------- */
+
+  function moreHTML(id) {
+    const c = co(id);
+    return `
+      ${eventCardHTML(id)}
+
+      <div class="tc-section-label">Financial Strategy</div>
+      <div class="tc-strat-grid">${Object.keys(STRATEGIES).map((s) => {
+        const on = c.strategy === s, S = STRATEGIES[s];
+        return `<button class="tc-strat ${on ? 'on' : ''}" data-tcact="strategy" data-strat="${s}">
+          <b>${S.icon} ${S.label}</b><small>${S.note}</small></button>`;
+      }).join('')}</div>
+
+      ${manufacturingHTML(id)}
+
+      <div class="tc-section-label">Global Expansion</div>
+      <div class="tc-region-list">${REGIONS.map((reg) => regionRowHTML(id, reg)).join('')}</div>
+
+      <div class="tc-section-label">Rival Acquisition</div>
+      <p class="tc-hint">Weaken a rival below half your strength (Compete tab), then buy it out to absorb its market share and gain a permanent +2% income.</p>
+      <div class="tc-acq-list">${c.rivals.map((r, i) => acqRowHTML(id, r, i)).join('') || '<div class="tc-empty">No rivals left — you own the market.</div>'}</div>
+    `;
+  }
+
+  function eventCardHTML(id) {
+    const e = eventDef(id);
+    if (!e) return '';
+    const costTxt = (opt) => opt.cost ? ` · ${formatMoney(baseIncome(id) * opt.cost)}` : '';
+    return `
+      <div class="tc-event">
+        <button class="tc-event-x" data-tcact="event" data-choice="dismiss" aria-label="Dismiss">✕</button>
+        <div class="tc-event-icon">${e.icon}</div>
+        <div class="tc-event-title">${e.title}</div>
+        <div class="tc-event-desc">${e.desc}</div>
+        <div class="tc-event-btns">
+          <button class="btn btn-gold tc-mini" data-tcact="event" data-choice="a">${e.a.label}${costTxt(e.a)}</button>
+          <button class="btn tc-mini" data-tcact="event" data-choice="b">${e.b.label}${costTxt(e.b)}</button>
+        </div>
+      </div>`;
+  }
+
+  function manufacturingHTML(id) {
+    if (!hasManufacturing(id)) return '';
+    const c = co(id);
+    const opt = (mode) => {
+      const on = c.manufacturing === mode, M = MANU[mode];
+      const cost = mode === 'inhouse' && !on ? ` · setup ${formatMoney(inhouseSetupCost(id))}` : '';
+      return `<button class="tc-strat ${on ? 'on' : ''}" data-tcact="manu" data-mode="${mode}">
+        <b>${M.label}${on ? ' ✓' : ''}</b><small>${M.note}${cost}</small></button>`;
+    };
+    return `
+      <div class="tc-section-label">Manufacturing</div>
+      <p class="tc-hint">Applies to your physical products. In-house costs more upfront but lifts margins and product quality.</p>
+      <div class="tc-strat-grid">${opt('outsource')}${opt('inhouse')}</div>`;
+  }
+
+  function regionRowHTML(id, reg) {
+    const c = co(id);
+    const owned = !!c.regions[reg.id];
+    const right = reg.id === 'na'
+      ? '<span class="tc-r-done">Home</span>'
+      : owned
+        ? '<span class="tc-r-done">✓ Active</span>'
+        : `<button class="btn tc-mini" data-tcact="region" data-region="${reg.id}">Expand · ${formatMoney(regionCost(id, reg.id))}</button>`;
+    const trade = reg.id === 'na' ? 'Your home market' : `+${Math.round(reg.income * 100)}% income · +${Math.round(reg.cost * 100)}% costs`;
+    return `
+      <div class="tc-region ${owned ? 'is-on' : ''}">
+        <div class="tc-region-main"><div class="tc-region-name">${reg.name}</div><div class="tc-region-trade">${trade}</div></div>
+        <div class="tc-region-right">${right}</div>
+      </div>`;
+  }
+
+  function acqRowHTML(id, r, i) {
+    const weak = canAcquire(id, i);
+    const right = weak
+      ? `<button class="btn btn-gold tc-mini" data-tcact="acquire" data-idx="${i}">Acquire · ${formatMoney(acquireCost(id, i))}</button>`
+      : `<span class="tc-r-lock">Too strong</span>`;
+    return `
+      <div class="tc-region">
+        <div class="tc-region-main"><div class="tc-region-name">${r.name}</div>
+          <div class="tc-region-trade">${weak ? 'Weak enough to buy out' : 'Weaken it below half your strength first'}</div></div>
+        <div class="tc-region-right">${right}</div>
+      </div>`;
+  }
+
   function buildRowHTML(id, b) {
     const total = b.endsAt - b.startMs;
     const pct = clamp(((now() - b.startMs) / total) * 100, 0, 100);
@@ -1088,6 +1339,11 @@ const TechCo = (() => {
     if (act === 'train')    { const r = train(id, data.group); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
     if (act === 'research') { const r = startResearch(id, Number(data.tier)); if (r.ok) rebuildDash(); else toast(`⚠️ ${r.msg}`); return; }
     if (act === 'compete')  { const r = compete(id, data.comp); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
+    if (act === 'strategy') { setStrategy(id, data.strat); return; }
+    if (act === 'manu')     { const r = setManufacturing(id, data.mode); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
+    if (act === 'region')   { const r = unlockRegion(id, data.region);   if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
+    if (act === 'acquire')  { const r = acquireRival(id, Number(data.idx)); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
+    if (act === 'event')    { const r = resolveEvent(id, data.choice);   if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
   }
 
   /* --------------------------- Live patch (per tick) ----------------------- */
@@ -1176,9 +1432,13 @@ const TechCo = (() => {
     // Phase 3 — rivals, competitive share, rankings:
     marketShare, shareIncomeMult, leaderMult, playerStrength, totalRivalStrength,
     innovationScore, compete, competeCost, playerRank, checkLeadership, evolveRivals,
+    // Phase 4 — manufacturing, strategy, global, acquisition, events:
+    hasManufacturing, manufacturingMult, setManufacturing, inhouseSetupCost,
+    setStrategy, opexRate, globalIncomeMult, globalOpexAdd, unlockRegion, regionCost,
+    canAcquire, acquireCost, acquireRival, maybeRollEvent, resolveEvent, eventDef,
     // Config/data access for tests + future phases:
     CFG, BUDGETS, QUALITIES, PRICINGS, RECEPTIONS, STAFF, STAFF_CFG, RESEARCH_TIERS,
-    COMPETE, RANK_CATS, RIVAL_CFG, LEADER_INCOME_BONUS,
+    COMPETE, RANK_CATS, RIVAL_CFG, LEADER_INCOME_BONUS, MANU, STRATEGIES, REGIONS, EVENTS,
     _state: (id) => co(id),
   };
 })();

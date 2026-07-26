@@ -304,6 +304,87 @@ const out3 = migrate({ version: 14, balance: 42, portfolio: { mango: { shares: 3
 check('save migrates to v15+', out3.version >= 15);
 check('holdings + cash kept through v15 migration', out3.balance === 42 && out3.portfolio.mango.shares === 3);
 
+/* ============================ PHASE 4 ================================= */
+const A2 = 'auracle'; // Cygnus Labs — has physical (robotics) products
+const ac = TechCo._state(A2);
+ac.cash = TechCo.baseIncome(A2) * 5000;
+
+/* AG) Manufacturing only exists for companies with physical products. */
+check('manufacturing on for physical-product companies', TechCo.hasManufacturing('mango') && TechCo.hasManufacturing('googol') && TechCo.hasManufacturing('auracle'));
+check('manufacturing off for software/social companies', !TechCo.hasManufacturing('macrosoft') && !TechCo.hasManufacturing('faceblock'));
+check('physical company defaults to Outsource', ac.manufacturing === 'outsource');
+check('non-physical company manufacturing = none', TechCo._state('macrosoft').manufacturing === 'none');
+
+/* AH) Manufacturing affects physical margins only; In-house costs upfront. */
+check('outsource lowers physical product margin (<1)', TechCo.manufacturingMult(A2, { phys: true }) < 1);
+check('manufacturing does not touch non-physical products', TechCo.manufacturingMult(A2, { phys: false }) === 1);
+const setupCost = TechCo.inhouseSetupCost(A2), cashPreManu = ac.cash;
+const rm = TechCo.setManufacturing(A2, 'inhouse');
+check('switch to in-house ok', rm.ok === true);
+check('in-house charged the setup cost', approx(ac.cash, cashPreManu - setupCost));
+check('in-house lifts physical product margin (>1)', TechCo.manufacturingMult(A2, { phys: true }) > 1);
+
+/* AI) Financial strategy shifts operating cost, research odds, satisfaction. */
+TechCo.setStrategy(A2, 'balanced'); const opexBal = TechCo.opexRate(A2);
+TechCo.setStrategy(A2, 'costcut');
+check('Cut Costs lowers the operating cost rate', TechCo.opexRate(A2) < opexBal);
+const succBal = TechCo.researchSuccess(A2, 0);
+TechCo.setStrategy(A2, 'research');
+check('Research Focus raises research success chance', TechCo.researchSuccess(A2, 0) >= succBal);
+
+/* AJ) Marketing Focus steadily grows competitive edge over time. */
+TechCo.setStrategy(A2, 'marketing');
+ac.edge = 0; ac.lastMs = globalThis.NOW;
+globalThis.NOW += 5 * TechCo.CFG.DAY_SECONDS * 1000;
+TechCo.advance(A2);
+check('Marketing Focus grows competitive edge passively', ac.edge > 0);
+TechCo.setStrategy(A2, 'balanced');
+
+/* AK) Global expansion: unlock regions for income (with a cost drag). */
+check('home region is unlocked, income mult starts at 1', ac.regions.na && approx(TechCo.globalIncomeMult(A2), 1));
+const gCost = TechCo.regionCost(A2, 'eu');
+check('region cost scales off base income', gCost > 0);
+const revPreRegion = TechCo.revenuePerDay(A2), opexPreRegion = TechCo.opexRate(A2);
+const rg = TechCo.unlockRegion(A2, 'eu');
+check('expand to Europe ok', rg.ok === true);
+check('global income multiplier rose above 1', TechCo.globalIncomeMult(A2) > 1);
+check('expansion raised revenue', TechCo.revenuePerDay(A2) > revPreRegion);
+check('expansion added an operating cost drag', TechCo.opexRate(A2) > opexPreRegion);
+
+/* AL) Rival acquisition — only when you dominate; absorbs share + a bonus. */
+check('cannot acquire a strong rival', !TechCo.canAcquire(A2, 0) || ac.rivals[0].strength <= TechCo.playerStrength(A2) * 0.5);
+ac.rivals[0].strength = 0.1; // now clearly weaker than the player
+check('weak rival is acquirable', TechCo.canAcquire(A2, 0));
+const nRivals = ac.rivals.length, edgePreAcq = ac.edge || 0, acqBonusPre = ac.acqBonus || 0, cashPreAcq = ac.cash;
+const aq = TechCo.acquireRival(A2, 0);
+check('acquire ok', aq.ok === true);
+check('acquired rival removed from the field', ac.rivals.length === nRivals - 1);
+check('acquisition absorbed market share (edge up)', (ac.edge || 0) > edgePreAcq);
+check('acquisition granted a permanent income bonus', ac.acqBonus > acqBonusPre);
+check('acquisition cost company cash', ac.cash < cashPreAcq);
+
+/* AM) Events: roll when due, resolve with cost/benefit, dismissible. */
+ac.event = null; ac.nextEventAt = 0;
+TechCo.maybeRollEvent(A2);
+check('an event surfaces when due', ac.event !== null);
+check('rolling an event pushes the next one out', ac.nextEventAt > globalThis.NOW);
+TechCo.resolveEvent(A2, 'dismiss');
+check('an event is dismissible', ac.event === null);
+// Viral: option A spends cash and boosts edge.
+ac.event = { id: 'viral' }; ac.cash = TechCo.baseIncome(A2) * 1000;
+const edgePreV = ac.edge || 0, cashPreV = ac.cash;
+TechCo.resolveEvent(A2, 'a');
+check('viral (pay in) boosted edge and spent cash', (ac.edge || 0) > edgePreV && ac.cash < cashPreV && ac.event === null);
+// Supply shortage: riding it out applies a temporary income dip.
+ac.event = { id: 'supply' };
+TechCo.resolveEvent(A2, 'b');
+check('supply shortage (ride out) sets a temporary income dip', ac.supplyUntil > globalThis.NOW && ac.event === null);
+
+/* AN) Save migrates to v16 in place. */
+const out4 = migrate({ version: 15, balance: 77, portfolio: { mango: { shares: 2, cost: 5 } } });
+check('save migrates to v16+', out4.version >= 16);
+check('holdings + cash kept through v16 migration', out4.balance === 77 && out4.portfolio.mango.shares === 2);
+
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;
 `;
