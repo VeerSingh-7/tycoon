@@ -741,7 +741,60 @@ const SECTOR_RESEARCH = {
   ] },
 };
 
-/** Resolve a company's research tree (bespoke → sector → generic). */
+/* --------- Common categories every company can also research -------------- */
+// Generic business R&D relevant to any firm — appended to every tree so each
+// company has ~9 categories (sector-specific + these) to research in depth.
+const COMMON_CATEGORIES = [
+  { id: 'ops', icon: '⚙️', name: 'Operations & Efficiency', levels: [
+    ['Lean Processes', 'Trim waste across the business.', { ct: 0.03 }],
+    ['Process Automation', 'Automate the repetitive work.', { ct: 0.04 }],
+    ['Six Sigma', 'Fewer defects, better margins.', { mg: 0.04 }],
+    ['AI Operations', 'Smart systems run the back office.', { ct: 0.04 }],
+    ['Autonomous Operations', 'A self-running company — top margins.', { mg: 0.06 }],
+  ] },
+  { id: 'data', icon: '📊', name: 'Data & Analytics', levels: [
+    ['Dashboards', 'See the business clearly.', { inc: 0.03 }],
+    ['Big Data', 'Turn data into decisions.', { inc: 0.04 }],
+    ['Predictive Analytics', 'Anticipate demand — price better.', { pr: 0.04 }],
+    ['Real-Time Insights', 'Act in the moment — higher quality.', { q: 5 }],
+    ['Decision AI', 'AI-run strategy lifts income.', { inc: 0.06 }],
+  ] },
+  { id: 'talent', icon: '👥', name: 'Talent & Culture', levels: [
+    ['Training Programs', 'Sharper teams, better output.', { q: 3 }],
+    ['Top Recruiting', 'Hire the best in the field.', { q: 4 }],
+    ['Employer Brand', 'Talent wants to join — great launches.', { rc: 0.3 }],
+    ['Innovation Culture', 'Everyone ships great work.', { q: 5 }],
+    ['World-Class Team', 'The best people in the industry.', { inc: 0.06 }],
+  ] },
+  { id: 'green', icon: '♻️', name: 'Sustainability', levels: [
+    ['Efficiency Audit', 'Cut waste and cost.', { ct: 0.03 }],
+    ['Renewable Energy', 'Cheaper, cleaner power.', { ct: 0.04 }],
+    ['Sustainable Sourcing', 'A story customers love.', { rc: 0.3 }],
+    ['Carbon Neutral', 'A premium, responsible brand.', { pr: 0.04 }],
+    ['Net-Zero Leader', 'Industry-leading — fatter margins.', { mg: 0.05 }],
+  ] },
+  { id: 'brand', icon: '📣', name: 'Brand & Growth', levels: [
+    ['Market Research', 'Know your customer.', { inc: 0.03 }],
+    ['Global Marketing', 'Reach new markets.', { inc: 0.04 }],
+    ['Premium Positioning', 'Command higher prices.', { pr: 0.05 }],
+    ['Loyalty Ecosystem', 'Customers who stay — better margins.', { mg: 0.04 }],
+    ['Iconic Brand', 'A household name — big income.', { inc: 0.07 }],
+  ] },
+];
+const COMMON_MASS = [
+  { id: 'campus', name: 'Global Innovation Campus', desc: 'A world HQ that attracts the best minds on earth.', costMult: 300, secs: 1000, effect: { inc: 0.12, q: 5 } },
+  { id: 'standard', name: 'Set the Industry Standard', desc: 'Become the platform the whole industry builds on.', costMult: 340, secs: 1100, effect: { mg: 0.08, inc: 0.08 } },
+];
+
+// Resolve + cache a company's full tree (sector/bespoke categories + common).
+const _RTREE_CACHE = new Map();
 function researchTreeFor(id, sector) {
-  return COMPANY_RESEARCH[id] || SECTOR_RESEARCH[sector] || SECTOR_RESEARCH.consumer;
+  const base = COMPANY_RESEARCH[id] || SECTOR_RESEARCH[sector] || SECTOR_RESEARCH.consumer;
+  if (_RTREE_CACHE.has(base)) return _RTREE_CACHE.get(base);
+  const merged = {
+    categories: base.categories.concat(COMMON_CATEGORIES),
+    mass: (base.mass || []).concat(COMMON_MASS),
+  };
+  _RTREE_CACHE.set(base, merged);
+  return merged;
 }

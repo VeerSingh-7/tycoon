@@ -439,11 +439,42 @@ const TechCo = (() => {
     if (co(id).strategy === 'research') s += 0.2;
     return s;
   }
-  const researchCapacity = (id) => clamp(1 + Math.floor(researchPower(id) / 12), 1, 6);
+  const researchCapacity = (id) => clamp(1 + Math.floor(researchPower(id) / 12), 1, 8);
   function govDiscount(id) { const g = RESEARCH_PARTNERS.find((p) => p.id === 'gov'); return rstate(id).partners.gov ? (1 - g.bonus.discount) : 1; }
 
-  const projectCost = (id, toLevel) => baseIncome(id) * (8 * toLevel) * govDiscount(id);
-  const projectDuration = (id, toLevel) => Math.max(30, Math.round((150 + toLevel * 40) / (1 + researchPower(id) * 0.02) / researchSpeed(id)));
+  // Priority of an individual project — speed vs cost.
+  const PRIORITY = {
+    low:    { label: 'Low',    speed: 0.7, cost: 0.8 },
+    normal: { label: 'Normal', speed: 1.0, cost: 1.0 },
+    high:   { label: 'High',   speed: 1.4, cost: 1.5 },
+    crash:  { label: 'Crash',  speed: 2.0, cost: 2.5 },
+  };
+  const DEFAULT_ASSIGN = { lead: 0, jr: 0, sr: 0, priority: 'normal' };
+
+  // Infrastructure power (centres + partners + engineering) — shared by all
+  // projects; per-project ASSIGNED scientists add focused power on top.
+  function infraPower(id) {
+    const c = rstate(id);
+    let p = 0;
+    for (const ctr of RESEARCH_CENTERS) if (c.centers[ctr.id]) p += ctr.power;
+    for (const pt of RESEARCH_PARTNERS) if (c.partners[pt.id] && pt.bonus.power) p += pt.bonus.power;
+    return p + groupEff(id, 'eng') * 0.5;
+  }
+  // Scientists currently committed to running projects.
+  function assignedRole(id, role) { return rstate(id).active.reduce((n, a) => n + (a[role] || 0), 0); }
+  function availableSci(id, role, exclude) {
+    let used = assignedRole(id, role);
+    if (exclude) used -= (exclude[role] || 0);
+    return Math.max(0, (rstate(id).sci[role] || 0) - used);
+  }
+  // Power of one project given its assigned team.
+  function projPower(id, cfg) {
+    cfg = cfg || DEFAULT_ASSIGN;
+    return infraPower(id) + (cfg.jr || 0) * RESEARCH_SCI.jr.power + (cfg.sr || 0) * RESEARCH_SCI.sr.power + (cfg.lead || 0) * RESEARCH_SCI.lead.power * 1.5;
+  }
+  const priorityOf = (cfg) => PRIORITY[(cfg && cfg.priority) || 'normal'] || PRIORITY.normal;
+  const projectCost = (id, toLevel, cfg) => baseIncome(id) * (8 * toLevel) * govDiscount(id) * priorityOf(cfg).cost;
+  const projectDuration = (id, toLevel, cfg) => Math.max(20, Math.round((150 + toLevel * 40) / (1 + projPower(id, cfg) * 0.02) / researchSpeed(id) / priorityOf(cfg).speed));
 
   /** Ongoing R&D spend/day (budget + scientist salaries + centre upkeep). */
   function researchSpendPerDay(id) {
@@ -490,31 +521,61 @@ const TechCo = (() => {
     return { ok: true };
   }
 
-  /** Start researching the next level of a category. */
-  function startProject(id, catId) {
+  const normAssign = (cfg) => ({
+    lead: Math.max(0, Math.floor((cfg && cfg.lead) || 0)),
+    jr: Math.max(0, Math.floor((cfg && cfg.jr) || 0)),
+    sr: Math.max(0, Math.floor((cfg && cfg.sr) || 0)),
+    priority: (cfg && PRIORITY[cfg.priority]) ? cfg.priority : 'normal',
+  });
+  // Clamp an assignment to the scientists actually available (excluding `exclude`).
+  function clampAssign(id, a, exclude) {
+    a.lead = Math.min(a.lead, availableSci(id, 'lead', exclude));
+    a.jr = Math.min(a.jr, availableSci(id, 'jr', exclude));
+    a.sr = Math.min(a.sr, availableSci(id, 'sr', exclude));
+    return a;
+  }
+
+  /** Start researching the next level of a category (with optional team cfg). */
+  function startProject(id, catId, cfg) {
     const c = rstate(id), tree = treeOf(id), cat = tree.categories.find((x) => x.id === catId);
     if (!cat) return { ok: false, msg: 'Unknown category.' };
     const cur = c.levels[catId] || 0;
     if (cur >= cat.levels.length) return { ok: false, msg: 'Fully researched.' };
     if (c.active.some((a) => a.cat === catId)) return { ok: false, msg: 'Already in progress.' };
     if (c.active.length >= researchCapacity(id)) return { ok: false, msg: 'No free research capacity — hire scientists.' };
-    const to = cur + 1, cost = projectCost(id, to);
+    const a = clampAssign(id, normAssign(cfg));
+    const to = cur + 1, cost = projectCost(id, to, a);
     if (co(id).cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)}.` };
     co(id).cash -= cost;
-    c.active.push({ cat: catId, to, startMs: now(), endsAt: now() + projectDuration(id, to) * 1000 });
+    c.active.push({ cat: catId, to, startMs: now(), endsAt: now() + projectDuration(id, to, a) * 1000, lead: a.lead, jr: a.jr, sr: a.sr, priority: a.priority });
     saveGame(); if (dash && dash.id === id) rebuildDash();
     return { ok: true };
   }
 
-  /** Start a mass "moonshot" project. */
-  function startMass(id, massId) {
+  /** Re-assign the team / priority of an ACTIVE project (progress preserved). */
+  function editProject(id, catId, cfg) {
+    const c = rstate(id), a = c.active.find((x) => x.cat === catId);
+    if (!a) return { ok: false, msg: 'Not in progress.' };
+    const na = clampAssign(id, normAssign(cfg), a); // exclude this project's own team
+    const frac = clamp((now() - a.startMs) / Math.max(1, a.endsAt - a.startMs), 0, 0.999);
+    a.lead = na.lead; a.jr = na.jr; a.sr = na.sr; a.priority = na.priority;
+    const total = projectDuration(id, a.to, a) * 1000;
+    a.startMs = now() - frac * total; a.endsAt = a.startMs + total;
+    saveGame(); if (dash && dash.id === id) rebuildDash();
+    return { ok: true };
+  }
+
+  /** Start a mass "moonshot" project (with optional team cfg). */
+  function startMass(id, massId, cfg) {
     const c = rstate(id), tree = treeOf(id), m = (tree.mass || []).find((x) => x.id === massId);
     if (!m) return { ok: false };
     if (c.mass[massId]) return { ok: false, msg: 'Already underway.' };
-    const cost = baseIncome(id) * m.costMult * govDiscount(id);
+    const a = clampAssign(id, normAssign(cfg));
+    const cost = baseIncome(id) * m.costMult * govDiscount(id) * priorityOf(a).cost;
     if (co(id).cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)}.` };
     co(id).cash -= cost;
-    c.mass[massId] = { startMs: now(), endsAt: now() + Math.round(m.secs / researchSpeed(id)) * 1000 };
+    const secs = Math.max(30, Math.round(m.secs / researchSpeed(id) / (1 + projPower(id, a) * 0.01) / priorityOf(a).speed));
+    c.mass[massId] = { startMs: now(), endsAt: now() + secs * 1000, lead: a.lead, jr: a.jr, sr: a.sr, priority: a.priority };
     saveGame(); if (dash && dash.id === id) rebuildDash();
     return { ok: true };
   }
@@ -1199,7 +1260,7 @@ const TechCo = (() => {
     switch (dash.tab) {
       case 'products': return productsHTML(id);
       case 'staff':    return staffHTML(id);
-      case 'rnd':      return researchHTML(id);
+      case 'rnd':      return dash.rDetail ? rDetailHTML(id) : researchHTML(id);
       case 'market':   return marketHTML(id);
       case 'more':     return moreHTML(id);
       default: return '';
@@ -1268,39 +1329,37 @@ const TechCo = (() => {
     const cap = researchCapacity(id), power = Math.round(researchPower(id));
     const techs = co(id).unlocked;
 
-    // Active projects (category level-ups) with live progress.
+    // Active projects (category level-ups) with live progress — tap to manage.
     const activeRows = c.active.map((a) => {
       const cat = tree.categories.find((x) => x.id === a.cat);
       const total = a.endsAt - a.startMs, pct = clamp(((now() - a.startMs) / total) * 100, 0, 100);
       const left = Math.max(0, Math.ceil((a.endsAt - now()) / 1000));
       const name = cat ? cat.levels[a.to - 1][0] : '';
-      return `<div class="tc-rproj" data-rproj="${a.cat}">
-        <div class="tc-rproj-top"><b>${cat ? cat.icon + ' ' + name : ''}</b><span class="muted">Lvl ${a.to}</span></div>
+      const team = (a.lead || 0) + (a.sr || 0) + (a.jr || 0);
+      return `<button class="tc-rproj" data-rproj="${a.cat}" data-tcact="ropen" data-kind="cat" data-rid="${a.cat}">
+        <div class="tc-rproj-top"><b>${cat ? cat.icon + ' ' + name : ''}</b><span class="muted">Lvl ${a.to} · ${team} on it ›</span></div>
         <div class="tc-progress"><div class="tc-progress-fill" style="width:${pct}%"></div></div>
         <div class="tc-build-left"><span data-rleft="${a.cat}">${left > 0 ? formatDuration(left) + ' left' : 'Finishing…'}</span></div>
-      </div>`;
+      </button>`;
     }).join('');
 
-    // Category tech trees.
+    // Category tech trees — each card taps through to a deep project view.
     const catRows = tree.categories.map((cat) => {
       const lvl = c.levels[cat.id] || 0, maxed = lvl >= cat.levels.length;
       const building = c.active.some((a) => a.cat === cat.id);
       const next = maxed ? null : cat.levels[lvl];
       const to = lvl + 1;
-      let right;
-      if (maxed) right = `<span class="tc-r-done">✓ Maxed</span>`;
-      else if (building) right = `<span class="tc-r-lock">In progress…</span>`;
-      else right = `<button class="btn tc-mini" data-tcact="rproject" data-cat="${cat.id}" ${co(id).cash >= projectCost(id, to) ? '' : 'disabled'}>Research · ${formatMoney(projectCost(id, to))}</button>`;
+      const status = maxed ? `<span class="tc-r-done">✓ Maxed</span>` : building ? `<span class="tc-r-lock">In progress</span>` : `<span class="tc-cat-go">Manage ›</span>`;
       return `
-        <div class="tc-cat">
+        <button class="tc-cat" data-tcact="ropen" data-kind="cat" data-rid="${cat.id}">
           <div class="tc-cat-head">
             <div class="tc-cat-title">${cat.icon} ${cat.name}</div>
             <div class="tc-cat-pips">${pips(lvl, cat.levels.length)}</div>
           </div>
-          ${next ? `<div class="tc-cat-next"><b>Lvl ${to}: ${next[0]}</b> — ${next[1]}<div class="tc-cat-eff">${effectText(next[2])} · ${formatDuration(projectDuration(id, to))}</div></div>`
+          ${next ? `<div class="tc-cat-next"><b>Next — Lvl ${to}: ${next[0]}</b> — ${next[1]}<div class="tc-cat-eff">${effectText(next[2])}</div></div>`
             : `<div class="tc-cat-next muted">Every breakthrough unlocked.</div>`}
-          <div class="tc-cat-foot">${right}</div>
-        </div>`;
+          <div class="tc-cat-foot">${status}</div>
+        </button>`;
     }).join('');
 
     // Scientists.
@@ -1328,20 +1387,20 @@ const TechCo = (() => {
       </div>`;
     }).join('');
 
-    // Mass "moonshot" projects.
+    // Mass "moonshot" projects — tap to view details and staff them.
     const massRows = (tree.mass || []).map((m) => {
-      const st = c.mass[m.id], cost = baseIncome(id) * m.costMult * govDiscount(id);
+      const st = c.mass[m.id];
       let right;
       if (st === 'done') right = `<span class="tc-r-done">✓ Achieved</span>`;
       else if (st && st.endsAt) {
         const total = st.endsAt - st.startMs, pct = clamp(((now() - st.startMs) / total) * 100, 0, 100);
         const left = Math.max(0, Math.ceil((st.endsAt - now()) / 1000));
         right = `<div class="tc-r-active"><div class="tc-progress"><div class="tc-progress-fill" style="width:${pct}%"></div></div><span class="muted" data-mleft="${m.id}">${left > 0 ? formatDuration(left) + ' left' : 'Finishing…'}</span></div>`;
-      } else right = `<button class="btn btn-gold tc-mini" data-tcact="rmass" data-mid="${m.id}" ${co(id).cash >= cost ? '' : 'disabled'}>Launch · ${formatMoney(cost)}</button>`;
-      return `<div class="tc-mass ${st === 'done' ? 'is-done' : ''}">
+      } else right = `<span class="tc-cat-go">Manage ›</span>`;
+      return `<button class="tc-mass ${st === 'done' ? 'is-done' : ''}" data-tcact="ropen" data-kind="mass" data-rid="${m.id}">
         <div class="tc-mass-main"><div class="tc-mass-name">🚀 ${m.name}</div><div class="tc-mass-desc">${m.desc}</div><div class="tc-cat-eff">${effectText(m.effect)}</div></div>
         <div class="tc-mass-right">${right}</div>
-      </div>`;
+      </button>`;
     }).join('');
 
     // Budget selector.
@@ -1379,6 +1438,118 @@ const TechCo = (() => {
 
       ${techs.length ? `<div class="tc-section-label">Technologies Unlocked</div><div class="tc-tech-list">${techs.map((t) => `<span class="tc-tech">${t[0]}</span>`).join('')}</div>` : ''}
     `;
+  }
+
+  /* --------------------- Research project detail (deep) -------------------- */
+
+  // A ± stepper that assigns scientists of a role to the open project.
+  function assignStepper(id, role, cfg, activeProj) {
+    const avail = availableSci(id, role, activeProj);
+    const val = cfg[role] || 0;
+    const label = RESEARCH_SCI[role].short;
+    return `<div class="tc-assign">
+      <div class="tc-assign-l"><b>${label}</b><small>${avail} available</small></div>
+      <div class="tc-stepper">
+        <button class="tc-step" data-tcact="rassign" data-role="${role}" data-delta="-1" ${val <= 0 ? 'disabled' : ''}>−</button>
+        <span class="tc-step-v">${val}</span>
+        <button class="tc-step" data-tcact="rassign" data-role="${role}" data-delta="1" ${avail <= 0 ? 'disabled' : ''}>+</button>
+      </div>
+    </div>`;
+  }
+
+  function assignPanel(id, cfg, activeProj) {
+    const prio = Object.keys(PRIORITY).map((k) =>
+      `<button class="tc-chip ${cfg.priority === k ? 'on' : ''}" data-tcact="rprio" data-p="${k}">${PRIORITY[k].label}</button>`).join('');
+    return `
+      <div class="tc-section-label">Assign Team</div>
+      ${assignStepper(id, 'lead', cfg, activeProj)}
+      ${assignStepper(id, 'sr', cfg, activeProj)}
+      ${assignStepper(id, 'jr', cfg, activeProj)}
+      <div class="tc-field-label">Priority <span class="muted">${PRIORITY[cfg.priority].speed}× speed · ${PRIORITY[cfg.priority].cost}× cost</span></div>
+      <div class="tc-chip-row">${prio}</div>`;
+  }
+
+  function rDetailHTML(id) {
+    const rd = dash.rDetail, c = rstate(id), tree = treeOf(id);
+    const back = `<div class="tc-launch-head"><button class="icon-btn" data-tcact="rclose" aria-label="Back">‹</button><b>Research Project</b></div>`;
+
+    if (rd.kind === 'cat') {
+      const cat = tree.categories.find((x) => x.id === rd.id);
+      if (!cat) return back + `<div class="tc-empty">Not found.</div>`;
+      const lvl = c.levels[cat.id] || 0, maxed = lvl >= cat.levels.length;
+      const active = c.active.find((a) => a.cat === cat.id);
+      // Full 5-level roadmap.
+      const road = cat.levels.map((L, i) => {
+        const st = i < lvl ? 'done' : (active && active.to - 1 === i) ? 'active' : (i === lvl ? 'next' : 'locked');
+        const tag = st === 'done' ? '✓' : st === 'active' ? '⏳' : st === 'next' ? '▸' : '🔒';
+        return `<div class="tc-road tc-road-${st}">
+          <div class="tc-road-l">${tag}</div>
+          <div class="tc-road-m"><div class="tc-road-n">Lvl ${i + 1}: ${L[0]}</div><div class="tc-road-d">${L[1]}</div><div class="tc-cat-eff">${effectText(L[2])}</div></div>
+        </div>`;
+      }).join('');
+
+      let action = '';
+      if (maxed) action = `<div class="tc-empty">Every breakthrough in ${cat.name} is unlocked.</div>`;
+      else {
+        const to = lvl + 1, cfg = rd.cfg;
+        const cost = projectCost(id, to, cfg), dur = projectDuration(id, to, cfg);
+        if (active) {
+          const total = active.endsAt - active.startMs, pct = clamp(((now() - active.startMs) / total) * 100, 0, 100);
+          const left = Math.max(0, Math.ceil((active.endsAt - now()) / 1000));
+          action = `
+            <div class="tc-section-label">In Progress — Lvl ${active.to}: ${cat.levels[active.to - 1][0]}</div>
+            <div class="tc-progress tc-progress-lg"><div class="tc-progress-fill" data-rdfill style="width:${pct}%"></div></div>
+            <div class="tc-build-left"><span data-rdleft>${left > 0 ? formatDuration(left) + ' left' : 'Finishing…'}</span></div>
+            ${assignPanel(id, cfg, active)}
+            <button class="btn btn-gold btn-wide" data-tcact="reditcfg" data-rid="${cat.id}">Update Team</button>`;
+        } else {
+          const afford = co(id).cash >= cost;
+          action = `
+            <div class="tc-preview">
+              <div><span>Cost</span><b class="${afford ? 'gold' : 'down'}">${formatMoney(cost)}</b></div>
+              <div><span>Time</span><b>${formatDuration(dur)}</b></div>
+              <div><span>Effect</span><b>${effectText(cat.levels[to - 1][2])}</b></div>
+            </div>
+            ${assignPanel(id, cfg, null)}
+            <button class="btn btn-gold btn-wide" data-tcact="rstartcfg" data-rid="${cat.id}" ${afford ? '' : 'disabled'}>${afford ? 'Start Research' : 'Not enough cash'}</button>`;
+        }
+      }
+      return `${back}
+        <div class="tc-rd-title">${cat.icon} ${cat.name}</div>
+        <div class="tc-rd-sub">${pips(lvl, cat.levels.length)} · Level ${lvl}/${cat.levels.length}</div>
+        <div class="tc-section-label">Roadmap</div>
+        <div class="tc-road-list">${road}</div>
+        ${action}`;
+    }
+
+    // Mass moonshot detail.
+    const m = (tree.mass || []).find((x) => x.id === rd.id);
+    if (!m) return back + `<div class="tc-empty">Not found.</div>`;
+    const st = c.mass[m.id], cfg = rd.cfg;
+    const cost = baseIncome(id) * m.costMult * govDiscount(id) * priorityOf(cfg).cost;
+    let action;
+    if (st === 'done') action = `<div class="tc-empty">Achieved — this breakthrough is yours.</div>`;
+    else if (st && st.endsAt) {
+      const total = st.endsAt - st.startMs, pct = clamp(((now() - st.startMs) / total) * 100, 0, 100);
+      const left = Math.max(0, Math.ceil((st.endsAt - now()) / 1000));
+      action = `<div class="tc-section-label">In Progress</div>
+        <div class="tc-progress tc-progress-lg"><div class="tc-progress-fill" data-rdfill style="width:${pct}%"></div></div>
+        <div class="tc-build-left"><span data-rdleft>${left > 0 ? formatDuration(left) + ' left' : 'Finishing…'}</span></div>`;
+    } else {
+      const afford = co(id).cash >= cost;
+      action = `
+        <div class="tc-preview">
+          <div><span>Cost</span><b class="${afford ? 'gold' : 'down'}">${formatMoney(cost)}</b></div>
+          <div><span>Effect</span><b>${effectText(m.effect)}</b></div>
+        </div>
+        ${assignPanel(id, cfg, null)}
+        <button class="btn btn-gold btn-wide" data-tcact="rmasscfg" data-rid="${m.id}" ${afford ? '' : 'disabled'}>${afford ? '🚀 Launch Moonshot' : 'Not enough cash'}</button>`;
+    }
+    return `${back}
+      <div class="tc-rd-title">🚀 ${m.name}</div>
+      <div class="tc-rd-sub">Mass Project · a company-defining breakthrough</div>
+      <p class="tc-hint">${m.desc}</p>
+      ${action}`;
   }
 
   /* ------------------------------- Market tab ------------------------------ */
@@ -1731,7 +1902,7 @@ const TechCo = (() => {
     const el = dash.el;
     el.querySelector('#tcClose').onclick = close;
     el.querySelectorAll('[data-tctab]').forEach((b) => b.onclick = () => {
-      dash.launch = null; dash.detailPid = null;
+      dash.launch = null; dash.detailPid = null; dash.rDetail = null;
       dash.tab = b.dataset.tctab; rebuildDash();
     });
     const body = el.querySelector('#tcBody');
@@ -1762,6 +1933,18 @@ const TechCo = (() => {
     }
   }
 
+  /** Open the deep research-project detail, seeding the team draft. */
+  function openRDetail(id, kind, rid) {
+    const c = rstate(id);
+    let src = null;
+    if (kind === 'cat') src = c.active.find((a) => a.cat === rid);
+    else { const st = c.mass[rid]; if (st && st.endsAt) src = st; }
+    const cfg = src ? { lead: src.lead || 0, sr: src.sr || 0, jr: src.jr || 0, priority: src.priority || 'normal' }
+      : { lead: 0, sr: 0, jr: 0, priority: 'normal' };
+    dash.rDetail = { kind, id: rid, cfg };
+    refreshBody();
+  }
+
   function refreshBody() {
     const body = dash.el.querySelector('#tcBody');
     if (body) { body.innerHTML = tabHTML(dash.id); wireDash(); }
@@ -1781,10 +1964,16 @@ const TechCo = (() => {
     if (act === 'train')    { const r = train(id, data.group); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
     if (act === 'rbudget')  { setBudget(id, data.b); return; }
     if (act === 'rhire')    { const r = hireSci(id, data.role); if (!r.ok) toast(); return; }
-    if (act === 'rproject') { const r = startProject(id, data.cat); if (r.ok) rebuildDash(); return; }
     if (act === 'rcenter')  { const r = buildCenter(id, data.cid); if (r.ok) rebuildDash(); return; }
     if (act === 'rpartner') { const r = formPartner(id, data.pid); if (r.ok) rebuildDash(); return; }
-    if (act === 'rmass')    { const r = startMass(id, data.mid); if (r.ok) rebuildDash(); return; }
+    // Research project detail (deep management).
+    if (act === 'ropen')    { openRDetail(id, data.kind, data.rid); return; }
+    if (act === 'rclose')   { dash.rDetail = null; refreshBody(); return; }
+    if (act === 'rassign')  { if (dash.rDetail) { const role = data.role, d = Number(data.delta); dash.rDetail.cfg[role] = Math.max(0, (dash.rDetail.cfg[role] || 0) + d); } refreshBody(); return; }
+    if (act === 'rprio')    { if (dash.rDetail) dash.rDetail.cfg.priority = data.p; refreshBody(); return; }
+    if (act === 'rstartcfg') { const r = startProject(id, data.rid, dash.rDetail.cfg); if (r.ok) { dash.rDetail = null; rebuildDash(); } return; }
+    if (act === 'reditcfg')  { const r = editProject(id, data.rid, dash.rDetail.cfg); if (r.ok) { dash.rDetail = null; rebuildDash(); } return; }
+    if (act === 'rmasscfg')  { const r = startMass(id, data.rid, dash.rDetail.cfg); if (r.ok) { dash.rDetail = null; rebuildDash(); } return; }
     if (act === 'compete')  { const r = compete(id, data.comp); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
     if (act === 'strategy') { setStrategy(id, data.strat); return; }
     if (act === 'manu')     { const r = setManufacturing(id, data.mode); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
@@ -1825,6 +2014,21 @@ const TechCo = (() => {
     if (dash.tab === 'market' && !dash.launch) {
       const shEl = dash.el.querySelector('[data-share]');
       if (shEl) shEl.textContent = marketShare(id).toFixed(1) + '%';
+    }
+
+    // Live research progress in the open project detail.
+    if (dash.tab === 'rnd' && dash.rDetail) {
+      const c = rstate(id), rd = dash.rDetail;
+      const src = rd.kind === 'cat' ? c.active.find((a) => a.cat === rd.id) : c.mass[rd.id];
+      if (src && src.endsAt) {
+        const pct = clamp(((now() - src.startMs) / (src.endsAt - src.startMs)) * 100, 0, 100);
+        const fill = dash.el.querySelector('[data-rdfill]');
+        if (fill) fill.style.width = pct + '%';
+        const left = Math.max(0, Math.ceil((src.endsAt - now()) / 1000));
+        const lt = dash.el.querySelector('[data-rdleft]');
+        if (lt) lt.textContent = left > 0 ? formatDuration(left) + ' left' : 'Finishing…';
+      }
+      return;
     }
 
     // Live research progress bars + countdowns (Research tab).
@@ -1896,8 +2100,8 @@ const TechCo = (() => {
     researchMult, researchReceptionBonus, researchQualityBonus, researchPriceMult,
     researchMarginBonus, researchCostCut, researchAgg, researchPower, researchCapacity,
     researchSpendPerDay, totalResearchLevels, catalogFor, treeOf,
-    setBudget, hireSci, buildCenter, formPartner, startProject, startMass, resolveResearch,
-    projectCost, projectDuration,
+    setBudget, hireSci, buildCenter, formPartner, startProject, startMass, editProject, resolveResearch,
+    projectCost, projectDuration, availableSci, assignedRole, infraPower, projPower, PRIORITY,
     // Phase 3 — rivals, competitive share, rankings:
     shareIncomeMult, leaderMult, playerStrength, totalRivalStrength,
     innovationScore, compete, competeCost, playerRank, checkLeadership, evolveRivals,

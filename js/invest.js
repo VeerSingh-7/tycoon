@@ -303,7 +303,7 @@ const Invest = (() => {
       <button class="asset-row${ownedCls(def)}" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
         <div class="asset-name-wrap">
-          <div class="asset-sym">${def.name}${ownedBadge(def)}</div>
+          <div class="asset-sym"><span class="asset-nm">${def.name}</span>${ownedBadge(def)}</div>
           <div class="asset-name">${sub}</div>
         </div>
         ${sparkSVG(def)}
@@ -362,7 +362,7 @@ const Invest = (() => {
       <button class="asset-row${ownedCls(def)}" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
         <div class="asset-name-wrap">
-          <div class="asset-sym">${def.name}${ownedBadge(def)}</div>
+          <div class="asset-sym"><span class="asset-nm">${def.name}</span>${ownedBadge(def)}</div>
           <div class="asset-name">${fmtShares(h.shares)} ${unitOf(def)}</div>
         </div>
         ${sparkSVG(def)}
@@ -415,7 +415,7 @@ const Invest = (() => {
       <button class="back-link" data-act="back">‹ ${backLabel()}</button>
       <div class="detail-head">
         ${Logos.tile(def, 'lg')}
-        <div><div class="asset-sym big">${def.name}${ownedBadge(def)}</div>
+        <div style="min-width:0"><div class="asset-sym big"><span class="asset-nm">${def.name}</span>${ownedBadge(def)}</div>
           <div class="asset-name">${subLabel(def)}</div></div>
       </div>
       <div class="detail-price-row">

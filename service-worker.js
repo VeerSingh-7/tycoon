@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v58'; // v58: research meta-game (categories/scientists/centres/partners/mass) per company; no build slots; Owned badge
+const CACHE_NAME = 'tycoon-v59'; // v59: research depth — 9 categories/company, clickable projects w/ team+leader+priority assignment; owned badge no longer truncates
 
 const ASSETS = [
   'index.html',

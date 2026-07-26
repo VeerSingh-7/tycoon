@@ -569,6 +569,36 @@ const out6 = migrate({ version: 17, balance: 314, portfolio: { mango: { shares: 
 check('save migrates to v18+', out6.version >= 18);
 check('holdings + cash kept through v18 migration', out6.balance === 314 && out6.portfolio.mango.shares === 8);
 
+/* ============== RESEARCH DEPTH (more categories, team assignment) ==== */
+const RD = 'silicon_isle'; // Meridian Semiconductor
+const rdc = TechCo._state(RD);
+rdc.cash = TechCo.baseIncome(RD) * 1e8;
+rdc.research = { budget: 'standard', sci: { jr: 0, sr: 0, lead: 0 }, centers: {}, partners: {}, levels: {}, active: [], mass: {} };
+const rtree = TechCo.treeOf(RD);
+check('each company has 8+ research categories', rtree.categories.length >= 8);
+check('common categories included (Operations & Efficiency)', rtree.categories.some((c) => c.name === 'Operations & Efficiency'));
+check('each company has 3+ mass projects', rtree.mass.length >= 3);
+check('a sector-specific category is present (Process Node)', rtree.categories.some((c) => c.name === 'Process Node'));
+
+TechCo.hireSci(RD, 'lead'); TechCo.hireSci(RD, 'sr'); TechCo.hireSci(RD, 'sr'); TechCo.hireSci(RD, 'jr');
+const catX = rtree.categories[0].id;
+const durNoTeam = TechCo.projectDuration(RD, 1, { lead: 0, sr: 0, jr: 0, priority: 'normal' });
+const durTeam = TechCo.projectDuration(RD, 1, { lead: 1, sr: 2, jr: 1, priority: 'normal' });
+check('assigning a team speeds up a project', durTeam < durNoTeam);
+check('Crash priority is faster but pricier',
+  TechCo.projectDuration(RD, 1, { priority: 'crash' }) < TechCo.projectDuration(RD, 1, { priority: 'normal' }) &&
+  TechCo.projectCost(RD, 1, { priority: 'crash' }) > TechCo.projectCost(RD, 1, { priority: 'normal' }));
+
+const availLead0 = TechCo.availableSci(RD, 'lead');
+TechCo.startProject(RD, catX, { lead: 1, sr: 2, jr: 0, priority: 'normal' });
+check('starting a project assigns scientists to it', TechCo.availableSci(RD, 'lead') === availLead0 - 1);
+check('the active project stored its team', rdc.research.active.find((a) => a.cat === catX).sr === 2);
+check('cannot over-assign beyond available scientists', TechCo.availableSci(RD, 'sr') === 0);
+// Edit the active project — assign the remaining junior and go Crash priority.
+TechCo.editProject(RD, catX, { lead: 1, sr: 2, jr: 1, priority: 'crash' });
+const projAfter = rdc.research.active.find((a) => a.cat === catX);
+check('editing an active project updates its team & priority', projAfter.priority === 'crash' && projAfter.jr === 1);
+
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;
 `;
