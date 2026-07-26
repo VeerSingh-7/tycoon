@@ -28,6 +28,7 @@ const files = [
   'js/data/stocks.js',
   'js/data/techco.js',
   'js/data/techspecs.js',
+  'js/data/bizdefs.js',
   'js/state.js',
   'js/market.js',
   'js/techco.js',
@@ -46,7 +47,7 @@ Market.ensure();
 
 /* A) Only the five tech companies are managed. */
 check('managed: the five tech ids', ['mango','googol','macrosoft','faceblock','auracle'].every(TechCo.isManaged));
-check('not managed: a non-tech stock (tezla)', !TechCo.isManaged('tezla'));
+check('managed: a non-tech stock too (tezla)', TechCo.isManaged('tezla'));
 check('not managed: a crypto (bitcorn)', !TechCo.isManaged('bitcorn'));
 
 /* B) Base passive income is the scaling unit = marketCap × INCOME_RATE. */
@@ -471,6 +472,50 @@ check('units sold ≈ revenue / unit price', approx(kprod.unitsSold, kprod.reven
 const out5 = migrate({ version: 16, balance: 9, portfolio: { mango: { shares: 1, cost: 2 } } });
 check('save migrates to v17+', out5.version >= 17);
 check('holdings + cash kept through v17 migration', out5.balance === 9 && out5.portfolio.mango.shares === 1);
+
+/* ============== ALL-SECTOR MANAGEMENT (generalised profiles) ========= */
+
+/* AZ) EVERY stock is now manageable; no crypto is. */
+const STOCKS = ASSET_DEFS.filter((d) => d.group === 'stock');
+const CRYPTOS = ASSET_DEFS.filter((d) => d.group === 'crypto');
+check('every stock is manageable', STOCKS.every((d) => TechCo.isManaged(d.id)));
+check('no crypto is manageable', CRYPTOS.every((d) => !TechCo.isManaged(d.id)));
+check('a good spread of companies (40+ stocks)', STOCKS.length >= 40);
+
+/* BA) Every managed company has a complete, tailored profile. */
+let allComplete = true, rivalsTailored = new Set();
+for (const d of STOCKS) {
+  const def = TECHCO_DEFS[d.id];
+  if (!def || !def.catalog || def.catalog.length < 4 || !def.rivals || def.rivals.length !== 4
+    || !def.research || def.research.length !== 5 || !def.unlockProduct) allComplete = false;
+  // every product maps to a real spec archetype
+  for (const row of def.catalog) if (!TechCo.archetypeOf(row[0]) || !TechCo.archetypeOf(row[0]).specs) allComplete = false;
+  rivalsTailored.add(def.rivals.join('|'));
+}
+check('every company has catalog + 4 rivals + 5 research + flagship', allComplete);
+check('rivals are tailored (distinct sets across companies)', rivalsTailored.size >= STOCKS.length * 0.7);
+
+/* BB) A non-tech company runs the full flow: buyout → studio → sales. */
+const BANK = 'morganpratt'; // Ashford & Rowe (banking)
+check('bank maps to the banking archetype', TechCo.archetypeOf(TECHCO_DEFS[BANK].catalog[0][0]).category === 'Banking');
+const bkc = TechCo._state(BANK);
+bkc.cash = TechCo.baseIncome(BANK) * 1e6; bkc.products = []; bkc.builds = [];
+const bcfg = TechCo.studioDefault(BANK, TECHCO_DEFS[BANK].catalog[0][0]);
+for (const sp of TechCo.archetypeOf(bcfg.type).specs) bcfg.specs[sp[0]] = 2;
+const bstart = TechCo.startDeepBuild(BANK, bcfg);
+check('non-tech company can start a Studio build', bstart.ok === true);
+globalThis.NOW = bkc.builds[0].endsAt + 1000;
+TechCo.advance(BANK);
+check('non-tech build completes into an earning product', bkc.products.length === 1 && TechCo.productIncome(BANK, bkc.products[0]) > 0);
+
+/* BC) Sector margins differ (pharma high, auto low). */
+const pharmaMargin = (() => { const id = 'elytilly', p = { type: TECHCO_DEFS[id].catalog[0][0], tier: 'standard' }; return TechCo.productMargin(id, p); })();
+const autoMargin = (() => { const id = 'tezla'; const def = TECHCO_DEFS[id]; const p = { type: def.catalog[0][0], tier: 'standard' }; return TechCo.productMargin(id, p); })();
+check('pharma margin is high, auto margin is low', pharmaMargin > autoMargin);
+
+/* BD) Manufacturing only for physical-product sectors. */
+check('a bank has no manufacturing', !TechCo.hasManufacturing(BANK));
+check('a semiconductor firm has manufacturing', TechCo.hasManufacturing('envidia'));
 
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;

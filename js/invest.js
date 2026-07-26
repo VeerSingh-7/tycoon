@@ -93,7 +93,9 @@ const Invest = (() => {
     media: 'Media', utility: 'Utilities', materials: 'Materials',
     consumer: 'Consumer Goods', luxury: 'Luxury',
   };
-  const subLabel = (def) => (def.group === 'crypto' ? 'Crypto' : (SECTOR_LABELS[def.sector] || 'Stock'));
+  // Row subtitle: the kind of company + its ticker (e.g. "Technology · HALD",
+  // "Crypto · AURM") — never the holding size (that lives in the Portfolio).
+  const subLabel = (def) => `${def.group === 'crypto' ? 'Crypto' : (SECTOR_LABELS[def.sector] || 'Stock')} · ${def.ticker}`;
   const unitOf = (def) => (def.group === 'crypto' ? 'coins' : 'shares');
 
   /** A tiny Trading-212-style performance sparkline (last 24h) for a list row:
@@ -291,8 +293,9 @@ const Invest = (() => {
   }
 
   function rowHTML(def, p, ch) {
-    const h = Market.holding(def.id);
-    const sub = h.shares > 0 ? `Holding ${fmtShares(h.shares)}` : subLabel(def);
+    // Market list always shows sector · ticker — the holding size shows only on
+    // the Portfolio page.
+    const sub = subLabel(def);
     return `
       <button class="asset-row" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
@@ -823,9 +826,10 @@ const Invest = (() => {
         const c = derive();
         let ok;
         if (side === 'buy') {
-          // MAX spends all available cash; shares mode buys the EXACT count;
-          // cash mode spends the exact cash typed.
-          if (st.all) ok = Market.buy(def.id, state.balance);
+          // MAX/ALL buys ALL remaining shares in one go — straight to 100%
+          // ownership, no capping and re-buying. Shares mode buys the EXACT
+          // count; cash mode spends the exact cash typed.
+          if (st.all) ok = Market.buyShares(def.id, Market.supplyOf(def) - Market.holding(def.id).shares);
           else if (st.mode === 'shares') ok = Market.buyShares(def.id, c.shares);
           else ok = Market.buy(def.id, c.cash);
         } else {

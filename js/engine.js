@@ -318,7 +318,7 @@ let _lastTick = performance.now();
 // Infinity) so all money math/formatting stays sane. TechCo also tops up each
 // managed company's own cash while this is on (js/techco.js).
 const INFINITE_MONEY = true;
-const INFINITE_MONEY_TARGET = 1e15;
+const INFINITE_MONEY_TARGET = 1e18;
 // ================================================================================
 
 function tick() {

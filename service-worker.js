@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v55'; // v55: Services hub — Hiring & Talent rename, per-card colours + subtitles
+const CACHE_NAME = 'tycoon-v56'; // v56: manage EVERY stock (all 16 sectors), list subtitle = sector · ticker, buy-all fix
 
 const ASSETS = [
   'index.html',
@@ -23,6 +23,7 @@ const ASSETS = [
   'js/data/assets.js',
   'js/data/techco.js',
   'js/data/techspecs.js',
+  'js/data/bizdefs.js',
   'js/state.js',
   'js/engine.js',
   'js/mechanics.js',

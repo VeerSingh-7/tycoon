@@ -285,10 +285,13 @@ const TechCo = (() => {
   }
   function productMargin(id, p) {
     const arch = archetypeOf(p.type);
-    let m = (arch.focus === 'software' || arch.focus === 'ai' || arch.focus === 'social') ? 0.6 : 0.3;
+    // Archetypes may set an explicit margin (pharma/luxury high, retail/auto low);
+    // otherwise fall back to a focus-based default.
+    let m = arch.margin != null ? arch.margin
+      : (arch.focus === 'software' || arch.focus === 'ai' || arch.focus === 'social') ? 0.6 : 0.3;
     if (p.phys && co(id).manufacturing === 'inhouse') m += 0.06;
     m += ((TECH_TIERS[p.tier] || TECH_TIERS.standard).incomeMult - 1) * 0.3;
-    return clamp(m, 0.15, 0.75);
+    return clamp(m, 0.15, 0.8);
   }
   function unitsPerDay(id, p) { const up = unitPriceOf(id, p); return up > 0 ? productIncome(id, p) / up : 0; }
 
