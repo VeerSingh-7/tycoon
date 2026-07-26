@@ -312,10 +312,21 @@ let _lastTick = performance.now();
  * Advance the economy by real elapsed time. Adds the EXACT fractional
  * income (never rounded) so $0.60/s means precisely +$0.06 per 100ms tick.
  */
+// ===== TEMPORARY: INFINITE MONEY (remove this block to restore normal play) =====
+// Keeps spendable cash pinned near $1 trillion every tick, so buying anything
+// never depletes it. Finite (not Infinity) so all money math/formatting stays sane.
+const INFINITE_MONEY = true;
+const INFINITE_MONEY_TARGET = 1e12;
+// ================================================================================
+
 function tick() {
   const now = performance.now();
   const dt = (now - _lastTick) / 1000; // seconds
   _lastTick = now;
+
+  if (INFINITE_MONEY && state.balance < INFINITE_MONEY_TARGET) {
+    state.balance = INFINITE_MONEY_TARGET;
+  }
 
   const income = totalPassiveIncomePerSec() * dt;
   if (income > 0) {

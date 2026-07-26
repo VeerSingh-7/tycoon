@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v45'; // v45: quote refreshes every 20-30s and the 1S chart tick matches it exactly at that second
+const CACHE_NAME = 'tycoon-v46'; // v46: TEMPORARY infinite money (balance pinned to $1T each tick)
 
 const ASSETS = [
   'index.html',
