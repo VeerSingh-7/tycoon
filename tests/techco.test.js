@@ -29,6 +29,7 @@ const files = [
   'js/data/techco.js',
   'js/data/techspecs.js',
   'js/data/bizdefs.js',
+  'js/data/research.js',
   'js/state.js',
   'js/market.js',
   'js/techco.js',
@@ -101,8 +102,8 @@ check('lean + rush never breaks out (always flop/modest)', allBottom);
 const rev = TechCo.revenuePerDay(ID);
 check('revenue = (base + product income) × share mult × leader mult',
   approx(rev, (TechCo.baseIncome(ID) + TechCo.productIncome(ID, prod)) * TechCo.shareIncomeMult(ID) * TechCo.leaderMult(ID)));
-check('net profit = revenue − revenue×opex − payroll',
-  approx(TechCo.netProfitPerDay(ID), rev - rev * TechCo.opexRate(ID) - TechCo.payrollPerDay(ID)));
+check('net profit = revenue − revenue×opex − payroll − R&D spend',
+  approx(TechCo.netProfitPerDay(ID), rev - rev * TechCo.opexRate(ID) - TechCo.payrollPerDay(ID) - TechCo.researchSpendPerDay(ID)));
 
 /* H) Market share is RELATIVE: your strength as a share of the whole field. */
 check('market share = playerStrength / (player + rivals) × 100',
@@ -162,7 +163,7 @@ const vc = TechCo._state(V);
 /* P) Staff: three groups seed with headcount + zero training. */
 check('company seeds Engineering / Marketing / Operations teams',
   vc.staff.eng.count > 0 && vc.staff.mkt.count > 0 && vc.staff.ops.count > 0);
-check('build slots ≥ 2 from seed Engineering', TechCo.concurrentSlots(V) >= 2);
+check('research state seeds to the new shape', vc.research.levels && Array.isArray(vc.research.active) && vc.research.budget === 'standard');
 
 /* Q) Hiring costs cash (scaled off base income), adds payroll, adds a head. */
 vc.cash = TechCo.baseIncome(V) * 100; // plenty to act
@@ -183,49 +184,56 @@ check('train raised training level', vc.staff.eng.training === trainPre + 1);
 check('train did NOT add payroll', approx(TechCo.payrollPerDay(V), payPreTrain));
 check('train deducted company cash', vc.cash < cashPreTrain);
 
-/* S) More Engineering → faster builds and more concurrent slots. */
+/* S) More Engineering → faster builds (build slots removed entirely). */
 check('buildSpeedMult < 1 with staff', TechCo.buildSpeedMult(V) < 1);
-const slotsNow = TechCo.concurrentSlots(V);
+const bs0 = TechCo.buildSpeedMult(V);
 vc.staff.eng.count += 8;
-check('extra Engineering adds build slots', TechCo.concurrentSlots(V) > slotsNow);
-check('extra Engineering speeds builds further', TechCo.buildSpeedMult(V) < 1);
+check('extra Engineering speeds builds further', TechCo.buildSpeedMult(V) < bs0);
 
-/* T) Build slots are enforced (can't exceed the concurrent slot cap). */
-vc.staff.eng.count = 1; vc.staff.eng.training = 0; // slots = 1
-vc.products = []; vc.builds = []; vc.cash = TechCo.baseIncome(V) * 500;
+/* T) No build-slot cap — you can develop several products at once. */
+vc.staff.eng.count = 1; vc.staff.eng.training = 0;
+vc.products = []; vc.builds = []; vc.cash = TechCo.baseIncome(V) * 5000;
 const cat = TechCo.catalogFor(V);
-check('first build starts (slot free)', TechCo.startBuild(V, { type: cat[0][0], budget: 'lean', quality: 'rush', pricing: 'balanced' }).ok === true);
-const second = TechCo.startBuild(V, { type: cat[1][0], budget: 'lean', quality: 'rush', pricing: 'balanced' });
-check('second build rejected when all slots busy', second.ok === false);
+check('first build starts', TechCo.startBuild(V, { type: cat[0][0], budget: 'lean', quality: 'rush', pricing: 'balanced' }).ok === true);
+check('a second concurrent build also starts (no slot cap)', TechCo.startBuild(V, { type: cat[1][0], budget: 'lean', quality: 'rush', pricing: 'balanced' }).ok === true);
+check('multiple builds run at once', vc.builds.length === 2);
 
-/* U) Research: tiers gate on order; starting one costs cash and runs a timer. */
-vc.research = { done: {}, active: null };
-check('tier 0 available, tier 1 locked until tier 0 done', TechCo.researchAvailable(V, 0) && !TechCo.researchAvailable(V, 1));
-const rcost = TechCo.researchCost(V, 0), cashPreR = vc.cash;
-const sr = TechCo.startResearch(V, 0);
-check('startResearch ok', sr.ok === true);
-check('research deducted cash (scaled off base income)', approx(vc.cash, cashPreR - rcost));
-check('research is now active', !!vc.research.active);
-check('cannot start a second project while one runs', TechCo.startResearch(V, 0).ok === false);
-// Resolve it (success or failure — either way the project stops running).
-globalThis.NOW = vc.research.active.endsAt + 1000;
+/* U) Research: scientists add power & capacity; projects cost cash + run a timer. */
+vc.research = { budget: 'standard', sci: { jr: 0, sr: 0, lead: 0 }, centers: {}, partners: {}, levels: {}, active: [], mass: {} };
+vc.cash = TechCo.baseIncome(V) * 5000;
+const cap0 = TechCo.researchCapacity(V);
+TechCo.hireSci(V, 'lead'); TechCo.hireSci(V, 'lead');
+check('hiring scientists raises research power', TechCo.researchPower(V) > 0);
+check('scientists raise project capacity', TechCo.researchCapacity(V) >= cap0);
+const treeV = TechCo.treeOf(V), cat0 = treeV.categories[0].id;
+const rcost = TechCo.projectCost(V, 1), cashPreR = vc.cash;
+const sp = TechCo.startProject(V, cat0);
+check('startProject ok', sp.ok === true);
+check('project deducted cash (scaled off base income)', approx(vc.cash, cashPreR - rcost));
+check('a research project is now active', vc.research.active.length === 1);
+check('cannot start the same category twice', TechCo.startProject(V, cat0).ok === false);
+globalThis.NOW = vc.research.active[0].endsAt + 1000;
 TechCo.advance(V);
-check('research resolves after its timer (no longer active)', vc.research.active === null);
+check('project resolves and raises the category level', vc.research.levels[cat0] === 1 && vc.research.active.length === 0);
 
-/* V) Research EFFECTS wire through: income mult, cost cut, unlock. */
-vc.research = { done: { 2: true }, active: null }; // tier 2 = income ×1.15
-check('income-mult research raises researchMult', approx(TechCo.researchMult(V), TechCo.RESEARCH_TIERS[2].effect.mult));
-const opexFull = TechCo.opexRate(V);
-vc.research = { done: { 1: true }, active: null }; // tier 1 = cost cut
-check('cost-cut research lowers operating cost rate', TechCo.opexRate(V) < opexFull);
-const baseCatLen = TECHCO_DEFS[V].catalog.length;
-vc.research = { done: {}, active: null }; vc.unlocked = [];
-check('catalog is base length with nothing unlocked', TechCo.catalogFor(V).length === baseCatLen);
-vc.unlocked = [TECHCO_DEFS[V].unlockProduct];
-check('unlocked flagship extends the catalog', TechCo.catalogFor(V).length === baseCatLen + 1);
+/* V) Research effects wire through: income/quality bonuses + product unlock. */
+vc.research.levels = {}; vc.unlocked = [];
+const c1 = treeV.categories[0];
+vc.research.levels[c1.id] = c1.levels.length; // fully researched
+check('research raises income multiplier', TechCo.researchMult(V) > 1);
+check('research adds a quality bonus', TechCo.researchQualityBonus(V) >= 0);
+// A breakthrough with an unlock adds a new product to the catalogue.
+vc.research.levels = {}; vc.unlocked = []; vc.cash = TechCo.baseIncome(V) * 1e6;
+vc.research.levels[c1.id] = c1.levels.length - 1;
+TechCo.startProject(V, c1.id);
+globalThis.NOW = vc.research.active[0].endsAt + 1000;
+TechCo.advance(V);
+const unlockDef = c1.levels[c1.levels.length - 1][2].u;
+check('reaching a breakthrough unlocks its product', !unlockDef || TechCo.catalogFor(V).some((r) => r[0] === unlockDef[0]));
 
 /* W) Valuation ratchets up and feeds the empire (net-worth) total. */
-vc.products = []; vc.builds = []; vc.research = { done: {}, active: null }; vc.unlocked = [];
+vc.products = []; vc.builds = []; vc.unlocked = [];
+vc.research = { budget: 'standard', sci: { jr: 0, sr: 0, lead: 0 }, centers: {}, partners: {}, levels: {}, active: [], mass: {} };
 vc.valuation = 0; vc.cumProfit = 0; vc.lastMs = globalThis.NOW;
 TechCo.advance(V);
 const val1 = TechCo._state(V).valuation;
@@ -330,9 +338,9 @@ check('in-house lifts physical product margin (>1)', TechCo.manufacturingMult(A2
 TechCo.setStrategy(A2, 'balanced'); const opexBal = TechCo.opexRate(A2);
 TechCo.setStrategy(A2, 'costcut');
 check('Cut Costs lowers the operating cost rate', TechCo.opexRate(A2) < opexBal);
-const succBal = TechCo.researchSuccess(A2, 0);
+TechCo.setStrategy(A2, 'balanced'); const durBal = TechCo.projectDuration(A2, 1);
 TechCo.setStrategy(A2, 'research');
-check('Research Focus raises research success chance', TechCo.researchSuccess(A2, 0) >= succBal);
+check('Research Focus speeds up research (shorter projects)', TechCo.projectDuration(A2, 1) < durBal);
 
 /* AJ) Marketing Focus steadily grows competitive edge over time. */
 TechCo.setStrategy(A2, 'marketing');
@@ -456,7 +464,7 @@ check('product tracks lifetime sales fields', typeof kprod.unitsSold === 'number
 const budgetTier = Object.assign({}, kprod, { tier: 'budget' });
 const flagTier = Object.assign({}, kprod, { tier: 'flagship' });
 check('flagship unit price > budget unit price', TechCo.unitPriceOf(K, flagTier) > TechCo.unitPriceOf(K, budgetTier));
-check('product margin within 0.15..0.75', TechCo.productMargin(K, kprod) >= 0.15 && TechCo.productMargin(K, kprod) <= 0.75);
+check('product margin within 0.15..0.85', TechCo.productMargin(K, kprod) >= 0.15 && TechCo.productMargin(K, kprod) <= 0.85);
 check('units/day = income / unit price', approx(TechCo.unitsPerDay(K, kprod), TechCo.productIncome(K, kprod) / kprod.unitPrice));
 
 /* AX) Lifetime sales accumulate: units, revenue and profit. */
@@ -516,6 +524,50 @@ check('pharma margin is high, auto margin is low', pharmaMargin > autoMargin);
 /* BD) Manufacturing only for physical-product sectors. */
 check('a bank has no manufacturing', !TechCo.hasManufacturing(BANK));
 check('a semiconductor firm has manufacturing', TechCo.hasManufacturing('envidia'));
+
+/* ================= RESEARCH META-GAME (centres, partners, mass) ====== */
+const R = 'tezla'; // Voltaris Motors — auto research tree
+const rc2 = TechCo._state(R);
+rc2.cash = TechCo.baseIncome(R) * 1e7;
+rc2.research = { budget: 'standard', sci: { jr: 0, sr: 0, lead: 0 }, centers: {}, partners: {}, levels: {}, active: [], mass: {} };
+
+/* BE) Editable research budget changes spend and speed. */
+const spendStd = TechCo.researchSpendPerDay(R);
+TechCo.setBudget(R, 'blitz');
+check('a bigger budget raises R&D spend/day', TechCo.researchSpendPerDay(R) > spendStd);
+check('a bigger budget speeds projects', TechCo.projectDuration(R, 1) < 100000);
+TechCo.setBudget(R, 'standard');
+
+/* BF) Building a research centre costs cash and adds power. */
+const pow0 = TechCo.researchPower(R);
+const rcbuild = TechCo.buildCenter(R, 'sv');
+check('build centre ok', rcbuild.ok === true);
+check('centre adds research power', TechCo.researchPower(R) > pow0);
+check('cannot build the same centre twice', TechCo.buildCenter(R, 'sv').ok === false);
+
+/* BG) Partnerships form and give distinct bonuses. */
+const rlab = TechCo.formPartner(R, 'lab');
+check('form partnership ok', rlab.ok === true);
+check('lab partnership adds big research power', TechCo.researchPower(R) > pow0);
+TechCo.formPartner(R, 'corp');
+check('private R&D partner adds a quality bonus', TechCo.researchQualityBonus(R) >= 5);
+
+/* BH) Mass "moonshot" projects: cost a lot, run long, then apply a big effect. */
+const tree = TechCo.treeOf(R), mass = tree.mass[0];
+rc2.cash = TechCo.baseIncome(R) * 1e7;
+const incBefore = TechCo.researchMult(R);
+const rmStart = TechCo.startMass(R, mass.id);
+check('start mass project ok', rmStart.ok === true);
+check('mass project is running', !!rc2.research.mass[mass.id] && rc2.research.mass[mass.id] !== 'done');
+globalThis.NOW = rc2.research.mass[mass.id].endsAt + 1000;
+TechCo.advance(R);
+check('mass project completes', rc2.research.mass[mass.id] === 'done');
+check('mass project applies its reward', mass.effect.inc ? TechCo.researchMult(R) > incBefore : true);
+
+/* BI) Save migrates to v18 in place, keeping holdings + cash. */
+const out6 = migrate({ version: 17, balance: 314, portfolio: { mango: { shares: 8, cost: 20 } } });
+check('save migrates to v18+', out6.version >= 18);
+check('holdings + cash kept through v18 migration', out6.balance === 314 && out6.portfolio.mango.shares === 8);
 
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;

@@ -97,8 +97,8 @@ const Invest = (() => {
   // "Crypto · AURM") — never the holding size (that lives in the Portfolio).
   const subLabel = (def) => `${def.group === 'crypto' ? 'Crypto' : (SECTOR_LABELS[def.sector] || 'Stock')} · ${def.ticker}`;
   const unitOf = (def) => (def.group === 'crypto' ? 'coins' : 'shares');
-  // A crown badge marking an asset you fully own (100%) — bought out.
-  const ownedBadge = (def) => (Market.isOwned(def.id) ? ' <span class="owned-tag">👑 Owned</span>' : '');
+  // A clean badge marking an asset you fully own (100%) — bought out.
+  const ownedBadge = (def) => (Market.isOwned(def.id) ? ' <span class="owned-tag">Owned</span>' : '');
   const ownedCls = (def) => (Market.isOwned(def.id) ? ' owned' : '');
 
   /** A tiny Trading-212-style performance sparkline (last 24h) for a list row:

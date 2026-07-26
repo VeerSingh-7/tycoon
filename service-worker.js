@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v57'; // v57: "Owned" crown badge + gold wash on bought-out stocks/crypto
+const CACHE_NAME = 'tycoon-v58'; // v58: research meta-game (categories/scientists/centres/partners/mass) per company; no build slots; Owned badge
 
 const ASSETS = [
   'index.html',
@@ -24,6 +24,7 @@ const ASSETS = [
   'js/data/techco.js',
   'js/data/techspecs.js',
   'js/data/bizdefs.js',
+  'js/data/research.js',
   'js/state.js',
   'js/engine.js',
   'js/mechanics.js',

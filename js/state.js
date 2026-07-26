@@ -45,7 +45,11 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v17: In-depth Product Studio. New products carry specs/tier/team/budget and
 //      sales metrics; old products keep working unchanged. No transform needed —
 //      migrates in place, all progress kept.
-const SAVE_VERSION = 17;
+// v18: Research meta-game (categories/levels, scientists, centres, partners,
+//      mass projects). Each company's research state is rebuilt to the new shape
+//      by TechCo.normalize() on load; unlocked products are kept. Cash/holdings
+//      and everything else untouched.
+const SAVE_VERSION = 18;
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -287,6 +291,11 @@ function migrate(loaded) {
   // creation; existing products/companies carry over untouched.
   if (loaded.version < 17) {
     loaded.version = 17;
+  }
+  // v17 -> v18: research meta-game. Per-company research is migrated to the new
+  // shape by TechCo.normalize() when a company is opened — no transform here.
+  if (loaded.version < 18) {
+    loaded.version = 18;
   }
   return loaded;
 }
