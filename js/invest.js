@@ -97,6 +97,9 @@ const Invest = (() => {
   // "Crypto · AURM") — never the holding size (that lives in the Portfolio).
   const subLabel = (def) => `${def.group === 'crypto' ? 'Crypto' : (SECTOR_LABELS[def.sector] || 'Stock')} · ${def.ticker}`;
   const unitOf = (def) => (def.group === 'crypto' ? 'coins' : 'shares');
+  // A crown badge marking an asset you fully own (100%) — bought out.
+  const ownedBadge = (def) => (Market.isOwned(def.id) ? ' <span class="owned-tag">👑 Owned</span>' : '');
+  const ownedCls = (def) => (Market.isOwned(def.id) ? ' owned' : '');
 
   /** A tiny Trading-212-style performance sparkline (last 24h) for a list row:
    *  green if the price is up over the window, red if down. Built once per row
@@ -297,10 +300,10 @@ const Invest = (() => {
     // the Portfolio page.
     const sub = subLabel(def);
     return `
-      <button class="asset-row" data-act="open" data-id="${def.id}">
+      <button class="asset-row${ownedCls(def)}" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
         <div class="asset-name-wrap">
-          <div class="asset-sym">${def.name}</div>
+          <div class="asset-sym">${def.name}${ownedBadge(def)}</div>
           <div class="asset-name">${sub}</div>
         </div>
         ${sparkSVG(def)}
@@ -356,10 +359,10 @@ const Invest = (() => {
     const pl = value - h.cost;
     const pct = h.cost > 0 ? (pl / h.cost) * 100 : 0;
     return `
-      <button class="asset-row" data-act="open" data-id="${def.id}">
+      <button class="asset-row${ownedCls(def)}" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
         <div class="asset-name-wrap">
-          <div class="asset-sym">${def.name}</div>
+          <div class="asset-sym">${def.name}${ownedBadge(def)}</div>
           <div class="asset-name">${fmtShares(h.shares)} ${unitOf(def)}</div>
         </div>
         ${sparkSVG(def)}
@@ -412,7 +415,7 @@ const Invest = (() => {
       <button class="back-link" data-act="back">‹ ${backLabel()}</button>
       <div class="detail-head">
         ${Logos.tile(def, 'lg')}
-        <div><div class="asset-sym big">${def.name}</div>
+        <div><div class="asset-sym big">${def.name}${ownedBadge(def)}</div>
           <div class="asset-name">${subLabel(def)}</div></div>
       </div>
       <div class="detail-price-row">

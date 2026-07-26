@@ -658,6 +658,20 @@ html, body {
   box-shadow: 0 6px 18px rgba(20, 184, 166, 0.32);
 }
 
+/* "Bought out" (100% owned) marker — a gold crown pill + a soft gold wash. */
+.owned-tag {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: middle;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--accent-ink); background: linear-gradient(135deg, var(--gold-deep), var(--gold));
+  padding: 2px 7px; border-radius: 999px; margin-left: 7px; white-space: nowrap;
+  box-shadow: 0 1px 5px var(--gold-glow); position: relative; top: -1px;
+}
+.asset-row.owned {
+  background: linear-gradient(90deg, var(--gold-glow), transparent 55%);
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+.asset-sym.big .owned-tag { font-size: 10.5px; padding: 3px 9px; }
+
 /* Portfolio page — "Not owned" empty state with a buy CTA. */
 .pf-empty {
   text-align: center; padding: 44px 24px 24px;

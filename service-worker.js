@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v56'; // v56: manage EVERY stock (all 16 sectors), list subtitle = sector · ticker, buy-all fix
+const CACHE_NAME = 'tycoon-v57'; // v57: "Owned" crown badge + gold wash on bought-out stocks/crypto
 
 const ASSETS = [
   'index.html',
