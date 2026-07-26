@@ -30,7 +30,10 @@ const SAVE_KEY = 'tycoon_save_v1';
 //      sub-dollar coins were repriced to real values (with matching supply
 //      cuts); holders get a reverse-split (shares ÷ price factor) so their coin
 //      VALUE and ownership % are preserved exactly — nothing sold or reset.
-const SAVE_VERSION = 12;
+// v13: Tech-sector company management (Phase 1). Adds state.techco (per-company
+//      dashboards/products); defaults via the merge — migrates in place, holdings,
+//      cash and all progress untouched.
+const SAVE_VERSION = 13;
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -78,6 +81,9 @@ function defaultState() {
 
     /* Phase 5 — real estate & luxury */
     assets: null,          // { epoch, estate:{}, luxury:{} }; lazy via Assets.ensure()
+
+    /* Tech-sector company management (Phase 1) */
+    techco: null,          // id -> per-company state; lazy via TechCo.ensureCompany()
 
     lastSaved: nowSeconds(),
   };
@@ -242,6 +248,11 @@ function migrate(loaded) {
     }
     loaded.version = 12;
   }
+  // v12 -> v13: tech-company management added. state.techco defaults via the
+  // merge in loadGame() — nothing to transform, all progress kept.
+  if (loaded.version < 13) {
+    loaded.version = 13;
+  }
   return loaded;
 }
 
@@ -266,6 +277,9 @@ function applyOfflineEarnings() {
   if (typeof Mechanics !== 'undefined') Mechanics.applyOffline(capped);
   // Markets kept moving while you were away (coarse catch-up, capped).
   if (typeof Market !== 'undefined') Market.applyOffline(elapsed);
+  // Tech companies: resolve builds that finished and accrue company cash while
+  // the app was closed (wall-clock based; a completion toast fires on return).
+  if (typeof TechCo !== 'undefined') TechCo.applyOffline(elapsed);
 
   if (earned <= 0) return null;
 

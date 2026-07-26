@@ -339,4 +339,7 @@ function tick() {
   if (typeof Progression !== 'undefined') Progression.tick();
   // Market simulation (price steps, candles, dividends).
   if (typeof Market !== 'undefined') Market.tick(dt);
+  // Tech-company management: advance product builds, cash, ageing; live-patch
+  // the dashboard if it's open. Timers are wall-clock, so offline counts too.
+  if (typeof TechCo !== 'undefined') TechCo.tick(dt);
 }

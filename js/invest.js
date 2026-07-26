@@ -163,6 +163,7 @@ const Invest = (() => {
     else if (a === 'buy') openTicket('buy');
     else if (a === 'sell') openTicket('sell');
     else if (a === 'manage') doManage(t.dataset.action);
+    else if (a === 'managehub') { if (typeof TechCo !== 'undefined') TechCo.open(view.assetId); }
   }
 
   function render() {
@@ -496,7 +497,12 @@ const Invest = (() => {
 
   function ownershipHTML(def, s) {
     const frac = Market.ownedFrac(def.id);
-    if (Market.isOwned(def.id)) return manageHTML(def, s);
+    if (Market.isOwned(def.id)) {
+      // The five TECH companies get a full operations dashboard (Manage Company);
+      // every other owned asset keeps the simple four-lever manage card.
+      if (typeof TechCo !== 'undefined' && TechCo.isManaged(def.id)) return techManageHTML(def, s);
+      return manageHTML(def, s);
+    }
     const pct = frac * 100;
     const units = def.group === 'crypto' ? 'coins' : 'shares';
     // Cost to buy the rest to 100%, at the SAME price the Company value uses,
@@ -539,6 +545,22 @@ const Invest = (() => {
           ${btn('cutcosts', cutActive, cutActive ? 'Boost active' : 'Free')}
           ${btn('expand', false, 'Costs ' + formatMoney(s.marketCap * 0.10))}
         </div>
+      </div>`;
+  }
+
+  /** Owned TECH company: a snapshot card + a button into the full dashboard. */
+  function techManageHTML(def, s) {
+    const snap = TechCo.snapshot(def.id);
+    return `
+      <div class="card manage-card tc-entry">
+        <div class="card-title">🏢 ${def.name} <span class="owned-badge">100% yours</span></div>
+        <div class="card-sub">Run it like a real company — develop products, grow market share, become #1.</div>
+        <div class="tc-entry-stats">
+          <div><span>Net profit / day</span><b class="${snap.netProfitDay >= 0 ? 'up' : 'down'}">${formatMoney(snap.netProfitDay)}</b></div>
+          <div><span>Market share</span><b>${snap.share.toFixed(1)}%</b></div>
+          <div><span>Active products</span><b>${snap.activeProducts}</b></div>
+        </div>
+        <button class="btn btn-gold btn-wide" data-act="managehub">Manage Company ›</button>
       </div>`;
   }
 

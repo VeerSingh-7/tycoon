@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v47'; // v47: TEMPORARY infinite money — top bar shows ∞
+const CACHE_NAME = 'tycoon-v48'; // v48: Tech company management Phase 1 (dashboard + product development)
 
 const ASSETS = [
   'index.html',
@@ -21,11 +21,13 @@ const ASSETS = [
   'js/data/markets.js',
   'js/data/stocks.js',
   'js/data/assets.js',
+  'js/data/techco.js',
   'js/state.js',
   'js/engine.js',
   'js/mechanics.js',
   'js/progression.js',
   'js/market.js',
+  'js/techco.js',
   'js/assets.js',
   'js/tap.js',
   'js/businesses.js',

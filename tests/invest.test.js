@@ -124,7 +124,7 @@ check('no fractional coins (all refPrice >= $1)', CRYPTO_DEFS.every((d) => d.ref
 
 /* G) v12 reverse-split preserves holding VALUE and OWNERSHIP for every repriced coin. */
 const out = migrate({ version: 11, portfolio: { dogecorn: { shares: 1.4e11, cost: 1e6 } } });
-check('save migrates to v12', out.version === 12);
+check('save migrates to the latest version (>= 12, v12 split applied en route)', out.version >= 12);
 check('dogecorn shares reverse-split by 200 (1.4e11 -> 7e8)', Math.abs(out.portfolio.dogecorn.shares - 7e8) < 1);
 check('dogecorn value preserved at ref (7e8*24 == 1.4e11*0.12)', Math.abs(7e8 * 24 - 1.4e11 * 0.12) < 1);
 for (const [id, factor] of Object.entries(V12_COIN_SPLIT)) {

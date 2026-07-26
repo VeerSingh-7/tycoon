@@ -895,3 +895,161 @@ html, body {
 }
 .settings-link:active { background: var(--bg-elev-2); }
 .settings-link .chev { color: var(--muted); font-weight: 700; }
+
+/* =========================================================================
+ * Tech-company management (dashboard, product development, toasts)
+ * ========================================================================= */
+
+/* Entry card on the owned asset page. */
+.tc-entry .tc-entry-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 14px;
+}
+.tc-entry-stats > div {
+  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 9px 10px; text-align: center;
+}
+.tc-entry-stats span { display: block; font-size: 10.5px; color: var(--muted); margin-bottom: 3px; }
+.tc-entry-stats b { font-size: 14px; font-variant-numeric: tabular-nums; }
+
+/* Fullscreen dashboard shell. */
+.tc-screen {
+  position: fixed; inset: 0; z-index: 320; background: var(--bg);
+  display: flex; flex-direction: column; overflow-y: auto;
+  padding: calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 18px);
+  animation: fadeIn 0.16s ease;
+}
+.tc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.tc-head .tc-id { flex: 1; min-width: 0; }
+.tc-co-name { font-size: 19px; font-weight: 800; line-height: 1.1; }
+.tc-co-sector { font-size: 12px; color: var(--text); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Always-visible headline stats. */
+.tc-headline { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.tc-hstat {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px;
+  padding: 12px 13px; box-shadow: 0 1px 3px var(--shadow);
+}
+.tc-hstat span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+.tc-hstat b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* Collapsible secondary stats. */
+.tc-details { margin-bottom: 12px; }
+.tc-details > summary {
+  cursor: pointer; font-size: 13px; font-weight: 700; color: var(--gold);
+  list-style: none; padding: 6px 2px;
+}
+.tc-details > summary::-webkit-details-marker { display: none; }
+.tc-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.tc-dstat {
+  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 9px 11px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+}
+.tc-dstat span { font-size: 11.5px; color: var(--muted); }
+.tc-dstat b { font-size: 13.5px; font-variant-numeric: tabular-nums; }
+
+/* Tab bar. */
+.tc-tabs {
+  display: flex; gap: 4px; background: var(--bg-elev-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 4px; margin-bottom: 14px; position: sticky; top: 0; z-index: 2;
+}
+.tc-tab {
+  flex: 1; text-align: center; background: none; border: none; color: var(--muted);
+  font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 4px;
+  border-radius: 9px; cursor: pointer;
+}
+.tc-tab.on { background: var(--gold); color: var(--accent-ink); }
+
+.tc-body { flex: 1; }
+.tc-section-label {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--muted); margin: 16px 2px 8px;
+}
+.tc-new { margin-bottom: 4px; }
+.tc-empty { color: var(--muted); text-align: center; padding: 26px 12px; font-size: 14px; }
+
+/* Build-in-progress rows. */
+.tc-build-list, .tc-prod-list { display: flex; flex-direction: column; gap: 8px; }
+.tc-build {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px;
+}
+.tc-build-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.tc-build-top b { font-size: 14px; }
+.tc-build-top span { font-size: 11px; }
+.tc-build-left { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.tc-progress { height: 7px; background: var(--bg-elev-2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+.tc-progress-fill { height: 100%; background: var(--gold); border-radius: 99px; transition: width 0.2s linear; }
+
+/* Product rows. */
+.tc-prod {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+  padding: 11px 12px; display: flex; gap: 10px; align-items: center;
+}
+.tc-prod-main { flex: 1; min-width: 0; }
+.tc-prod-name { font-size: 14px; font-weight: 700; }
+.tc-prod-sub { font-size: 11.5px; color: var(--muted); margin: 3px 0 7px; }
+.tc-tag {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--muted); background: var(--bg-elev-2); border: 1px solid var(--line);
+  border-radius: 5px; padding: 1px 5px; vertical-align: middle;
+}
+.tc-health { height: 6px; background: var(--bg-elev-2); border-radius: 99px; overflow: hidden; }
+.tc-health-fill { height: 100%; border-radius: 99px; transition: width 0.3s ease; }
+.tc-health-fill.good { background: var(--green); }
+.tc-health-fill.warn { background: var(--gold); }
+.tc-health-fill.bad  { background: var(--danger); }
+.tc-prod-right { text-align: right; flex-shrink: 0; }
+.tc-prod-inc { font-size: 14px; font-weight: 800; color: var(--green); font-variant-numeric: tabular-nums; }
+.tc-prod-inc small { font-size: 10px; color: var(--muted); font-weight: 600; margin-left: 1px; }
+.tc-update {
+  margin-top: 7px; padding: 6px 14px; font-size: 12px; min-height: 0;
+}
+
+/* Placeholder (Staff / R&D / Market / More before their phases land). */
+.tc-placeholder { text-align: center; padding: 40px 20px; color: var(--muted); }
+.tc-ph-emoji { font-size: 40px; margin-bottom: 10px; }
+.tc-ph-title { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.tc-placeholder p { font-size: 13.5px; line-height: 1.5; max-width: 320px; margin: 0 auto; }
+
+/* Launch (develop a product) flow. */
+.tc-launch-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.tc-launch-head b { font-size: 16px; }
+.tc-field-label { font-size: 12.5px; font-weight: 700; margin: 14px 2px 7px; }
+.tc-field-label .muted { font-weight: 500; font-size: 11.5px; }
+.tc-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tc-type {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  padding: 10px 8px; cursor: pointer; text-align: left;
+}
+.tc-type.on { border-color: var(--gold); background: var(--gold-glow); }
+.tc-type:disabled { opacity: 0.45; cursor: default; }
+.tc-chip-row { display: flex; gap: 6px; }
+.tc-chip {
+  flex: 1; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--muted); font-family: inherit; font-size: 12.5px; font-weight: 700;
+  padding: 9px 6px; cursor: pointer;
+}
+.tc-chip.on { border-color: var(--gold); background: var(--gold); color: var(--accent-ink); }
+.tc-preview {
+  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; margin: 18px 0 14px; display: flex; flex-direction: column; gap: 9px;
+}
+.tc-preview > div { display: flex; justify-content: space-between; align-items: baseline; }
+.tc-preview span { font-size: 12.5px; color: var(--muted); }
+.tc-preview b { font-size: 14px; font-variant-numeric: tabular-nums; }
+
+/* Completion toasts. */
+.tc-toast-wrap {
+  position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 78px);
+  z-index: 340; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  pointer-events: none; padding: 0 14px;
+}
+.tc-toast {
+  pointer-events: auto; max-width: 420px; width: 100%;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 6px 24px var(--shadow), 0 0 20px var(--gold-glow);
+  padding: 12px 14px; font-size: 13px; line-height: 1.4; cursor: pointer;
+  opacity: 0; transform: translateY(12px); transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.tc-toast.in { opacity: 1; transform: translateY(0); }
+.tc-toast b { font-weight: 800; }
