@@ -873,6 +873,7 @@ const TechCo = (() => {
    * ==================================================================== */
 
   let dash = null; // { id, el, tab, launch }  — null when closed
+  let lastSoftRefresh = 0; // throttles the affordability soft-refresh (Staff/More)
 
   const companyName = (id) => (ASSET_BY_ID[id] ? ASSET_BY_ID[id].name : id);
   const TABS = [
@@ -919,10 +920,14 @@ const TechCo = (() => {
         </div>
       </div>
 
+      <div class="tc-hero">
+        <div class="tc-hero-label">Company Value</div>
+        <div class="tc-hero-value" data-h="Company Value">${formatMoney(s.value)}</div>
+        <div class="tc-hero-sub" data-hsub>${heroSub(s)}</div>
+      </div>
       <div class="tc-headline">
-        ${headStat('Company Value', formatMoney(s.value))}
         ${headStat('Net Profit / day', formatMoney(s.netProfitDay), s.netProfitDay >= 0 ? 'up' : 'down')}
-        ${headStat('Cash', formatMoney(s.cash))}
+        ${headStat('Cash', formatMoney(s.cash), s.cash < 0 ? 'down' : '')}
         ${headStat('Market Share', s.share.toFixed(1) + '%')}
       </div>
 
@@ -944,6 +949,15 @@ const TechCo = (() => {
       <div class="tc-body" id="tcBody">${tabHTML(id)}</div>
     `;
     wireDash();
+  }
+
+  /** Hero subtitle: raw market cap + how much value YOUR management has added. */
+  function heroSub(s) {
+    const premium = s.marketCap > 0 ? (s.value / s.marketCap - 1) * 100 : 0;
+    const tag = premium >= 0.05
+      ? `<span class="up">+${premium.toFixed(1)}% from your management</span>`
+      : `<span class="muted">build it up to grow this</span>`;
+    return `Market cap ${formatMoney(s.marketCap)} · ${tag}`;
   }
 
   function headStat(label, value, cls = '') {
@@ -1005,8 +1019,8 @@ const TechCo = (() => {
             <div><span>Training</span><b>${'●'.repeat(st.training)}${'○'.repeat(STAFF_CFG.TRAIN_MAX - st.training)}</b></div>
           </div>
           <div class="tc-staff-btns">
-            <button class="btn tc-mini" data-tcact="hire" data-group="${g}">Hire · ${formatMoney(hc)}</button>
-            <button class="btn tc-mini" data-tcact="train" data-group="${g}" ${maxed ? 'disabled' : ''}>${maxed ? 'Fully trained' : 'Train · ' + formatMoney(tc)}</button>
+            <button class="btn tc-mini" data-tcact="hire" data-group="${g}" ${c.cash >= hc ? '' : 'disabled'}>Hire · ${formatMoney(hc)}</button>
+            <button class="btn tc-mini" data-tcact="train" data-group="${g}" ${maxed || c.cash < tc ? 'disabled' : ''}>${maxed ? 'Fully trained' : 'Train · ' + formatMoney(tc)}</button>
           </div>
         </div>`;
     };
@@ -1183,7 +1197,7 @@ const TechCo = (() => {
       ? '<span class="tc-r-done">Home</span>'
       : owned
         ? '<span class="tc-r-done">✓ Active</span>'
-        : `<button class="btn tc-mini" data-tcact="region" data-region="${reg.id}">Expand · ${formatMoney(regionCost(id, reg.id))}</button>`;
+        : `<button class="btn tc-mini" data-tcact="region" data-region="${reg.id}" ${c.cash >= regionCost(id, reg.id) ? '' : 'disabled'}>Expand · ${formatMoney(regionCost(id, reg.id))}</button>`;
     const trade = reg.id === 'na' ? 'Your home market' : `+${Math.round(reg.income * 100)}% income · +${Math.round(reg.cost * 100)}% costs`;
     return `
       <div class="tc-region ${owned ? 'is-on' : ''}">
@@ -1195,7 +1209,7 @@ const TechCo = (() => {
   function acqRowHTML(id, r, i) {
     const weak = canAcquire(id, i);
     const right = weak
-      ? `<button class="btn btn-gold tc-mini" data-tcact="acquire" data-idx="${i}">Acquire · ${formatMoney(acquireCost(id, i))}</button>`
+      ? `<button class="btn btn-gold tc-mini" data-tcact="acquire" data-idx="${i}" ${co(id).cash >= acquireCost(id, i) ? '' : 'disabled'}>Acquire · ${formatMoney(acquireCost(id, i))}</button>`
       : `<span class="tc-r-lock">Too strong</span>`;
     return `
       <div class="tc-region">
@@ -1230,7 +1244,7 @@ const TechCo = (() => {
         </div>
         <div class="tc-prod-right">
           <div class="tc-prod-inc">${formatMoney(inc)}<small>/day</small></div>
-          <button class="btn tc-update" data-tcact="update" data-pid="${p.pid}">Update</button>
+          <button class="btn tc-update" data-tcact="update" data-pid="${p.pid}" ${co(id).cash >= updateCost(id, p) ? '' : 'disabled'}>Update · ${formatMoney(updateCost(id, p))}</button>
         </div>
       </div>`;
   }
@@ -1356,14 +1370,23 @@ const TechCo = (() => {
       if (e) { e.textContent = val; if (cls !== undefined) e.className = cls; }
     };
     set('[data-h="Company Value"]', formatMoney(s.value));
+    const hsub = dash.el.querySelector('[data-hsub]');
+    if (hsub) hsub.innerHTML = heroSub(s);
     set('[data-h="Net Profit / day"]', formatMoney(s.netProfitDay), s.netProfitDay >= 0 ? 'up' : 'down');
-    set('[data-h="Cash"]', formatMoney(s.cash));
+    set('[data-h="Cash"]', formatMoney(s.cash), s.cash < 0 ? 'down' : '');
     set('[data-h="Market Share"]', s.share.toFixed(1) + '%');
     set('[data-d="Revenue / day"]', formatMoney(s.revenueDay));
     set('[data-d="Payroll / day"]', formatMoney(s.payrollDay));
     set('[data-d="Active Products"]', s.activeProducts + ' · ' + s.slotsUsed + '/' + s.slots + ' slots');
     set('[data-d="Brand Reputation"]', Math.round(s.reputation) + '/100');
     set('[data-d="Customer Satisfaction"]', Math.round(s.satisfaction) + '/100');
+
+    // Keep affordability of spend buttons fresh on the button-only tabs as cash
+    // accrues (Staff / More have no sorted lists, so a soft rebuild is safe).
+    if ((dash.tab === 'staff' || dash.tab === 'more') && !dash.launch) {
+      const t = now();
+      if (t - lastSoftRefresh > 2000) { lastSoftRefresh = t; refreshBody(); return; }
+    }
 
     // Live market-share figure (Market tab).
     if (dash.tab === 'market' && !dash.launch) {

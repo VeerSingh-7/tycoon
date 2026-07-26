@@ -923,14 +923,27 @@ html, body {
 .tc-co-name { font-size: 19px; font-weight: 800; line-height: 1.1; }
 .tc-co-sector { font-size: 12px; color: var(--text); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Always-visible headline stats. */
-.tc-headline { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+/* Hero: Company Value — the headline number to grow. */
+.tc-hero {
+  background: linear-gradient(135deg, var(--bg-elev), var(--bg-elev-2));
+  border: 1px solid var(--line); border-radius: 16px; padding: 15px 16px; margin-bottom: 8px;
+  box-shadow: 0 2px 10px var(--shadow);
+}
+.tc-hero-label {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted);
+}
+.tc-hero-value { font-size: 32px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; line-height: 1.05; margin: 3px 0 5px; }
+.tc-hero-sub { font-size: 11.5px; color: var(--muted); }
+.tc-hero-sub .up { font-weight: 700; }
+
+/* Always-visible headline stats (3-up under the hero). */
+.tc-headline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
 .tc-hstat {
   background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px;
-  padding: 12px 13px; box-shadow: 0 1px 3px var(--shadow);
+  padding: 11px 11px; box-shadow: 0 1px 3px var(--shadow);
 }
-.tc-hstat span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
-.tc-hstat b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tc-hstat span { display: block; font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+.tc-hstat b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 /* Collapsible secondary stats. */
 .tc-details { margin-bottom: 12px; }
