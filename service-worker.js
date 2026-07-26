@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v53'; // v53: in-depth Product Studio (name/specs/tier/budget/team + sales), toasts off, wider test money
+const CACHE_NAME = 'tycoon-v54'; // v54: Invest tab → Services hub (Finances + Marketing & Growth + Talent Acquisition)
 
 const ASSETS = [
   'index.html',

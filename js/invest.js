@@ -148,6 +148,8 @@ const Invest = (() => {
     const id = t.dataset.id;
 
     if (a === 'finances') { view.mode = 'list'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'marketing') { view.mode = 'marketing'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'hiring') { view.mode = 'hiring'; destroyChart(); render(); setScroll(0); }
     else if (a === 'hub') { view.mode = 'hub'; destroyChart(); render(); setScroll(0); }
     else if (a === 'open') { view.scrollY = getScroll(); view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); setScroll(0); }
     // From a detail, go back to wherever it was opened from (Portfolio or
@@ -169,28 +171,59 @@ const Invest = (() => {
   function render() {
     if (!container) return;
     if (view.mode === 'hub') renderHub();
+    else if (view.mode === 'marketing') renderComing('Marketing &amp; Growth', 'Run campaigns, build your brand and reach new customers across your empire.');
+    else if (view.mode === 'hiring') renderComing('Talent Acquisition', 'Recruit and manage top talent to power every business you own.');
     else if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'portfolio') renderPortfolio();
     else renderList();
   }
 
   /* ------------------------------- Hub view ------------------------------ */
-  // The Invest tab lands here: a single "Finances" button that opens the
-  // stocks / crypto / portfolio page. (Room to add more sections later.)
+  // The Invest tab lands on the Services hub: Finances (stocks / crypto /
+  // portfolio) plus Marketing & Growth and Talent Acquisition.
+
+  // Inline glyphs (white on the gradient tile), one per service.
+  const HUB_ICONS = {
+    finances: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <path d="M6 30 L16 20 L23 25 L34 11 L34 32 L6 32 Z" fill="rgba(255,255,255,0.20)"/>
+        <polyline points="6,30 16,20 23,25 34,11" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="34" cy="11" r="3" fill="#fff"/></svg>`,
+    marketing: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <path d="M8 16 L20 16 L30 9 L30 31 L20 24 L8 24 Z" fill="rgba(255,255,255,0.20)"/>
+        <path d="M8 16 L20 16 L30 9 L30 31 L20 24 L8 24 Z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M12 24 L12 30 L16 30 L15 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg>`,
+    hiring: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <circle cx="20" cy="15" r="6" fill="rgba(255,255,255,0.20)" stroke="#fff" stroke-width="2.6"/>
+        <path d="M9 31 C9 24 14 22 20 22 C26 22 31 24 31 31" fill="rgba(255,255,255,0.20)" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  };
+
+  function hubCard(act, title) {
+    return `
+      <div class="card hub-card" data-act="${act}" role="button" tabindex="0" aria-label="Open ${title}">
+        <span class="hub-logo">${HUB_ICONS[act]}</span>
+        <span class="hub-title">${title}</span>
+        <span class="hub-arrow">›</span>
+      </div>`;
+  }
 
   function renderHub() {
     container.innerHTML = `
-      <div class="section-head"><h2>Invest</h2></div>
-      <div class="card hub-card" data-act="finances" role="button" tabindex="0" aria-label="Open Finances">
-        <span class="hub-logo">
-          <svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
-            <path d="M6 30 L16 20 L23 25 L34 11 L34 32 L6 32 Z" fill="rgba(255,255,255,0.20)"/>
-            <polyline points="6,30 16,20 23,25 34,11" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="34" cy="11" r="3" fill="#fff"/>
-          </svg>
-        </span>
-        <span class="hub-title">Finances</span>
-        <span class="hub-arrow">›</span>
+      <div class="section-head"><h2>Services</h2></div>
+      ${hubCard('finances', 'Finances')}
+      ${hubCard('marketing', 'Marketing &amp; Growth')}
+      ${hubCard('hiring', 'Talent Acquisition')}
+    `;
+  }
+
+  /** A tidy "coming soon" screen for the services still in the works. */
+  function renderComing(title, desc) {
+    container.innerHTML = `
+      <button class="back-link" data-act="hub">‹ Services</button>
+      <div class="coming-soon">
+        <div class="cs-badge">COMING SOON</div>
+        <h2>${title}</h2>
+        <p>${desc}</p>
+        <p class="muted">This service is on the way.</p>
       </div>
     `;
   }
@@ -817,8 +850,8 @@ const Invest = (() => {
   function refresh() {
     if (!container) return;
 
-    // Hub: static Finances button — nothing to update.
-    if (view.mode === 'hub') return;
+    // Static hub / coming-soon service screens — nothing to update.
+    if (view.mode === 'hub' || view.mode === 'marketing' || view.mode === 'hiring') return;
 
     // Portfolio page: patch owned rows' value + P/L in place each tick (the
     // numbers only actually change on each asset's own staggered ~15s phase).
