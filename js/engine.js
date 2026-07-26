@@ -313,10 +313,12 @@ let _lastTick = performance.now();
  * income (never rounded) so $0.60/s means precisely +$0.06 per 100ms tick.
  */
 // ===== TEMPORARY: INFINITE MONEY (remove this block to restore normal play) =====
-// Keeps spendable cash pinned near $1 trillion every tick, so buying anything
-// never depletes it. Finite (not Infinity) so all money math/formatting stays sane.
+// Keeps spendable cash pinned very high every tick, so you can buy ANYTHING —
+// including 100% of the largest tech companies — while testing. Finite (not
+// Infinity) so all money math/formatting stays sane. TechCo also tops up each
+// managed company's own cash while this is on (js/techco.js).
 const INFINITE_MONEY = true;
-const INFINITE_MONEY_TARGET = 1e12;
+const INFINITE_MONEY_TARGET = 1e15;
 // ================================================================================
 
 function tick() {

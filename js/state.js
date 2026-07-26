@@ -42,7 +42,10 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v16: Tech management Phase 4 (Manufacturing, financial strategy, global
 //      expansion, rival acquisition, events). New per-company fields back-filled
 //      by TechCo.normalize() — in place, all progress kept.
-const SAVE_VERSION = 16;
+// v17: In-depth Product Studio. New products carry specs/tier/team/budget and
+//      sales metrics; old products keep working unchanged. No transform needed —
+//      migrates in place, all progress kept.
+const SAVE_VERSION = 17;
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -279,6 +282,11 @@ function migrate(loaded) {
   // transform here; existing techco state carries over.
   if (loaded.version < 16) {
     loaded.version = 16;
+  }
+  // v16 -> v17: in-depth Product Studio. New per-product fields are set on
+  // creation; existing products/companies carry over untouched.
+  if (loaded.version < 17) {
+    loaded.version = 17;
   }
   return loaded;
 }

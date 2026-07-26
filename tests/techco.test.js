@@ -27,6 +27,7 @@ const files = [
   'js/data/markets.js',
   'js/data/stocks.js',
   'js/data/techco.js',
+  'js/data/techspecs.js',
   'js/state.js',
   'js/market.js',
   'js/techco.js',
@@ -384,6 +385,92 @@ check('supply shortage (ride out) sets a temporary income dip', ac.supplyUntil >
 const out4 = migrate({ version: 15, balance: 77, portfolio: { mango: { shares: 2, cost: 5 } } });
 check('save migrates to v16+', out4.version >= 16);
 check('holdings + cash kept through v16 migration', out4.balance === 77 && out4.portfolio.mango.shares === 2);
+
+/* ==================== PRODUCT STUDIO (in-depth design) =============== */
+const K = 'macrosoft'; // Kestrel Software — software archetype
+const kc = TechCo._state(K);
+kc.cash = TechCo.baseIncome(K) * 1e6; kc.products = []; kc.builds = [];
+const setSpecs = (cfg, idx) => { for (const sp of TechCo.archetypeOf(cfg.type).specs) cfg.specs[sp[0]] = idx; return cfg; };
+
+/* AO) Archetype mapping is tailored per product type. */
+check('Smartphones → mobile (hardware focus)', TechCo.archetypeOf('Smartphones').focus === 'hardware');
+check('Office Suite → software', TechCo.archetypeOf('Office Suite').unit === 'licenses');
+check('AI Assistants → ai archetype', TechCo.archetypeOf('AI Assistants').category === 'AI Products');
+check('Robotics → robotics archetype', TechCo.archetypeOf('Robotics').unit === 'units');
+check('unknown type falls back to generic', TechCo.archetypeOf('Nonexistent Thing').category === 'Product');
+
+/* AP) A default studio config is complete and editable. */
+const dcfg = TechCo.studioDefault(K, 'Office Suite');
+check('studio default has a name', typeof dcfg.name === 'string' && dcfg.name.length > 0);
+check('studio default: tier standard, budgets standard, team none',
+  dcfg.tier === 'standard' && Object.values(dcfg.budget).every((v) => v === 'standard') && Object.values(dcfg.team).every((v) => v === 'none'));
+
+/* AQ) Quality rises with better specs, more budget and more team. */
+const lo = setSpecs(TechCo.studioDefault(K, 'Office Suite'), 0);
+Object.keys(lo.budget).forEach((a) => lo.budget[a] = 'lean');
+Object.keys(lo.team).forEach((r) => lo.team[r] = 'none');
+const hi = setSpecs(TechCo.studioDefault(K, 'Office Suite'), 2);
+Object.keys(hi.budget).forEach((a) => hi.budget[a] = 'heavy');
+Object.keys(hi.team).forEach((r) => hi.team[r] = 'large');
+const qLo = TechCo.computeQuality(K, lo).quality, qHi = TechCo.computeQuality(K, hi).quality;
+check('quality is bounded 3..100', qLo >= 3 && qHi <= 100);
+check('better specs + budget + team → much higher quality', qHi > qLo + 20);
+
+/* AR) Deep build cost scales off base income and with tier/budget/team. */
+check('deep build cost scales off base income', TechCo.deepBuildCost(K, hi) > TechCo.baseIncome(K));
+check('a maxed build costs more than a minimal one', TechCo.deepBuildCost(K, hi) > TechCo.deepBuildCost(K, lo));
+
+/* AS) A Project Manager speeds the build. */
+const noPm = TechCo.studioDefault(K, 'Office Suite');
+const bigPm = TechCo.studioDefault(K, 'Office Suite'); bigPm.team.pm = 'large';
+check('assigning a Project Manager shortens build time', TechCo.deepBuildTime(K, bigPm) < TechCo.deepBuildTime(K, noPm));
+
+/* AT) scoreToReception maps a quality-driven score to an outcome. */
+check('very low score → flop', TechCo.scoreToReception(0.5) === 'flop');
+check('very high score → breakout', TechCo.scoreToReception(6) === 'breakout');
+
+/* AU) Start a deep build: costs cash, records the full config. */
+const kcfg = setSpecs(TechCo.studioDefault(K, 'Office Suite'), 2);
+Object.keys(kcfg.budget).forEach((a) => kcfg.budget[a] = 'heavy');
+kcfg.team.lead = 'large'; kcfg.team.swe = 'large'; kcfg.name = 'Kestrel Works';
+const dc = TechCo.deepBuildCost(K, kcfg), kcash0 = kc.cash;
+const sb = TechCo.startDeepBuild(K, kcfg);
+check('startDeepBuild ok', sb.ok === true);
+check('deep build deducted the right cash', approx(kc.cash, kcash0 - dc));
+check('a deep build is in progress with its config', kc.builds.length === 1 && kc.builds[0].deep && kc.builds[0].cfg.name === 'Kestrel Works');
+check('cannot start the same product type twice', TechCo.startDeepBuild(K, kcfg).ok === false);
+
+/* AV) On completion the product carries name/tier/specs/quality + sales fields. */
+const bd = kc.builds[0];
+globalThis.NOW = bd.endsAt + 1000;
+TechCo.advance(K);
+check('deep build completed into a product', kc.products.length === 1);
+const kprod = kc.products[0];
+check('product kept its custom name', kprod.name === 'Kestrel Works');
+check('product records tier, specs and a quality score', kprod.tier === 'standard' && kprod.quality > 0 && kprod.specs);
+check('product earns income and has a unit price', TechCo.productIncome(K, kprod) > 0 && kprod.unitPrice > 0);
+check('product tracks lifetime sales fields', typeof kprod.unitsSold === 'number' && typeof kprod.revenue === 'number' && typeof kprod.profit === 'number');
+
+/* AW) Unit price rises with tier; margin sane; units = income / price. */
+const budgetTier = Object.assign({}, kprod, { tier: 'budget' });
+const flagTier = Object.assign({}, kprod, { tier: 'flagship' });
+check('flagship unit price > budget unit price', TechCo.unitPriceOf(K, flagTier) > TechCo.unitPriceOf(K, budgetTier));
+check('product margin within 0.15..0.75', TechCo.productMargin(K, kprod) >= 0.15 && TechCo.productMargin(K, kprod) <= 0.75);
+check('units/day = income / unit price', approx(TechCo.unitsPerDay(K, kprod), TechCo.productIncome(K, kprod) / kprod.unitPrice));
+
+/* AX) Lifetime sales accumulate: units, revenue and profit. */
+kc.lastMs = globalThis.NOW;
+globalThis.NOW += 6 * TechCo.CFG.DAY_SECONDS * 1000;
+TechCo.advance(K);
+check('revenue accrues after release', kprod.revenue > 0);
+check('units sold accrue after release', kprod.unitsSold > 0);
+check('profit ≈ revenue × margin', approx(kprod.profit, kprod.revenue * TechCo.productMargin(K, kprod), 1e-3));
+check('units sold ≈ revenue / unit price', approx(kprod.unitsSold, kprod.revenue / kprod.unitPrice, 1e-3));
+
+/* AY) Save migrates to v17 in place. */
+const out5 = migrate({ version: 16, balance: 9, portfolio: { mango: { shares: 1, cost: 2 } } });
+check('save migrates to v17+', out5.version >= 17);
+check('holdings + cash kept through v17 migration', out5.balance === 9 && out5.portfolio.mango.shares === 1);
 
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;

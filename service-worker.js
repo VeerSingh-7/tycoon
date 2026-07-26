@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v52'; // v52: Tech dashboard polish — Company Value hero, affordability states, live refresh
+const CACHE_NAME = 'tycoon-v53'; // v53: in-depth Product Studio (name/specs/tier/budget/team + sales), toasts off, wider test money
 
 const ASSETS = [
   'index.html',
@@ -22,6 +22,7 @@ const ASSETS = [
   'js/data/stocks.js',
   'js/data/assets.js',
   'js/data/techco.js',
+  'js/data/techspecs.js',
   'js/state.js',
   'js/engine.js',
   'js/mechanics.js',

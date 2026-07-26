@@ -205,15 +205,134 @@ const TechCo = (() => {
   /** A live product's income contribution ($/in-game day), scaled by pricing,
    *  its current health, and company-wide research multipliers. */
   function productIncome(id, p) {
-    const pr = PRICINGS[p.pricing];
+    const pr = PRICINGS[p.pricing] || PRICINGS.balanced;
     return baseIncome(id) * p.incomeFrac * pr.incomeFactor * (Math.max(0, p.health) / 100)
       * researchMult(id) * manufacturingMult(id, p); // in-house lifts physical margins
   }
 
   /** A live product's market-share contribution (percentage points). */
   function productShare(id, p) {
-    const pr = PRICINGS[p.pricing];
+    const pr = PRICINGS[p.pricing] || PRICINGS.balanced;
     return p.shareBase * pr.shareFactor * (Math.max(0, p.health) / 100);
+  }
+
+  /* ================= Product Studio (in-depth product design) ============== */
+  // A product's quality (0–100) comes from its SPECIFICATIONS, BUDGET across
+  // design/eng/manufacturing/QA/marketing, and the TEAM you assign — backed by
+  // the company's staff. Quality drives reception, income, price and unit sales.
+
+  const ROLE_WEIGHT = { pm: 0.5, lead: 1.0, design: 0.8, swe: 0.9, hwe: 0.9, qa: 0.7, mkt: 0.6 };
+  const RECEPTION_INCOME_MULT = { flop: 0.5, modest: 0.8, solid: 1.0, hit: 1.25, breakout: 1.6 };
+  const NAME_WORDS = ['Nova', 'Vertex', 'Pulse', 'Aura', 'Zenith', 'Orbit', 'Flux', 'Apex', 'Halo', 'Prism', 'Nimbus', 'Vector', 'Echo', 'Lumina'];
+  const NAME_SUFFIX = ['One', 'X', 'Pro', 'Air', 'Max', 'Ultra', 'Go', 'Plus'];
+
+  const archetypeOf = (type) => TECH_ARCHETYPES[TECH_PRODUCT_ARCHETYPE[type]] || TECH_ARCHETYPES.generic;
+  const specIndex = (cfg, specId) => (Number.isInteger(cfg.specs[specId]) ? cfg.specs[specId] : 1); // default mid
+
+  function suggestName(id, type) {
+    const h = hash(id + type + Math.floor(now() / 1000));
+    return `${NAME_WORDS[h % NAME_WORDS.length]} ${NAME_SUFFIX[(h >> 4) % NAME_SUFFIX.length]}`;
+  }
+  function studioDefault(id, type) {
+    const budget = {}; TECH_BUDGET_AREAS.forEach((a) => { budget[a.id] = 'standard'; });
+    const team = {}; TECH_ROLES.forEach((r) => { team[r.id] = 'none'; });
+    return { type, name: suggestName(id, type), tier: 'standard', specs: {}, budget, team };
+  }
+  const cloneCfg = (cfg) => ({ type: cfg.type, name: cfg.name, tier: cfg.tier, specs: Object.assign({}, cfg.specs), budget: Object.assign({}, cfg.budget), team: Object.assign({}, cfg.team) });
+
+  /** Quality 0–100 plus the sub-scores, from specs + budget + team. */
+  function computeQuality(id, cfg) {
+    const arch = archetypeOf(cfg.type);
+    let sp = 0, spMax = 0;
+    for (const spec of arch.specs) { sp += spec[2][specIndex(cfg, spec[0])][1]; spMax += Math.max.apply(null, spec[2].map((o) => o[1])); }
+    const specScore = spMax ? sp / spMax : 0.5;
+    let bud = 0;
+    for (const a of TECH_BUDGET_AREAS) bud += (TECH_BUDGET_LEVELS[cfg.budget[a.id]] || TECH_BUDGET_LEVELS.standard).v;
+    bud /= TECH_BUDGET_AREAS.length;
+    let tw = 0, twMax = 0;
+    for (const role of TECH_ROLES) {
+      let w = ROLE_WEIGHT[role.id];
+      if (role.id === 'hwe') w *= arch.focus === 'hardware' ? 1.6 : 0.3;
+      if (role.id === 'swe') w *= arch.focus === 'hardware' ? 0.5 : 1.5;
+      const lvl = TECH_TEAM_LEVELS[cfg.team[role.id]] || TECH_TEAM_LEVELS.none;
+      const backing = clamp(0.45 + groupEff(id, role.pool) * 0.05, 0.45, 1.3); // staff back the team
+      tw += lvl.v * w * backing; twMax += w;
+    }
+    const teamScore = twMax ? clamp(tw / twMax, 0, 1.15) : 0;
+    const quality = clamp(100 * (0.45 * specScore + 0.25 * bud + 0.30 * teamScore), 3, 100);
+    return { quality, specScore, budgetScore: bud, teamScore };
+  }
+
+  function deepBuildCost(id, cfg) {
+    const arch = archetypeOf(cfg.type), tier = TECH_TIERS[cfg.tier] || TECH_TIERS.standard;
+    let c = tier.costMult;
+    for (const a of TECH_BUDGET_AREAS) c += (TECH_BUDGET_LEVELS[cfg.budget[a.id]] || TECH_BUDGET_LEVELS.standard).cost * 1.2;
+    for (const role of TECH_ROLES) c += (TECH_TEAM_LEVELS[cfg.team[role.id]] || TECH_TEAM_LEVELS.none).cost * 0.8;
+    for (const spec of arch.specs) c += spec[2][specIndex(cfg, spec[0])][2] * 0.4;
+    return baseIncome(id) * c;
+  }
+  function deepBuildTime(id, cfg) {
+    const tier = TECH_TIERS[cfg.tier] || TECH_TIERS.standard;
+    const base = 140 + tier.costMult * 6;
+    const pm = (TECH_TEAM_LEVELS[cfg.team.pm] || TECH_TEAM_LEVELS.none).v; // PM speeds delivery
+    return Math.max(45, Math.round(base * clamp(buildSpeedMult(id) * (1 - pm * 0.15), 0.4, 1)));
+  }
+  const tierToPricing = (tier) => (tier === 'budget' ? 'budget' : tier === 'standard' ? 'balanced' : 'premium');
+
+  function unitPriceOf(id, p) {
+    const arch = archetypeOf(p.type), tier = TECH_TIERS[p.tier] || TECH_TIERS.standard;
+    return arch.basePrice * tier.priceMult * (0.8 + 0.4 * (p.specScore != null ? p.specScore : 0.5));
+  }
+  function productMargin(id, p) {
+    const arch = archetypeOf(p.type);
+    let m = (arch.focus === 'software' || arch.focus === 'ai' || arch.focus === 'social') ? 0.6 : 0.3;
+    if (p.phys && co(id).manufacturing === 'inhouse') m += 0.06;
+    m += ((TECH_TIERS[p.tier] || TECH_TIERS.standard).incomeMult - 1) * 0.3;
+    return clamp(m, 0.15, 0.75);
+  }
+  function unitsPerDay(id, p) { const up = unitPriceOf(id, p); return up > 0 ? productIncome(id, p) / up : 0; }
+
+  function scoreToReception(score) {
+    if (score < 1.2) return 'flop';
+    if (score < 2.4) return 'modest';
+    if (score < 3.6) return 'solid';
+    if (score < 4.7) return 'hit';
+    return 'breakout';
+  }
+
+  function makeDeepProduct(id, b, reception, cq) {
+    const c = co(id), r = RECEPTIONS[reception], tier = b.cfg.tier;
+    const hmax = clamp(85 + cq.quality * 0.3, 85, 118);
+    const p = {
+      pid: c.nextPid++, type: b.type, phys: b.phys, deep: true,
+      name: b.name || b.type, tier,
+      specs: Object.assign({}, b.cfg.specs), team: Object.assign({}, b.cfg.team), budget: Object.assign({}, b.cfg.budget),
+      quality: Math.round(cq.quality), specScore: cq.specScore,
+      pricing: tierToPricing(tier), shareBase: r.share,
+      reception, rating: r.rating,
+      incomeFrac: (0.02 + cq.quality / 100 * 0.24) * RECEPTION_INCOME_MULT[reception],
+      health: hmax, healthMax: hmax, updates: 0, launchedAt: now(),
+      unitPrice: 0, unitsSold: 0, revenue: 0, profit: 0,
+    };
+    p.unitPrice = unitPriceOf(id, p);
+    return p;
+  }
+
+  /** Start a deep (Studio-designed) product build. */
+  function startDeepBuild(id, cfg) {
+    const c = co(id);
+    const catItem = catalogFor(id).find((row) => row[0] === cfg.type);
+    if (!catItem) return { ok: false, msg: 'Unknown product.' };
+    if (c.builds.length >= concurrentSlots(id)) return { ok: false, msg: 'All build slots busy — hire Engineering for more.' };
+    if (isTypeBusy(id, cfg.type)) return { ok: false, msg: `${cfg.type} is already live or in development.` };
+    if (!cfg.name || !cfg.name.trim()) cfg.name = cfg.type;
+    const cost = deepBuildCost(id, cfg);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} in company cash.` };
+    c.cash -= cost;
+    const secs = deepBuildTime(id, cfg);
+    c.builds.push({ type: cfg.type, phys: !!catItem[1], deep: true, cfg: cloneCfg(cfg), name: cfg.name.trim(), cost, startMs: now(), endsAt: now() + secs * 1000 });
+    saveGame();
+    return { ok: true, msg: `${cfg.name} entered development.` };
   }
 
   /* ------------------------- Phase 2: Staff effects ------------------------ */
@@ -701,6 +820,10 @@ const TechCo = (() => {
     const c = co(id);
     const t = now();
 
+    // TEMPORARY (testing): while infinite money is on, keep the company's own
+    // cash topped up so you can freely test products, staff, research, etc.
+    if (typeof INFINITE_MONEY !== 'undefined' && INFINITE_MONEY && c.cash < 1e12) c.cash = 1e13;
+
     // 1) Resolve finished builds (may resolve several after a long absence).
     if (c.builds.length) {
       const done = [];
@@ -727,9 +850,15 @@ const TechCo = (() => {
       // Customer satisfaction eases toward the Operations-staff target.
       c.satisfaction += (satTarget(id) - c.satisfaction) * clamp(days * 0.1, 0, 1);
       c.satisfaction = clamp(c.satisfaction, 0, 100);
-      // Decay + retire products.
+      // Accumulate lifetime sales, then decay + retire products.
       const retired = [];
       for (const p of c.products) {
+        if (p.unitPrice) { // Studio products track units/revenue/profit
+          const inc = productIncome(id, p) * days;
+          p.revenue = (p.revenue || 0) + inc;
+          p.profit = (p.profit || 0) + inc * productMargin(id, p);
+          if (p.unitPrice > 0) p.unitsSold = (p.unitsSold || 0) + inc / p.unitPrice;
+        }
         p.health -= CFG.DECAY_PER_DAY * days;
         if (p.health <= 0) retired.push(p);
       }
@@ -760,11 +889,19 @@ const TechCo = (() => {
   function completeBuild(id, b) {
     const c = co(id);
     // Staff, research, in-house manufacturing quality and strategy all shift the
-    // reception roll (physical products benefit from manufacturing control).
+    // reception (physical products benefit from manufacturing control).
     const bonus = staffReceptionBonus(id) + researchReceptionBonus(id)
       + (b.phys ? manufacturingQuality(id) : 0) + strategyReceptionDelta(id);
-    const reception = rollReception(b, bonus);
-    const p = makeProduct(id, b, reception);
+    let reception, p;
+    if (b.deep) {
+      // Studio product: quality (specs + budget + team) drives the reception roll.
+      const cq = computeQuality(id, b.cfg);
+      reception = scoreToReception(cq.quality / 20 + bonus + RNG() * 1.4);
+      p = makeDeepProduct(id, b, reception, cq);
+    } else {
+      reception = rollReception(b, bonus);
+      p = makeProduct(id, b, reception);
+    }
     c.products.push(p);
     const r = RECEPTIONS[reception];
     // Reception nudges brand reputation + customer satisfaction.
@@ -850,23 +987,10 @@ const TechCo = (() => {
 
   /* --------------------------------- Toasts -------------------------------- */
 
-  let toastWrap = null;
-  function toast(html) {
-    if (typeof document === 'undefined') return;
-    if (!toastWrap) {
-      toastWrap = document.createElement('div');
-      toastWrap.className = 'tc-toast-wrap';
-      document.body.appendChild(toastWrap);
-    }
-    const el = document.createElement('div');
-    el.className = 'tc-toast';
-    el.innerHTML = html;
-    toastWrap.appendChild(el);
-    requestAnimationFrame(() => el.classList.add('in'));
-    const kill = () => { el.classList.remove('in'); setTimeout(() => el.remove(), 300); };
-    el.addEventListener('click', kill);
-    setTimeout(kill, 6000);
-  }
+  // Bottom-of-screen pop-up notifications are disabled — the dashboard rebuilds
+  // to reflect completions/events, so no banners are needed. Kept as a no-op so
+  // every existing caller still works.
+  function toast() { /* intentionally silent */ }
 
   /* ==================================================================== *
    *  DASHBOARD UI
@@ -968,7 +1092,8 @@ const TechCo = (() => {
   }
 
   function tabHTML(id) {
-    if (dash.launch) return launchHTML(id);
+    if (dash.detailPid != null) return productDetailHTML(id);
+    if (dash.launch) return wizardHTML(id);
     switch (dash.tab) {
       case 'products': return productsHTML(id);
       case 'staff':    return staffHTML(id);
@@ -1223,9 +1348,14 @@ const TechCo = (() => {
     const total = b.endsAt - b.startMs;
     const pct = clamp(((now() - b.startMs) / total) * 100, 0, 100);
     const left = Math.max(0, Math.ceil((b.endsAt - now()) / 1000));
+    // Deep (Studio) builds show name · type · tier; legacy builds show their tags.
+    const title = b.deep && b.name ? escapeHtml(b.name) : b.type;
+    const meta = b.deep
+      ? `${b.type} · ${(TECH_TIERS[b.cfg.tier] || TECH_TIERS.standard).label}`
+      : `${BUDGETS[b.budget].label} · ${QUALITIES[b.quality].label} · ${PRICINGS[b.pricing].label}`;
     return `
       <div class="tc-build" data-build="${b.type}">
-        <div class="tc-build-top"><b>${b.type}</b><span class="muted">${BUDGETS[b.budget].label} · ${QUALITIES[b.quality].label} · ${PRICINGS[b.pricing].label}</span></div>
+        <div class="tc-build-top"><b>${title}</b><span class="muted">${meta}</span></div>
         <div class="tc-progress"><div class="tc-progress-fill" style="width:${pct}%"></div></div>
         <div class="tc-build-left"><span data-buildleft="${b.type}">${left > 0 ? formatDuration(left) + ' left' : 'Finishing…'}</span></div>
       </div>`;
@@ -1235,13 +1365,15 @@ const TechCo = (() => {
     const inc = productIncome(id, p);
     const shr = productShare(id, p);
     const h = clamp(p.health, 0, 100);
+    const title = (p.name && p.name !== p.type) ? p.name : p.type;
+    const sub = `${(p.name && p.name !== p.type) ? p.type + ' · ' : ''}${starStr(p.rating)} · ${shr.toFixed(1)}% share`;
     return `
-      <div class="tc-prod" data-pid="${p.pid}">
-        <div class="tc-prod-main">
-          <div class="tc-prod-name">${p.type}${p.phys ? ' <span class="tc-tag">physical</span>' : ''}</div>
-          <div class="tc-prod-sub">${starStr(p.rating)} · ${PRICINGS[p.pricing].label} · ${shr.toFixed(1)}% share</div>
+      <div class="tc-prod">
+        <button class="tc-prod-main" data-tcact="proddetail" data-pid="${p.pid}">
+          <div class="tc-prod-name">${escapeHtml(title)}${p.phys ? ' <span class="tc-tag">physical</span>' : ''}</div>
+          <div class="tc-prod-sub">${sub}</div>
           <div class="tc-health"><div class="tc-health-fill ${healthClass(h)}" style="width:${h}%"></div></div>
-        </div>
+        </button>
         <div class="tc-prod-right">
           <div class="tc-prod-inc">${formatMoney(inc)}<small>/day</small></div>
           <button class="btn tc-update" data-tcact="update" data-pid="${p.pid}" ${co(id).cash >= updateCost(id, p) ? '' : 'disabled'}>Update · ${formatMoney(updateCost(id, p))}</button>
@@ -1249,62 +1381,164 @@ const TechCo = (() => {
       </div>`;
   }
 
-  /* ----------------------------- Launch flow ------------------------------- */
+  /* ----------------------- Product Studio (wizard) ------------------------- */
+
+  const escapeHtml = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escapeAttr = (v) => escapeHtml(v).replace(/"/g, '&quot;');
+  const qualityWord = (q) => q < 25 ? 'Rough' : q < 45 ? 'Decent' : q < 65 ? 'Good' : q < 82 ? 'Great' : 'Exceptional';
 
   function defaultLaunch(id) {
     const cat = catalogFor(id);
-    const firstFree = cat.find((row) => !isTypeBusy(id, row[0]));
-    return { type: firstFree ? firstFree[0] : cat[0][0], budget: 'standard', quality: 'standard', pricing: 'balanced' };
+    const firstFree = cat.find((row) => !isTypeBusy(id, row[0])) || cat[0];
+    return { step: 0, cfg: studioDefault(id, firstFree[0]) };
   }
 
-  function oddsWord(l) {
-    const score = BUDGETS[l.budget].score + QUALITIES[l.quality].score; // 0..4
-    return ['Long shot', 'Modest odds', 'Fair odds', 'Good odds', 'Great odds'][score];
+  function wizardSummary(id, cfg) {
+    const cq = computeQuality(id, cfg);
+    const arch = archetypeOf(cfg.type), tier = TECH_TIERS[cfg.tier] || TECH_TIERS.standard;
+    const pricing = PRICINGS[tierToPricing(cfg.tier)] || PRICINGS.balanced;
+    const projIncome = baseIncome(id) * (0.02 + cq.quality / 100 * 0.24) * pricing.incomeFactor * researchMult(id);
+    const projPrice = arch.basePrice * tier.priceMult * (0.8 + 0.4 * cq.specScore);
+    return { cq, arch, tier, cost: deepBuildCost(id, cfg), secs: deepBuildTime(id, cfg), projIncome, projPrice, projUnits: projPrice > 0 ? projIncome / projPrice : 0 };
   }
 
-  function launchHTML(id) {
-    const d = def(id), l = dash.launch, c = co(id);
-    const cost = buildCost(id, l.budget);
-    const secs = QUALITIES[l.quality].seconds;
-    const projInc = baseIncome(id) * 0.09 * PRICINGS[l.pricing].incomeFactor * researchMult(id); // "Solid"-tier preview
-    const afford = c.cash >= cost;
-    const chip = (act, key, cur, map) => Object.keys(map).map((k) =>
-      `<button class="tc-chip ${cur === k ? 'on' : ''}" data-tcset="${act}" data-val="${k}">${map[k].label}</button>`).join('');
-    const catalogBtns = catalogFor(id).map(([name, phys]) => {
-      const busy = isTypeBusy(id, name);
-      const unlocked = c.unlocked.some((r) => r[0] === name);
-      return `<button class="tc-type ${l.type === name ? 'on' : ''}" data-tctype="${name}" ${busy ? 'disabled' : ''}>
-        ${name}${phys ? ' <span class="tc-tag">physical</span>' : ''}${unlocked ? ' <span class="tc-tag gold">flagship</span>' : ''}${busy ? ' <span class="muted">· live</span>' : ''}</button>`;
-    }).join('');
+  const STUDIO_STEPS = ['Basics', 'Specs', 'Budget', 'Team', 'Review'];
+
+  function wizardHTML(id) {
+    const l = dash.launch, cfg = l.cfg, s = wizardSummary(id, cfg), afford = co(id).cash >= s.cost;
+    const q = s.cq.quality;
+    const body = [studioBasics, studioSpecs, studioBudget, studioTeam, studioReview][l.step](id, cfg, s);
     return `
-      <div class="tc-launch">
+      <div class="tc-wizard">
         <div class="tc-launch-head">
-          <button class="icon-btn" data-tcact="cancelnew" aria-label="Back">‹</button>
-          <b>Develop a Product</b>
+          <button class="icon-btn" data-studio="back" aria-label="Back">‹</button>
+          <b>${l.step === 4 ? 'Review & Release' : 'New Product'}</b>
+          <span class="tc-wiz-step">Step ${l.step + 1}/5 · ${STUDIO_STEPS[l.step]}</span>
         </div>
-
-        <div class="tc-field-label">Product — from ${companyName(id)}'s catalog</div>
-        <div class="tc-type-grid">${catalogBtns}</div>
-
-        <div class="tc-field-label">Budget <span class="muted">${BUDGETS[l.budget].note}</span></div>
-        <div class="tc-chip-row">${chip('budget', 'budget', l.budget, BUDGETS)}</div>
-
-        <div class="tc-field-label">Quality <span class="muted">${QUALITIES[l.quality].note}</span></div>
-        <div class="tc-chip-row">${chip('quality', 'quality', l.quality, QUALITIES)}</div>
-
-        <div class="tc-field-label">Pricing <span class="muted">${PRICINGS[l.pricing].note}</span></div>
-        <div class="tc-chip-row">${chip('pricing', 'pricing', l.pricing, PRICINGS)}</div>
-
-        <div class="tc-preview">
-          <div><span>Cost</span><b class="${afford ? 'gold' : 'down'}">${formatMoney(cost)}</b></div>
-          <div><span>Build time</span><b>${formatDuration(secs)}</b></div>
-          <div><span>Reception odds</span><b>${oddsWord(l)}</b></div>
-          <div><span>Projected income</span><b>~${formatMoney(projInc)}/day</b></div>
+        <div class="tc-wiz-summary">
+          <div class="tc-wiz-q-top"><span>Projected quality</span><b>${Math.round(q)} · ${qualityWord(q)}</b></div>
+          <div class="tc-bar"><div class="tc-bar-fill ${q > 65 ? 'good' : q > 40 ? 'alt' : 'warn'}" style="width:${q}%"></div></div>
+          <div class="tc-wiz-metrics">
+            <div><span>Est. cost</span><b class="${afford ? 'gold' : 'down'}">${formatMoney(s.cost)}</b></div>
+            <div><span>Build time</span><b>${formatDuration(s.secs)}</b></div>
+            <div><span>~ Income/day</span><b>${formatMoney(s.projIncome)}</b></div>
+          </div>
         </div>
-
-        <button class="btn btn-gold btn-wide" data-tcact="startbuild" ${afford ? '' : 'disabled'}>
-          ${afford ? 'Start Development' : 'Not enough company cash'}</button>
+        <div class="tc-wiz-body">${body}</div>
+        <div class="tc-wiz-nav">
+          ${l.step < 4
+            ? `<button class="btn btn-gold btn-wide" data-studio="next">Next ›</button>`
+            : `<button class="btn btn-gold btn-wide" data-studio="build" ${afford ? '' : 'disabled'}>${afford ? '🚀 Build & Release' : 'Not enough company cash'}</button>`}
+        </div>
       </div>`;
+  }
+
+  function studioBasics(id, cfg, s) {
+    const cat = catalogFor(id);
+    const types = cat.map(([name, phys]) => {
+      const busy = isTypeBusy(id, name), unlocked = co(id).unlocked.some((r) => r[0] === name);
+      return `<button class="tc-type ${cfg.type === name ? 'on' : ''}" data-studio="type" data-val="${escapeAttr(name)}" ${busy ? 'disabled' : ''}>${name}${phys ? ' <span class="tc-tag">physical</span>' : ''}${unlocked ? ' <span class="tc-tag gold">flagship</span>' : ''}${busy ? ' <span class="muted">· live</span>' : ''}</button>`;
+    }).join('');
+    const tiers = Object.keys(TECH_TIERS).map((t) =>
+      `<button class="tc-chip ${cfg.tier === t ? 'on' : ''}" data-studio="tier" data-val="${t}">${TECH_TIERS[t].label}</button>`).join('');
+    return `
+      <div class="tc-field-label">Product type <span class="muted">${s.arch.category}</span></div>
+      <div class="tc-type-grid">${types}</div>
+      <div class="tc-field-label">Product name</div>
+      <input id="studioName" class="tc-name-input" type="text" maxlength="28" value="${escapeAttr(cfg.name)}" placeholder="Name your product" autocomplete="off">
+      <div class="tc-field-label">Tier <span class="muted">${TECH_TIERS[cfg.tier].blurb}</span></div>
+      <div class="tc-chip-row tc-tier-row">${tiers}</div>`;
+  }
+
+  function studioSpecs(id, cfg, s) {
+    return `<p class="tc-hint">Choose each component. Higher-end parts raise quality and cost.</p>` +
+      s.arch.specs.map((spec) => {
+        const [sid, label, opts] = spec, cur = specIndex(cfg, sid);
+        const chips = opts.map((o, i) =>
+          `<button class="tc-chip ${cur === i ? 'on' : ''}" data-studio="spec" data-spec="${sid}" data-idx="${i}">${o[0]}</button>`).join('');
+        return `<div class="tc-field-label">${label}</div><div class="tc-chip-row tc-spec-row">${chips}</div>`;
+      }).join('');
+  }
+
+  function studioBudget(id, cfg) {
+    return `<p class="tc-hint">Fund each area. More budget lifts quality but raises the build cost.</p>` +
+      TECH_BUDGET_AREAS.map((a) => {
+        const cur = cfg.budget[a.id] || 'standard';
+        const chips = Object.keys(TECH_BUDGET_LEVELS).map((k) =>
+          `<button class="tc-chip ${cur === k ? 'on' : ''}" data-studio="budget" data-area="${a.id}" data-val="${k}">${TECH_BUDGET_LEVELS[k].label}</button>`).join('');
+        return `<div class="tc-field-label">${a.label}</div><div class="tc-chip-row">${chips}</div>`;
+      }).join('');
+  }
+
+  function studioTeam(id, cfg) {
+    return `<p class="tc-hint">Assign a team to each role. Bigger teams cost more; your company's staff (Staff tab) makes them more effective.</p>` +
+      TECH_ROLES.map((role) => {
+        const cur = cfg.team[role.id] || 'none';
+        const chips = Object.keys(TECH_TEAM_LEVELS).map((k) =>
+          `<button class="tc-chip ${cur === k ? 'on' : ''}" data-studio="team" data-role="${role.id}" data-val="${k}">${TECH_TEAM_LEVELS[k].label}</button>`).join('');
+        return `<div class="tc-role"><div class="tc-role-head"><b>${role.label}</b><small>${role.desc}</small></div><div class="tc-chip-row">${chips}</div></div>`;
+      }).join('');
+  }
+
+  function studioReview(id, cfg, s) {
+    const specLines = s.arch.specs.map((sp) =>
+      `<div class="tc-rev-row"><span>${sp[1]}</span><b>${sp[2][specIndex(cfg, sp[0])][0]}</b></div>`).join('');
+    const team = TECH_ROLES.filter((r) => (cfg.team[r.id] || 'none') !== 'none');
+    const teamLines = team.length
+      ? team.map((r) => `<div class="tc-rev-row"><span>${r.label}</span><b>${TECH_TEAM_LEVELS[cfg.team[r.id]].label}</b></div>`).join('')
+      : `<div class="tc-rev-row"><span>Team</span><b>None assigned</b></div>`;
+    return `
+      <div class="tc-rev-title">${escapeHtml(cfg.name || cfg.type)} <span class="tc-tag gold">${TECH_TIERS[cfg.tier].label}</span></div>
+      <div class="tc-rev-sub">${cfg.type} · ${s.arch.category}</div>
+      <div class="tc-section-label">Projected launch</div>
+      <div class="tc-detail-grid">
+        <div class="tc-dstat"><span>Quality</span><b>${Math.round(s.cq.quality)} / 100</b></div>
+        <div class="tc-dstat"><span>~ ${s.arch.unit}/day</span><b>${formatNumber(s.projUnits, 0)}</b></div>
+        <div class="tc-dstat"><span>~ Revenue/day</span><b>${formatMoney(s.projIncome)}</b></div>
+        <div class="tc-dstat"><span>Unit price</span><b>${formatMoney(s.projPrice)}</b></div>
+      </div>
+      <div class="tc-section-label">Specifications</div>
+      <div class="tc-rev-list">${specLines}</div>
+      <div class="tc-section-label">Team</div>
+      <div class="tc-rev-list">${teamLines}</div>`;
+  }
+
+  /* ------------------------- Product detail (sales) ------------------------ */
+
+  function productDetailHTML(id) {
+    const p = co(id).products.find((x) => x.pid === dash.detailPid);
+    if (!p) return `<div class="tc-empty">Product not found.</div>`;
+    const arch = archetypeOf(p.type), inc = productIncome(id, p), upd = unitsPerDay(id, p), h = clamp(p.health, 0, 100);
+    const specLines = p.deep
+      ? arch.specs.map((sp) => { const idx = Number.isInteger(p.specs[sp[0]]) ? p.specs[sp[0]] : 1; return `<div class="tc-rev-row"><span>${sp[1]}</span><b>${sp[2][idx][0]}</b></div>`; }).join('')
+      : '';
+    const team = p.deep ? TECH_ROLES.filter((r) => p.team && (p.team[r.id] || 'none') !== 'none') : [];
+    const teamLines = team.map((r) => `<div class="tc-rev-row"><span>${r.label}</span><b>${TECH_TEAM_LEVELS[p.team[r.id]].label}</b></div>`).join('');
+    return `
+      <div class="tc-launch-head">
+        <button class="icon-btn" data-tcact="closedetail" aria-label="Back">‹</button>
+        <b>${escapeHtml(p.name || p.type)}</b>
+      </div>
+      <div class="tc-rev-sub">${p.type}${p.deep && TECH_TIERS[p.tier] ? ' · ' + TECH_TIERS[p.tier].label + ' · ' + arch.category : ''}</div>
+      <div class="tc-detail-grid" style="margin-top:12px">
+        <div class="tc-dstat"><span>Rating</span><b>${starStr(p.rating)}</b></div>
+        <div class="tc-dstat"><span>Quality</span><b>${p.quality != null ? p.quality + '/100' : '—'}</b></div>
+        <div class="tc-dstat"><span>Income / day</span><b class="up">${formatMoney(inc)}</b></div>
+        <div class="tc-dstat"><span>Market share add</span><b>${productShare(id, p).toFixed(1)}%</b></div>
+      </div>
+      <div class="tc-section-label">Sales</div>
+      <div class="tc-detail-grid">
+        <div class="tc-dstat"><span>${arch.unit} / day</span><b>${formatNumber(upd, 0)}</b></div>
+        <div class="tc-dstat"><span>Total ${arch.unit}</span><b>${formatNumber(p.unitsSold || 0, 0)}</b></div>
+        <div class="tc-dstat"><span>Revenue (life)</span><b>${formatMoney(p.revenue || 0)}</b></div>
+        <div class="tc-dstat"><span>Profit (life)</span><b class="up">${formatMoney(p.profit || 0)}</b></div>
+      </div>
+      <div class="tc-section-label">Product Health</div>
+      <div class="tc-health tc-health-lg"><div class="tc-health-fill ${healthClass(h)}" style="width:${h}%"></div></div>
+      <button class="btn btn-wide tc-update-wide" data-tcact="update" data-pid="${p.pid}" ${co(id).cash >= updateCost(id, p) ? '' : 'disabled'}>Update · restore health · ${formatMoney(updateCost(id, p))}</button>
+      ${p.deep ? `<div class="tc-section-label">Specifications</div><div class="tc-rev-list">${specLines}</div>` : ''}
+      ${teamLines ? `<div class="tc-section-label">Team</div><div class="tc-rev-list">${teamLines}</div>` : ''}
+    `;
   }
 
   /* ------------------------------- Wiring ---------------------------------- */
@@ -1313,19 +1547,35 @@ const TechCo = (() => {
     const el = dash.el;
     el.querySelector('#tcClose').onclick = close;
     el.querySelectorAll('[data-tctab]').forEach((b) => b.onclick = () => {
-      if (dash.launch) dash.launch = null;
+      dash.launch = null; dash.detailPid = null;
       dash.tab = b.dataset.tctab; rebuildDash();
     });
     const body = el.querySelector('#tcBody');
     if (!body) return;
 
     body.querySelectorAll('[data-tcact]').forEach((b) => b.onclick = () => onAct(b.dataset.tcact, b.dataset));
-    body.querySelectorAll('[data-tctype]').forEach((b) => b.onclick = () => {
-      if (b.disabled) return; dash.launch.type = b.dataset.tctype; refreshBody();
-    });
-    body.querySelectorAll('[data-tcset]').forEach((b) => b.onclick = () => {
-      dash.launch[b.dataset.tcset] = b.dataset.val; refreshBody();
-    });
+    // Product Studio wizard controls + the product-name text input.
+    body.querySelectorAll('[data-studio]').forEach((b) => b.onclick = () => { if (!b.disabled) onStudio(b.dataset); });
+    const nameInput = body.querySelector('#studioName');
+    if (nameInput) nameInput.oninput = (e) => { if (dash.launch) dash.launch.cfg.name = e.target.value; };
+  }
+
+  /** Handle a click in the Product Studio wizard. */
+  function onStudio(data) {
+    const l = dash.launch; if (!l) return;
+    const cfg = l.cfg, a = data.studio;
+    if (a === 'back')  { if (l.step > 0) l.step--; else dash.launch = null; refreshBody(); return; }
+    if (a === 'next')  { if (l.step < 4) l.step++; refreshBody(); return; }
+    if (a === 'type')  { if (!isTypeBusy(dash.id, data.val)) { cfg.type = data.val; cfg.specs = {}; } refreshBody(); return; }
+    if (a === 'tier')  { cfg.tier = data.val; refreshBody(); return; }
+    if (a === 'spec')  { cfg.specs[data.spec] = Number(data.idx); refreshBody(); return; }
+    if (a === 'budget'){ cfg.budget[data.area] = data.val; refreshBody(); return; }
+    if (a === 'team')  { cfg.team[data.role] = data.val; refreshBody(); return; }
+    if (a === 'build') {
+      const r = startDeepBuild(dash.id, cfg);
+      if (r.ok) { dash.launch = null; dash.tab = 'products'; rebuildDash(); }
+      return;
+    }
   }
 
   function refreshBody() {
@@ -1335,18 +1585,12 @@ const TechCo = (() => {
 
   function onAct(act, data) {
     const id = dash.id;
-    if (act === 'newproduct') { dash.launch = defaultLaunch(id); refreshBody(); return; }
-    if (act === 'cancelnew')  { dash.launch = null; refreshBody(); return; }
-    if (act === 'startbuild') {
-      const r = startBuild(id, dash.launch);
-      if (r.ok) { dash.launch = null; rebuildDash(); }
-      else toast(`⚠️ ${r.msg}`);
-      return;
-    }
+    if (act === 'newproduct')  { dash.detailPid = null; dash.launch = defaultLaunch(id); refreshBody(); return; }
+    if (act === 'proddetail')  { dash.detailPid = Number(data.pid); refreshBody(); return; }
+    if (act === 'closedetail') { dash.detailPid = null; refreshBody(); return; }
     if (act === 'update') {
       const r = updateProduct(id, Number(data.pid));
-      if (!r.ok) toast(`⚠️ ${r.msg}`);
-      else rebuildDash();
+      if (r.ok) rebuildDash();
       return;
     }
     if (act === 'hire')     { const r = hire(id, data.group);  if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
@@ -1459,6 +1703,9 @@ const TechCo = (() => {
     hasManufacturing, manufacturingMult, setManufacturing, inhouseSetupCost,
     setStrategy, opexRate, globalIncomeMult, globalOpexAdd, unlockRegion, regionCost,
     canAcquire, acquireCost, acquireRival, maybeRollEvent, resolveEvent, eventDef,
+    // Product Studio (in-depth product design):
+    computeQuality, deepBuildCost, deepBuildTime, startDeepBuild, studioDefault,
+    archetypeOf, unitPriceOf, productMargin, unitsPerDay, scoreToReception, tierToPricing,
     // Config/data access for tests + future phases:
     CFG, BUDGETS, QUALITIES, PRICINGS, RECEPTIONS, STAFF, STAFF_CFG, RESEARCH_TIERS,
     COMPETE, RANK_CATS, RIVAL_CFG, LEADER_INCOME_BONUS, MANU, STRATEGIES, REGIONS, EVENTS,
