@@ -63,6 +63,34 @@ const TechCo = (() => {
     breakout: { label: 'Breakout', emoji: '🚀', incomeFrac: 0.260, rating: 5, share: 5.5, rep: +9, sat: +6 },
   };
 
+  // ---- Phase 2: Staff groups (three meaningful teams, not 7 departments) ----
+  const STAFF = {
+    eng: { label: 'Engineering',          blurb: 'Build speed · quality · project slots' },
+    mkt: { label: 'Marketing & Sales',    blurb: 'Market share · product reception' },
+    ops: { label: 'Operations & Support', blurb: 'Customer satisfaction · cost efficiency' },
+  };
+  const STAFF_SEED = { eng: 5, mkt: 4, ops: 4 };
+  const STAFF_CFG = {
+    HIRE_BASE: 3, HIRE_GROWTH: 0.5,   // hire = baseIncome × 3 × (1 + count×0.5)
+    PAYROLL_PER_HEAD: 0.02,           // × baseIncome per head, per in-game day
+    TRAIN_BASE: 8, TRAIN_MAX: 5,      // train = baseIncome × 8 × (1 + level)
+  };
+
+  // ---- Phase 2: Research tree (shared 5-tier template; names/flagship per co) ----
+  // Tier i requires every lower tier done. Tier 3 unlocks the company's flagship
+  // product (def.unlockProduct). Costs/timers scale off base income.
+  const RESEARCH_TIERS = [
+    { costMult: 8,   seconds: 120, success: 0.90, effect: { kind: 'reception', bonus: 0.6 } },
+    { costMult: 18,  seconds: 240, success: 0.82, effect: { kind: 'cost',      cut: 0.06 } },
+    { costMult: 35,  seconds: 400, success: 0.75, effect: { kind: 'income',    mult: 1.15 } },
+    { costMult: 60,  seconds: 600, success: 0.68, effect: { kind: 'unlock' } },
+    { costMult: 100, seconds: 900, success: 0.60, effect: { kind: 'income',    mult: 1.25 } },
+  ];
+  const effectText = (e) => e.kind === 'reception' ? 'Better product reception'
+    : e.kind === 'cost' ? `Cut operating costs ${Math.round(e.cut * 100)}%`
+    : e.kind === 'income' ? `Company income ×${e.mult}`
+    : 'Unlock a flagship product';
+
   const RNG = () => Math.random();
 
   /* ------------------------------ Small utils ------------------------------ */
@@ -99,7 +127,7 @@ const TechCo = (() => {
   /** Create a company's state the first time it's opened at 100% ownership. */
   function ensureCompany(id) {
     const root = ensureRoot();
-    if (root[id]) return root[id];
+    if (root[id]) { normalize(root[id], id); return root[id]; } // back-fill older (v13) states
     const d = def(id);
     const seed = hash(id + '#techco');
     const cap = marketCap(id);
@@ -117,10 +145,24 @@ const TechCo = (() => {
       employees: clamp(Math.round(cap / 2.5e7), 4000, 250000),
     };
     root[id] = co;
+    normalize(co, id);
     return co;
   }
 
-  function co(id) { return ensureCompany(id); }
+  /** Fill in Phase-2 fields on new or older (v13) company states, in place. */
+  function normalize(c, id) {
+    if (!c.staff) c.staff = {
+      eng: { count: STAFF_SEED.eng, training: 0 },
+      mkt: { count: STAFF_SEED.mkt, training: 0 },
+      ops: { count: STAFF_SEED.ops, training: 0 },
+    };
+    if (!c.research) c.research = { done: {}, active: null };
+    if (!c.unlocked) c.unlocked = [];          // [ [name, phys], ... ] from research
+    if (c.cumProfit == null) c.cumProfit = 0;  // cumulative net profit (valuation input)
+    if (c.valuation == null) c.valuation = marketCap(id);
+  }
+
+  function co(id) { const c = ensureCompany(id); normalize(c, id); return c; }
 
   /* ----------------------------- Product model ----------------------------- */
 
@@ -146,17 +188,123 @@ const TechCo = (() => {
     };
   }
 
-  /** A live product's income contribution ($/in-game day), scaled by pricing
-   *  and its current health. */
+  /** A live product's income contribution ($/in-game day), scaled by pricing,
+   *  its current health, and company-wide research multipliers. */
   function productIncome(id, p) {
     const pr = PRICINGS[p.pricing];
-    return baseIncome(id) * p.incomeFrac * pr.incomeFactor * (Math.max(0, p.health) / 100);
+    return baseIncome(id) * p.incomeFrac * pr.incomeFactor * (Math.max(0, p.health) / 100) * researchMult(id);
   }
 
   /** A live product's market-share contribution (percentage points). */
   function productShare(id, p) {
     const pr = PRICINGS[p.pricing];
     return p.shareBase * pr.shareFactor * (Math.max(0, p.health) / 100);
+  }
+
+  /* ------------------------- Phase 2: Staff effects ------------------------ */
+
+  // Effective strength of a group = headcount scaled by training (no payroll add).
+  function groupEff(id, g) { const s = co(id).staff[g]; return s.count * (1 + 0.35 * s.training); }
+
+  function buildSpeedMult(id) { return clamp(1 - groupEff(id, 'eng') * 0.02, 0.4, 1); }     // faster builds
+  function concurrentSlots(id) { return clamp(1 + Math.floor(groupEff(id, 'eng') / 4), 1, 5); }
+  function shareMult(id) { return clamp(1 + groupEff(id, 'mkt') * 0.02, 1, 2.2); }
+  function satTarget(id) { return clamp(50 + groupEff(id, 'ops') * 2, 0, 100); }
+  function staffReceptionBonus(id) {
+    return clamp(groupEff(id, 'eng') * 0.015 + groupEff(id, 'mkt') * 0.03, 0, 2);
+  }
+  function payrollPerDay(id) {
+    const c = co(id), heads = c.staff.eng.count + c.staff.mkt.count + c.staff.ops.count;
+    return baseIncome(id) * STAFF_CFG.PAYROLL_PER_HEAD * heads;
+  }
+  function hireCost(id, g) { return baseIncome(id) * STAFF_CFG.HIRE_BASE * (1 + co(id).staff[g].count * STAFF_CFG.HIRE_GROWTH); }
+  function trainCost(id, g) { return baseIncome(id) * STAFF_CFG.TRAIN_BASE * (1 + co(id).staff[g].training); }
+
+  function hire(id, g) {
+    const c = co(id); const cost = hireCost(id, g);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to hire.` };
+    c.cash -= cost; c.staff[g].count++; saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: `Hired into ${STAFF[g].label}.` };
+  }
+  function train(id, g) {
+    const c = co(id);
+    if (c.staff[g].training >= STAFF_CFG.TRAIN_MAX) return { ok: false, msg: 'Already fully trained.' };
+    const cost = trainCost(id, g);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to train.` };
+    c.cash -= cost; c.staff[g].training++; saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: `${STAFF[g].label} trained.` };
+  }
+
+  /* ----------------------- Phase 2: Research effects ----------------------- */
+
+  const researchDone = (id, tier) => !!co(id).research.done[tier];
+  function researchMult(id) {
+    let m = 1;
+    RESEARCH_TIERS.forEach((t, i) => { if (t.effect.kind === 'income' && researchDone(id, i)) m *= t.effect.mult; });
+    return m;
+  }
+  function researchCostCut(id) {
+    let cut = 0;
+    RESEARCH_TIERS.forEach((t, i) => { if (t.effect.kind === 'cost' && researchDone(id, i)) cut += t.effect.cut; });
+    return cut;
+  }
+  function researchReceptionBonus(id) {
+    let b = 0;
+    RESEARCH_TIERS.forEach((t, i) => { if (t.effect.kind === 'reception' && researchDone(id, i)) b += t.effect.bonus; });
+    return b;
+  }
+  // Operating-cost rate after Operations staff + research cost-cuts.
+  function opexRate(id) {
+    const opsCut = clamp(groupEff(id, 'ops') * 0.012, 0, 0.28);
+    return clamp(CFG.OPEX - opsCut - researchCostCut(id), 0.15, CFG.OPEX);
+  }
+  // Live catalog = base products + any flagship products unlocked by research.
+  function catalogFor(id) { return def(id).catalog.concat(co(id).unlocked); }
+
+  const researchName = (id, tier) => def(id).research[tier] || ('Tier ' + (tier + 1));
+  const researchAvailable = (id, tier) => {
+    if (researchDone(id, tier)) return false;
+    for (let i = 0; i < tier; i++) if (!researchDone(id, i)) return false;
+    return true;
+  };
+  const researchCost = (id, tier) => baseIncome(id) * RESEARCH_TIERS[tier].costMult;
+  const researchSuccess = (id, tier) => clamp(RESEARCH_TIERS[tier].success + groupEff(id, 'eng') * 0.008, RESEARCH_TIERS[tier].success, 0.95);
+
+  function startResearch(id, tier) {
+    const c = co(id);
+    if (c.research.active) return { ok: false, msg: 'A research project is already running.' };
+    if (!researchAvailable(id, tier)) return { ok: false, msg: 'Complete the previous project first.' };
+    const cost = researchCost(id, tier);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to research.` };
+    c.cash -= cost;
+    c.research.active = { tier, cost, startMs: now(), endsAt: now() + RESEARCH_TIERS[tier].seconds * 1000 };
+    saveGame();
+    return { ok: true, msg: `${researchName(id, tier)} research started.` };
+  }
+
+  function resolveResearch(id) {
+    const c = co(id);
+    const a = c.research.active;
+    if (!a || now() < a.endsAt) return;
+    c.research.active = null;
+    const tier = a.tier, t = RESEARCH_TIERS[tier];
+    if (RNG() < researchSuccess(id, tier)) {
+      c.research.done[tier] = true;
+      if (t.effect.kind === 'unlock') {
+        const up = def(id).unlockProduct;
+        if (up && !c.unlocked.some((r) => r[0] === up[0])) c.unlocked.push(up);
+        toast(`🔬 <b>${researchName(id, tier)} complete!</b><br>Unlocked a flagship product: ${up ? up[0] : ''}.`);
+      } else {
+        toast(`🔬 <b>${researchName(id, tier)} complete!</b><br>${effectText(t.effect)}.`);
+      }
+    } else {
+      c.cash += a.cost * 0.6; // 60% refunded on a failed project — a real gamble
+      toast(`⚠️ <b>${researchName(id, tier)} failed</b><br>60% of the budget was recovered. Try again.`);
+    }
+    saveGame();
+    if (dash && dash.id === id) rebuildDash();
   }
 
   /* --------------------------- Reception rolling --------------------------- */
@@ -176,34 +324,51 @@ const TechCo = (() => {
 
   function revenuePerDay(id) {
     const c = co(id);
-    let rev = baseIncome(id); // baseline operations
+    let rev = baseIncome(id) * researchMult(id); // baseline operations (× research)
     for (const p of c.products) rev += productIncome(id, p);
     return rev;
   }
+  // Net profit = revenue − operating costs − payroll. Overspending on staff
+  // makes this negative and burns company cash (see advance()).
   function netProfitPerDay(id) {
     const rev = revenuePerDay(id);
-    return rev - rev * CFG.OPEX;
+    return rev - rev * opexRate(id) - payrollPerDay(id);
   }
   function marketShare(id) {
     const c = co(id);
     let s = c.baseShare;
     for (const p of c.products) s += productShare(id, p);
-    return clamp(s, 0.5, 95);
+    return clamp(s * shareMult(id), 0.5, 95);
+  }
+
+  // Valuation target: grows with market cap, product portfolio, research and
+  // market share, plus retained (cumulative) profit. Valuation only ratchets up.
+  function valuationTarget(id) {
+    const c = co(id);
+    let ratingSum = 0;
+    for (const p of c.products) ratingSum += p.rating;
+    return marketCap(id) * (1 + 0.02 * ratingSum) * researchMult(id) * (1 + marketShare(id) / 150)
+      + c.cumProfit * 0.3;
   }
 
   function snapshot(id) {
     const c = co(id);
     return {
-      value: marketCap(id),
+      value: Math.max(c.valuation, valuationTarget(id)), // headline "Company Value"
+      marketCap: marketCap(id),
       netProfitDay: netProfitPerDay(id),
       cash: c.cash,
       share: marketShare(id),
       revenueDay: revenuePerDay(id),
+      payrollDay: payrollPerDay(id),
       employees: c.employees,
       activeProducts: c.products.length,
+      slots: concurrentSlots(id),
+      slotsUsed: c.builds.length,
       reputation: c.reputation,
       satisfaction: c.satisfaction,
       baseIncomeDay: baseIncome(id),
+      researchMult: researchMult(id),
     };
   }
 
@@ -225,14 +390,22 @@ const TechCo = (() => {
       for (const b of done) completeBuild(id, b);
     }
 
-    // 2) Age products / accrue cash over the in-game days elapsed.
+    // 2) Resolve a finished research project (success/failure roll).
+    resolveResearch(id);
+
+    // 3) Age products / accrue cash & profit over the in-game days elapsed.
     let days = (t - c.lastMs) / (CFG.DAY_SECONDS * 1000);
     c.lastMs = t;
     if (days > 0) {
       days = Math.min(days, CFG.MAX_ACCRUE_DAYS);
-      // Cash from net profit over the window (uses current product set — close
-      // enough; products change on the scale of minutes, cash accrues smoothly).
-      c.cash += netProfitPerDay(id) * days;
+      // Net profit (revenue − costs − payroll) over the window. Can be negative
+      // if payroll is bloated → company cash burns down.
+      const net = netProfitPerDay(id) * days;
+      c.cash += net;
+      c.cumProfit = Math.max(0, c.cumProfit + net); // retained earnings (valuation input)
+      // Customer satisfaction eases toward the Operations-staff target.
+      c.satisfaction += (satTarget(id) - c.satisfaction) * clamp(days * 0.1, 0, 1);
+      c.satisfaction = clamp(c.satisfaction, 0, 100);
       // Decay + retire products.
       const retired = [];
       for (const p of c.products) {
@@ -244,11 +417,16 @@ const TechCo = (() => {
         for (const p of retired) toast(`📦 <b>${p.type} retired</b><br>${companyName(id)} sunset an ageing product.`);
       }
     }
+
+    // 4) Company valuation ratchets up toward its growth target.
+    const target = valuationTarget(id);
+    if (target > c.valuation) c.valuation = target;
   }
 
   function completeBuild(id, b) {
     const c = co(id);
-    const reception = rollReception(b);
+    // Staff (Engineering quality + Marketing) and research push reception upward.
+    const reception = rollReception(b, staffReceptionBonus(id) + researchReceptionBonus(id));
     const p = makeProduct(id, b, reception);
     c.products.push(p);
     const r = RECEPTIONS[reception];
@@ -277,14 +455,14 @@ const TechCo = (() => {
   /** Start developing a product. Returns { ok, msg }. */
   function startBuild(id, opts) {
     const c = co(id);
-    const d = def(id);
-    const catItem = d.catalog.find((row) => row[0] === opts.type);
+    const catItem = catalogFor(id).find((row) => row[0] === opts.type);
     if (!catItem) return { ok: false, msg: 'Unknown product.' };
+    if (c.builds.length >= concurrentSlots(id)) return { ok: false, msg: 'All build slots busy — hire Engineering for more.' };
     if (isTypeBusy(id, opts.type)) return { ok: false, msg: `${opts.type} is already live or in development.` };
     const cost = buildCost(id, opts.budget);
     if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} in company cash.` };
     c.cash -= cost;
-    const secs = QUALITIES[opts.quality].seconds;
+    const secs = QUALITIES[opts.quality].seconds * buildSpeedMult(id); // Engineering speeds builds
     c.builds.push({
       type: opts.type,
       phys: !!catItem[1],
@@ -363,7 +541,7 @@ const TechCo = (() => {
   const TABS = [
     { id: 'products', label: 'Products' },
     { id: 'staff',    label: 'Staff' },
-    { id: 'rnd',      label: 'R&D' },
+    { id: 'rnd',      label: 'Research' },
     { id: 'market',   label: 'Market' },
     { id: 'more',     label: 'More' },
   ];
@@ -415,11 +593,11 @@ const TechCo = (() => {
         <summary>More stats</summary>
         <div class="tc-detail-grid">
           ${detStat('Revenue / day', formatMoney(s.revenueDay))}
+          ${detStat('Payroll / day', formatMoney(s.payrollDay))}
           ${detStat('Employees', formatNumber(s.employees, 0))}
-          ${detStat('Active Products', String(s.activeProducts))}
+          ${detStat('Active Products', s.activeProducts + ' · ' + s.slotsUsed + '/' + s.slots + ' slots')}
           ${detStat('Brand Reputation', Math.round(s.reputation) + '/100')}
           ${detStat('Customer Satisfaction', Math.round(s.satisfaction) + '/100')}
-          ${detStat('Base Income / day', formatMoney(s.baseIncomeDay))}
         </div>
       </details>
 
@@ -442,8 +620,8 @@ const TechCo = (() => {
     if (dash.launch) return launchHTML(id);
     switch (dash.tab) {
       case 'products': return productsHTML(id);
-      case 'staff':    return placeholderHTML('Staff', '👥', 'Hire Engineering, Marketing and Operations teams and train them for quality — coming in the next phase.');
-      case 'rnd':      return placeholderHTML('R&D', '🔬', `Research ${def(id).rnd.slice(0, 2).join(', ')} and more to unlock new product types and multipliers — coming soon.`);
+      case 'staff':    return staffHTML(id);
+      case 'rnd':      return researchHTML(id);
       case 'market':   return placeholderHTML('Market', '🏆', `Track ${def(id).rivals.length} rivals (${def(id).rivals.join(', ')}), fight for market share and become #1 — coming soon.`);
       case 'more':     return placeholderHTML('More', '🌍', 'Manufacturing, financial strategy, global expansion, rival acquisitions and events — coming soon.');
       default: return '';
@@ -459,15 +637,87 @@ const TechCo = (() => {
 
   function productsHTML(id) {
     const c = co(id);
+    const slots = concurrentSlots(id), full = c.builds.length >= slots;
     const builds = c.builds.map((b) => buildRowHTML(id, b)).join('');
     const prods = c.products.length
       ? c.products.slice().sort((a, b) => productIncome(id, b) - productIncome(id, a)).map((p) => productRowHTML(id, p)).join('')
       : `<div class="tc-empty">No products yet. Develop your first one to start earning.</div>`;
     return `
-      <button class="btn btn-gold btn-wide tc-new" data-tcact="newproduct">＋ Develop New Product</button>
+      <button class="btn btn-gold btn-wide tc-new" data-tcact="newproduct" ${full ? 'disabled' : ''}>
+        ${full ? 'All build slots busy — hire Engineering' : '＋ Develop New Product'}</button>
+      <div class="tc-slot-note">Build slots: <b>${c.builds.length}/${slots}</b> · more from Engineering staff</div>
       ${builds ? `<div class="tc-section-label">In Development</div><div class="tc-build-list">${builds}</div>` : ''}
       <div class="tc-section-label">Product Portfolio</div>
       <div class="tc-prod-list">${prods}</div>
+    `;
+  }
+
+  /* -------------------------------- Staff tab ------------------------------ */
+
+  function staffHTML(id) {
+    const c = co(id);
+    const s = snapshot(id);
+    const card = (g) => {
+      const st = c.staff[g], hc = hireCost(id, g), tc = trainCost(id, g);
+      const maxed = st.training >= STAFF_CFG.TRAIN_MAX;
+      return `
+        <div class="tc-staff">
+          <div class="tc-staff-head"><b>${STAFF[g].label}</b><span class="muted">${STAFF[g].blurb}</span></div>
+          <div class="tc-staff-stats">
+            <div><span>Teams</span><b>${st.count}</b></div>
+            <div><span>Training</span><b>${'●'.repeat(st.training)}${'○'.repeat(STAFF_CFG.TRAIN_MAX - st.training)}</b></div>
+          </div>
+          <div class="tc-staff-btns">
+            <button class="btn tc-mini" data-tcact="hire" data-group="${g}">Hire · ${formatMoney(hc)}</button>
+            <button class="btn tc-mini" data-tcact="train" data-group="${g}" ${maxed ? 'disabled' : ''}>${maxed ? 'Fully trained' : 'Train · ' + formatMoney(tc)}</button>
+          </div>
+        </div>`;
+    };
+    return `
+      <div class="tc-staff-summary">
+        <div><span>Payroll / day</span><b class="down">${formatMoney(s.payrollDay)}</b></div>
+        <div><span>Build slots</span><b>${s.slots}</b></div>
+        <div><span>Net profit / day</span><b class="${s.netProfitDay >= 0 ? 'up' : 'down'}">${formatMoney(s.netProfitDay)}</b></div>
+      </div>
+      <p class="tc-hint">Hiring adds ongoing payroll; Training is a one-off boost with no payroll. Keep net profit positive — overspending burns company cash.</p>
+      ${['eng', 'mkt', 'ops'].map(card).join('')}
+    `;
+  }
+
+  /* ------------------------------ Research tab ----------------------------- */
+
+  function researchHTML(id) {
+    const c = co(id);
+    const rows = RESEARCH_TIERS.map((t, i) => {
+      const done = researchDone(id, i);
+      const active = c.research.active && c.research.active.tier === i;
+      const avail = researchAvailable(id, i) && !c.research.active;
+      const name = researchName(id, i);
+      let right;
+      if (done) right = `<span class="tc-r-done">✓ Done</span>`;
+      else if (active) {
+        const a = c.research.active, total = a.endsAt - a.startMs;
+        const pct = clamp(((now() - a.startMs) / total) * 100, 0, 100);
+        const left = Math.max(0, Math.ceil((a.endsAt - now()) / 1000));
+        right = `<div class="tc-r-active"><div class="tc-progress"><div class="tc-progress-fill" style="width:${pct}%"></div></div>
+          <span class="muted" data-rleft>${left > 0 ? formatDuration(left) + ' left' : 'Finishing…'}</span></div>`;
+      } else if (avail) {
+        right = `<button class="btn tc-mini" data-tcact="research" data-tier="${i}">Research · ${formatMoney(researchCost(id, i))}</button>`;
+      } else {
+        right = `<span class="tc-r-lock">🔒 Locked</span>`;
+      }
+      return `
+        <div class="tc-research ${done ? 'is-done' : ''} ${active ? 'is-active' : ''}">
+          <div class="tc-research-main">
+            <div class="tc-research-name">${name}</div>
+            <div class="tc-research-eff">${effectText(t.effect)}${avail ? ` · ${Math.round(researchSuccess(id, i) * 100)}% success · ${formatDuration(RESEARCH_TIERS[i].seconds)}` : ''}</div>
+          </div>
+          <div class="tc-research-right">${right}</div>
+        </div>`;
+    }).join('');
+    return `
+      <p class="tc-hint">Research unlocks along a path — finish one project to reach the next. Each has a success chance (Engineering staff improves it); a failure refunds 60%.</p>
+      <div class="tc-research-list">${rows}</div>
     `;
   }
 
@@ -504,9 +754,9 @@ const TechCo = (() => {
   /* ----------------------------- Launch flow ------------------------------- */
 
   function defaultLaunch(id) {
-    const d = def(id);
-    const firstFree = d.catalog.find((row) => !isTypeBusy(id, row[0]));
-    return { type: firstFree ? firstFree[0] : d.catalog[0][0], budget: 'standard', quality: 'standard', pricing: 'balanced' };
+    const cat = catalogFor(id);
+    const firstFree = cat.find((row) => !isTypeBusy(id, row[0]));
+    return { type: firstFree ? firstFree[0] : cat[0][0], budget: 'standard', quality: 'standard', pricing: 'balanced' };
   }
 
   function oddsWord(l) {
@@ -518,14 +768,15 @@ const TechCo = (() => {
     const d = def(id), l = dash.launch, c = co(id);
     const cost = buildCost(id, l.budget);
     const secs = QUALITIES[l.quality].seconds;
-    const projInc = baseIncome(id) * 0.09 * PRICINGS[l.pricing].incomeFactor; // "Solid"-tier preview
+    const projInc = baseIncome(id) * 0.09 * PRICINGS[l.pricing].incomeFactor * researchMult(id); // "Solid"-tier preview
     const afford = c.cash >= cost;
     const chip = (act, key, cur, map) => Object.keys(map).map((k) =>
       `<button class="tc-chip ${cur === k ? 'on' : ''}" data-tcset="${act}" data-val="${k}">${map[k].label}</button>`).join('');
-    const catalogBtns = d.catalog.map(([name, phys]) => {
+    const catalogBtns = catalogFor(id).map(([name, phys]) => {
       const busy = isTypeBusy(id, name);
+      const unlocked = c.unlocked.some((r) => r[0] === name);
       return `<button class="tc-type ${l.type === name ? 'on' : ''}" data-tctype="${name}" ${busy ? 'disabled' : ''}>
-        ${name}${phys ? ' <span class="tc-tag">physical</span>' : ''}${busy ? ' <span class="muted">· live</span>' : ''}</button>`;
+        ${name}${phys ? ' <span class="tc-tag">physical</span>' : ''}${unlocked ? ' <span class="tc-tag gold">flagship</span>' : ''}${busy ? ' <span class="muted">· live</span>' : ''}</button>`;
     }).join('');
     return `
       <div class="tc-launch">
@@ -600,6 +851,9 @@ const TechCo = (() => {
       else rebuildDash();
       return;
     }
+    if (act === 'hire')     { const r = hire(id, data.group);  if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
+    if (act === 'train')    { const r = train(id, data.group); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
+    if (act === 'research') { const r = startResearch(id, Number(data.tier)); if (r.ok) rebuildDash(); else toast(`⚠️ ${r.msg}`); return; }
   }
 
   /* --------------------------- Live patch (per tick) ----------------------- */
@@ -616,9 +870,24 @@ const TechCo = (() => {
     set('[data-h="Cash"]', formatMoney(s.cash));
     set('[data-h="Market Share"]', s.share.toFixed(1) + '%');
     set('[data-d="Revenue / day"]', formatMoney(s.revenueDay));
-    set('[data-d="Active Products"]', String(s.activeProducts));
+    set('[data-d="Payroll / day"]', formatMoney(s.payrollDay));
+    set('[data-d="Active Products"]', s.activeProducts + ' · ' + s.slotsUsed + '/' + s.slots + ' slots');
     set('[data-d="Brand Reputation"]', Math.round(s.reputation) + '/100');
     set('[data-d="Customer Satisfaction"]', Math.round(s.satisfaction) + '/100');
+
+    // Live research progress bar + countdown (Research tab).
+    if (dash.tab === 'rnd' && !dash.launch) {
+      const a = co(id).research.active;
+      if (a) {
+        const total = a.endsAt - a.startMs;
+        const pct = clamp(((now() - a.startMs) / total) * 100, 0, 100);
+        const fill = dash.el.querySelector('.tc-research.is-active .tc-progress-fill');
+        if (fill) fill.style.width = pct + '%';
+        const left = Math.max(0, Math.ceil((a.endsAt - now()) / 1000));
+        const lt = dash.el.querySelector('[data-rleft]');
+        if (lt) lt.textContent = left > 0 ? formatDuration(left) + ' left' : 'Finishing…';
+      }
+    }
 
     // Live build progress bars + countdown (only while on the Products tab).
     if (dash.tab === 'products' && !dash.launch) {
@@ -639,14 +908,33 @@ const TechCo = (() => {
 
   /* ------------------------------- Exports --------------------------------- */
 
+  /** Total valuation of every company under management — feeds net worth. */
+  function empireValue() {
+    const root = state.techco;
+    if (!root) return 0;
+    let v = 0;
+    for (const id of TECHCO_IDS) if (root[id]) v += snapshot(id).value;
+    return v;
+  }
+  function managedCount() {
+    const root = state.techco;
+    if (!root) return 0;
+    return TECHCO_IDS.filter((id) => root[id]).length;
+  }
+
   return {
-    isManaged, open, close, tick, applyOffline,
+    isManaged, open, close, tick, applyOffline, empireValue, managedCount,
     // Engine/economy (also used by tests):
     baseIncome, snapshot, revenuePerDay, netProfitPerDay, marketShare,
     startBuild, updateProduct, buildCost, updateCost, productIncome, productShare,
-    rollReception, advance, ensureCompany,
+    rollReception, advance, ensureCompany, valuationTarget,
+    // Phase 2 — staff, research, valuation:
+    hire, train, hireCost, trainCost, payrollPerDay, opexRate, groupEff,
+    concurrentSlots, buildSpeedMult, shareMult, staffReceptionBonus,
+    startResearch, researchCost, researchSuccess, researchAvailable, researchDone,
+    researchMult, catalogFor,
     // Config/data access for tests + future phases:
-    CFG, BUDGETS, QUALITIES, PRICINGS, RECEPTIONS,
+    CFG, BUDGETS, QUALITIES, PRICINGS, RECEPTIONS, STAFF, STAFF_CFG, RESEARCH_TIERS,
     _state: (id) => co(id),
   };
 })();

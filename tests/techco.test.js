@@ -68,11 +68,15 @@ check('company cash reduced by exactly the build cost', approx(c.cash, cashBefor
 check('one build now in progress', c.builds.length === 1);
 check('no product yet (still building)', c.products.length === 0);
 
-/* E) The build does NOT complete before its timer, and DOES after. */
-globalThis.NOW += (TechCo.QUALITIES.standard.seconds - 5) * 1000; // 5s before done
+/* E) The build does NOT complete before its timer, and DOES after. Build time
+ *    is Engineering-adjusted, so read the actual duration from the build. */
+const bld = c.builds[0];
+const dur = bld.endsAt - bld.startMs;
+check('Engineering speeds builds (duration < nominal)', dur < TechCo.QUALITIES.standard.seconds * 1000);
+globalThis.NOW = bld.startMs + dur - 3000; // 3s before done
 TechCo.advance(ID);
 check('build still in progress just before its timer', c.builds.length === 1 && c.products.length === 0);
-globalThis.NOW += 10 * 1000; // now past the timer
+globalThis.NOW = bld.endsAt + 2000; // now past the timer
 TechCo.advance(ID);
 check('build completed after the timer', c.builds.length === 0 && c.products.length === 1);
 const prod = c.products[0];
@@ -91,13 +95,15 @@ for (let i = 0; i < 400; i++) {
 check('blockbuster + polished never flops (always hit/breakout)', allTop);
 check('lean + rush never breaks out (always flop/modest)', allBottom);
 
-/* G) Net profit = revenue − costs; revenue = base + product income. */
+/* G) Net profit = revenue − operating costs − payroll; revenue = base + products. */
 const rev = TechCo.revenuePerDay(ID);
 check('revenue = base income + product income', approx(rev, TechCo.baseIncome(ID) + TechCo.productIncome(ID, prod)));
-check('net profit = revenue × (1 − OPEX)', approx(TechCo.netProfitPerDay(ID), rev * (1 - TechCo.CFG.OPEX)));
+check('net profit = revenue − revenue×opex − payroll',
+  approx(TechCo.netProfitPerDay(ID), rev - rev * TechCo.opexRate(ID) - TechCo.payrollPerDay(ID)));
 
-/* H) Market share aggregates the company baseline + product contributions. */
-check('market share = baseShare + product share', approx(TechCo.marketShare(ID), c.baseShare + TechCo.productShare(ID, prod)));
+/* H) Market share = (baseline + product contributions) × marketing multiplier. */
+check('market share = (baseShare + product share) × shareMult',
+  approx(TechCo.marketShare(ID), (c.baseShare + TechCo.productShare(ID, prod)) * TechCo.shareMult(ID)));
 
 /* I) Products AGE: income falls as health decays over time. */
 const incFresh = TechCo.productIncome(ID, prod);
@@ -142,9 +148,90 @@ check('startBuild rejected when cash is insufficient', broke.ok === false);
 
 /* O) Save migrates v12 → v13 in place, keeping holdings + cash. */
 const out = migrate({ version: 12, balance: 12345, portfolio: { mango: { shares: 7, cost: 100 } } });
-check('save migrates to v13', out.version === 13);
+check('save migrates to the latest version (>= 14)', out.version >= 14);
 check('cash kept through migration', out.balance === 12345);
 check('holdings kept through migration', out.portfolio.mango.shares === 7);
+
+/* ============================ PHASE 2 ================================= */
+const V = 'googol'; // Vireo — a fresh managed company for staff/research/valuation
+const vc = TechCo._state(V);
+
+/* P) Staff: three groups seed with headcount + zero training. */
+check('company seeds Engineering / Marketing / Operations teams',
+  vc.staff.eng.count > 0 && vc.staff.mkt.count > 0 && vc.staff.ops.count > 0);
+check('build slots ≥ 2 from seed Engineering', TechCo.concurrentSlots(V) >= 2);
+
+/* Q) Hiring costs cash (scaled off base income), adds payroll, adds a head. */
+vc.cash = TechCo.baseIncome(V) * 100; // plenty to act
+const hc = TechCo.hireCost(V, 'eng');
+check('hire cost scales off base income', approx(hc, TechCo.baseIncome(V) * TechCo.STAFF_CFG.HIRE_BASE * (1 + vc.staff.eng.count * TechCo.STAFF_CFG.HIRE_GROWTH)));
+const payBefore = TechCo.payrollPerDay(V), engBefore = vc.staff.eng.count, cashBeforeHire = vc.cash;
+const rh = TechCo.hire(V, 'eng');
+check('hire ok', rh.ok === true);
+check('hire added a team', vc.staff.eng.count === engBefore + 1);
+check('hire deducted company cash', approx(vc.cash, cashBeforeHire - hc));
+check('hire raised payroll/day', TechCo.payrollPerDay(V) > payBefore);
+
+/* R) Training raises the group's training level (no new payroll) and costs cash. */
+const payPreTrain = TechCo.payrollPerDay(V), cashPreTrain = vc.cash, trainPre = vc.staff.eng.training;
+const rt = TechCo.train(V, 'eng');
+check('train ok', rt.ok === true);
+check('train raised training level', vc.staff.eng.training === trainPre + 1);
+check('train did NOT add payroll', approx(TechCo.payrollPerDay(V), payPreTrain));
+check('train deducted company cash', vc.cash < cashPreTrain);
+
+/* S) More Engineering → faster builds and more concurrent slots. */
+check('buildSpeedMult < 1 with staff', TechCo.buildSpeedMult(V) < 1);
+const slotsNow = TechCo.concurrentSlots(V);
+vc.staff.eng.count += 8;
+check('extra Engineering adds build slots', TechCo.concurrentSlots(V) > slotsNow);
+check('extra Engineering speeds builds further', TechCo.buildSpeedMult(V) < 1);
+
+/* T) Build slots are enforced (can't exceed the concurrent slot cap). */
+vc.staff.eng.count = 1; vc.staff.eng.training = 0; // slots = 1
+vc.products = []; vc.builds = []; vc.cash = TechCo.baseIncome(V) * 500;
+const cat = TechCo.catalogFor(V);
+check('first build starts (slot free)', TechCo.startBuild(V, { type: cat[0][0], budget: 'lean', quality: 'rush', pricing: 'balanced' }).ok === true);
+const second = TechCo.startBuild(V, { type: cat[1][0], budget: 'lean', quality: 'rush', pricing: 'balanced' });
+check('second build rejected when all slots busy', second.ok === false);
+
+/* U) Research: tiers gate on order; starting one costs cash and runs a timer. */
+vc.research = { done: {}, active: null };
+check('tier 0 available, tier 1 locked until tier 0 done', TechCo.researchAvailable(V, 0) && !TechCo.researchAvailable(V, 1));
+const rcost = TechCo.researchCost(V, 0), cashPreR = vc.cash;
+const sr = TechCo.startResearch(V, 0);
+check('startResearch ok', sr.ok === true);
+check('research deducted cash (scaled off base income)', approx(vc.cash, cashPreR - rcost));
+check('research is now active', !!vc.research.active);
+check('cannot start a second project while one runs', TechCo.startResearch(V, 0).ok === false);
+// Resolve it (success or failure — either way the project stops running).
+globalThis.NOW = vc.research.active.endsAt + 1000;
+TechCo.advance(V);
+check('research resolves after its timer (no longer active)', vc.research.active === null);
+
+/* V) Research EFFECTS wire through: income mult, cost cut, unlock. */
+vc.research = { done: { 2: true }, active: null }; // tier 2 = income ×1.15
+check('income-mult research raises researchMult', approx(TechCo.researchMult(V), TechCo.RESEARCH_TIERS[2].effect.mult));
+const opexFull = TechCo.opexRate(V);
+vc.research = { done: { 1: true }, active: null }; // tier 1 = cost cut
+check('cost-cut research lowers operating cost rate', TechCo.opexRate(V) < opexFull);
+const baseCatLen = TECHCO_DEFS[V].catalog.length;
+vc.research = { done: {}, active: null }; vc.unlocked = [];
+check('catalog is base length with nothing unlocked', TechCo.catalogFor(V).length === baseCatLen);
+vc.unlocked = [TECHCO_DEFS[V].unlockProduct];
+check('unlocked flagship extends the catalog', TechCo.catalogFor(V).length === baseCatLen + 1);
+
+/* W) Valuation ratchets up and feeds the empire (net-worth) total. */
+vc.products = []; vc.builds = []; vc.research = { done: {}, active: null }; vc.unlocked = [];
+vc.valuation = 0; vc.cumProfit = 0; vc.lastMs = globalThis.NOW;
+TechCo.advance(V);
+const val1 = TechCo._state(V).valuation;
+check('valuation initialises to a positive number', val1 > 0);
+vc.cumProfit += TechCo.baseIncome(V) * 1000; // more retained profit → higher target
+TechCo.advance(V);
+check('valuation ratchets up as the company grows', TechCo._state(V).valuation > val1);
+check('empire value ≥ this company valuation (feeds net worth)', TechCo.empireValue() >= TechCo._state(V).valuation);
+check('managed count reflects opened companies', TechCo.managedCount() >= 1);
 
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;

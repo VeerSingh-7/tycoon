@@ -1053,3 +1053,48 @@ html, body {
 }
 .tc-toast.in { opacity: 1; transform: translateY(0); }
 .tc-toast b { font-weight: 800; }
+
+/* Phase 2 — slots note, staff cards, research tree. */
+.tc-slot-note { font-size: 11.5px; color: var(--muted); text-align: center; margin: 6px 0 2px; }
+.tc-slot-note b { color: var(--text); }
+.tc-hint { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 4px 2px 14px; }
+.tc-mini { padding: 8px 12px; font-size: 12px; min-height: 0; flex: 1; }
+
+.tc-staff-summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;
+}
+.tc-staff-summary > div {
+  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 9px 8px; text-align: center;
+}
+.tc-staff-summary span { display: block; font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+.tc-staff-summary b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.tc-staff {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 13px; margin-bottom: 10px;
+}
+.tc-staff-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.tc-staff-head b { font-size: 14.5px; }
+.tc-staff-head span { font-size: 11.5px; }
+.tc-staff-stats { display: flex; gap: 20px; margin-bottom: 11px; }
+.tc-staff-stats span { display: block; font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
+.tc-staff-stats b { font-size: 15px; letter-spacing: 1px; }
+.tc-staff-btns { display: flex; gap: 8px; }
+
+.tc-research-list { display: flex; flex-direction: column; gap: 8px; }
+.tc-research {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+  padding: 11px 12px; display: flex; gap: 10px; align-items: center;
+}
+.tc-research.is-done { opacity: 0.72; }
+.tc-research.is-active { border-color: var(--gold); }
+.tc-research-main { flex: 1; min-width: 0; }
+.tc-research-name { font-size: 14px; font-weight: 700; }
+.tc-research-eff { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+.tc-research-right { flex-shrink: 0; min-width: 108px; text-align: right; }
+.tc-r-done { color: var(--green); font-weight: 700; font-size: 13px; }
+.tc-r-lock { color: var(--muted); font-size: 12.5px; }
+.tc-r-active { width: 108px; }
+.tc-r-active .tc-progress { margin: 0 0 5px; }
+.tc-r-active span { font-size: 10.5px; }
+.tc-tag.gold { color: var(--gold); border-color: var(--gold); }

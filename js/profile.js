@@ -109,6 +109,11 @@ const Profile = (() => {
       ['Legacy resets', state.prestiges],
       ['Achievements', `${done}/${ACHIEVEMENT_DEFS.length}`],
     ];
+    // Tech companies under management feed net worth via their valuation.
+    if (typeof TechCo !== 'undefined' && TechCo.managedCount() > 0) {
+      cells.push(['Companies run', String(TechCo.managedCount())]);
+      cells.push(['Empire value', formatMoney(TechCo.empireValue())]);
+    }
     return `
       <div class="card">
         <div class="card-title">📊 Lifetime Stats</div>

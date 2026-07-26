@@ -30,7 +30,11 @@ const TECHCO_DEFS = {
       ['Desktops', true], ['Monitors', true],
     ],
     rivals: ['Meridian Devices', 'Auric Electronics', 'Nimbus Hardware', 'Vantage Consumer'],
-    rnd: ['Custom Silicon', 'Edge-to-Edge Displays', 'All-Day Battery', 'On-Device AI'],
+    // Research tree: 5 flavoured projects (tier 0→4). Tier 3 unlocks a flagship
+    // product (unlockProduct). Effects/costs/timers come from a shared template
+    // in js/techco.js so the five trees stay balanced.
+    research: ['Custom Silicon', 'Edge-to-Edge Displays', 'All-Day Battery', 'Foldable Displays', 'On-Device AI'],
+    unlockProduct: ['Foldable Phones', true],
   },
 
   // Vireo Technologies — Cloud Computing & Enterprise (mixed hardware + platform).
@@ -48,7 +52,8 @@ const TECHCO_DEFS = {
       ['Server Racks', true], ['Database Platforms', false], ['Developer Platforms', false],
     ],
     rivals: ['Stratus Cloud', 'Corvus Systems', 'Helix Enterprise', 'Beacon Cloudworks'],
-    rnd: ['Liquid Cooling', 'AI Accelerators', 'Zero-Trust Security', 'Global Edge Network'],
+    research: ['Liquid Cooling', 'AI Accelerators', 'Zero-Trust Security', 'Quantum Compute', 'Global Edge Network'],
+    unlockProduct: ['Quantum Servers', true],
   },
 
   // Kestrel Software — pure Software (no manufacturing, high margins).
@@ -66,7 +71,8 @@ const TECHCO_DEFS = {
       ['Developer Tools', false],
     ],
     rivals: ['Quill Systems', 'Apex Softworks', 'Cobalt Software', 'Ledger Labs'],
-    rnd: ['Next-Gen Kernel', 'Cloud Sync', 'AI Copilots', 'Cross-Platform Runtime'],
+    research: ['Next-Gen Kernel', 'Cloud Sync', 'AI Copilots', 'Autonomous Agents', 'Cross-Platform Runtime'],
+    unlockProduct: ['AI Agent Platform', false],
   },
 
   // Lumen Social — Social Media & Platforms (users/engagement + ads).
@@ -85,7 +91,8 @@ const TECHCO_DEFS = {
       ['Online Marketplace', false],
     ],
     rivals: ['Vibe Networks', 'Chatter', 'Pulse Media', 'Circle Social'],
-    rnd: ['Recommendation Engine', 'Creator Payouts', 'Ad Auction 2.0', 'Trust & Safety AI'],
+    research: ['Recommendation Engine', 'Creator Payouts', 'Ad Auction 2.0', 'Immersive Feed', 'Trust & Safety AI'],
+    unlockProduct: ['AR Social Space', false],
   },
 
   // Cygnus Labs — AI & Robotics (R&D-heavy; robotics products are physical).
@@ -103,7 +110,8 @@ const TECHCO_DEFS = {
       ['Self-Driving Software', false], ['ML Platforms', false],
     ],
     rivals: ['Synthsphere AI', 'Cortex Robotics', 'Neuronix', 'Automata Labs'],
-    rnd: ['Frontier Model', 'Robotic Dexterity', 'Autonomy Stack', 'AGI Alignment'],
+    research: ['Frontier Model', 'Robotic Dexterity', 'Autonomy Stack', 'Humanoid Robotics', 'AGI Alignment'],
+    unlockProduct: ['Humanoid Robots', true],
   },
 };
 

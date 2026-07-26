@@ -33,7 +33,10 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v13: Tech-sector company management (Phase 1). Adds state.techco (per-company
 //      dashboards/products); defaults via the merge — migrates in place, holdings,
 //      cash and all progress untouched.
-const SAVE_VERSION = 13;
+// v14: Tech management Phase 2 (Staff, Research, Valuation). New per-company
+//      fields (staff/research/valuation/cumProfit) are filled in by
+//      TechCo.normalize() on load — nothing to transform, all progress kept.
+const SAVE_VERSION = 14;
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -252,6 +255,12 @@ function migrate(loaded) {
   // merge in loadGame() — nothing to transform, all progress kept.
   if (loaded.version < 13) {
     loaded.version = 13;
+  }
+  // v13 -> v14: tech management Phase 2 (staff/research/valuation). Per-company
+  // fields are back-filled by TechCo.normalize() when a company is opened — no
+  // transform here; existing techco/products/cash all carry over.
+  if (loaded.version < 14) {
+    loaded.version = 14;
   }
   return loaded;
 }
