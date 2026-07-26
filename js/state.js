@@ -36,7 +36,10 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v14: Tech management Phase 2 (Staff, Research, Valuation). New per-company
 //      fields (staff/research/valuation/cumProfit) are filled in by
 //      TechCo.normalize() on load — nothing to transform, all progress kept.
-const SAVE_VERSION = 14;
+// v15: Tech management Phase 3 (Rivals, Market Share, Become #1). Adds per-company
+//      rivals/edge/leaders fields, back-filled by TechCo.normalize() — in place,
+//      all progress kept.
+const SAVE_VERSION = 15;
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -261,6 +264,12 @@ function migrate(loaded) {
   // transform here; existing techco/products/cash all carry over.
   if (loaded.version < 14) {
     loaded.version = 14;
+  }
+  // v14 -> v15: tech management Phase 3 (rivals/market share). Per-company rival
+  // and standing fields are back-filled by TechCo.normalize() on open — no
+  // transform here; existing techco state carries over.
+  if (loaded.version < 15) {
+    loaded.version = 15;
   }
   return loaded;
 }

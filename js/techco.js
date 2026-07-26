@@ -160,6 +160,12 @@ const TechCo = (() => {
     if (!c.unlocked) c.unlocked = [];          // [ [name, phys], ... ] from research
     if (c.cumProfit == null) c.cumProfit = 0;  // cumulative net profit (valuation input)
     if (c.valuation == null) c.valuation = marketCap(id);
+    // Phase 3 — rivals & competitive standing.
+    if (!c.rivals) c.rivals = seedRivals(id);
+    if (c.edge == null) c.edge = 0;            // competitive edge from Compete actions (decays)
+    if (c.innovBonus == null) c.innovBonus = 0;// innovation from sprints
+    if (!c.leaders) c.leaders = {};            // categories the player is #1 in (claimed)
+    if (c.undercutUntil == null) c.undercutUntil = 0;
   }
 
   function co(id) { const c = ensureCompany(id); normalize(c, id); return c; }
@@ -307,6 +313,169 @@ const TechCo = (() => {
     if (dash && dash.id === id) rebuildDash();
   }
 
+  /* ===================== Phase 3: Rivals & market share ==================== */
+
+  const RIVAL_CFG = {
+    ACT_INTERVAL: 60 * 1000,  // min real ms between a rival's "acts"
+    ACT_CHANCE: 0.15,         // chance a due rival acts on an advance
+    MAX_EVOLVE_DAYS: 30,      // cap rival growth per advance (offline safety)
+    EDGE_DECAY: 0.03,         // your competitive edge fades this much per in-game day
+  };
+  // Spend-to-shift-share actions (costs scale off base income).
+  const COMPETE = {
+    push:     { label: 'Marketing Push',    icon: '📣', costMult: 10, note: 'Lift your market share' },
+    undercut: { label: 'Undercut Price',    icon: '🏷️', costMult: 8,  note: 'Steal rivals’ share (thins margin briefly)' },
+    poach:    { label: 'Poach Talent',      icon: '🧲', costMult: 14, note: 'Out-hire the market leader' },
+    innovate: { label: 'Innovation Sprint', icon: '⚡', costMult: 16, note: 'Out-research the field' },
+  };
+  // Categories the player is ranked in vs rivals; #1 in each is a long-term goal.
+  const RANK_CATS = [
+    { id: 'share',        label: 'Market Share' },
+    { id: 'value',        label: 'Value' },
+    { id: 'innovation',   label: 'Innovation' },
+    { id: 'satisfaction', label: 'Satisfaction' },
+    { id: 'profit',       label: 'Profit' },
+  ];
+  const LEADER_INCOME_BONUS = 0.03; // +3% company income per category led
+
+  function seedRivals(id) {
+    const cap = marketCap(id), base = baseIncome(id);
+    return def(id).rivals.map((name) => {
+      const s = hash(id + '#' + name);
+      const innovation = 42 + ((s >> 3) % 48);
+      return {
+        name,
+        strength: 6 + (s % 16),                 // competitive weight (vs your strength)
+        rep: 46 + ((s >> 5) % 38),
+        quality: 44 + ((s >> 8) % 46),
+        satisfaction: 46 + ((s >> 11) % 40),
+        innovation,
+        value: cap * (0.25 + (s % 60) / 100),   // 0.25..0.85 × your market cap
+        profit: base * (0.4 + innovation / 100),
+        growth: 0.0015 + (innovation / 100) * 0.004, // per in-game day
+        lastAct: 0,
+      };
+    });
+  }
+
+  // Your competitive strength = brand baseline + product share (× Marketing) + edge.
+  function playerStrength(id) {
+    const c = co(id);
+    let s = c.baseShare;
+    for (const p of c.products) s += productShare(id, p);
+    return Math.max(0.5, s * shareMult(id) + (c.edge || 0));
+  }
+  function totalRivalStrength(id) { return co(id).rivals.reduce((n, r) => n + r.strength, 0); }
+
+  /** Market share (%) — RELATIVE: your strength as a share of the whole field. */
+  function marketShare(id) {
+    const ps = playerStrength(id), tot = ps + totalRivalStrength(id);
+    return clamp(tot > 0 ? (ps / tot) * 100 : 100, 0.5, 99);
+  }
+  // Market share directly scales income (≈1× at a "fair" share, up when you lead).
+  function shareIncomeMult(id) { return clamp(0.6 + marketShare(id) / 100 * 1.5, 0.5, 2.2); }
+  // Permanent income bonus for every ranking category you're #1 in.
+  function leaderMult(id) { return 1 + LEADER_INCOME_BONUS * Object.keys(co(id).leaders || {}).length; }
+
+  // Composite innovation score (research done, engineering, product ratings, sprints).
+  function innovationScore(id) {
+    const c = co(id);
+    const doneCount = Object.keys(c.research.done).length;
+    let ratings = 0; for (const p of c.products) ratings += p.rating;
+    return 40 + doneCount * 8 + groupEff(id, 'eng') * 0.5 + ratings * 1.5 + (c.innovBonus || 0);
+  }
+
+  const competeCost = (id, act) => baseIncome(id) * COMPETE[act].costMult;
+
+  /** Spend company cash to shift market share toward you. */
+  function compete(id, act) {
+    const c = co(id);
+    const cfg = COMPETE[act];
+    if (!cfg) return { ok: false, msg: 'Unknown action.' };
+    const cost = competeCost(id, act);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} for ${cfg.label}.` };
+    c.cash -= cost;
+    const tot = totalRivalStrength(id) || 10;
+    if (act === 'push') {
+      c.edge = (c.edge || 0) + tot * 0.15;
+    } else if (act === 'undercut') {
+      c.rivals.forEach((r) => { r.strength *= 0.92; });
+      c.undercutUntil = now() + 300000; // 5-min margin hit
+    } else if (act === 'poach') {
+      c.edge = (c.edge || 0) + tot * 0.10;
+      const lead = c.rivals.slice().sort((a, b) => b.strength - a.strength)[0];
+      if (lead) lead.strength *= 0.90;
+    } else if (act === 'innovate') {
+      c.edge = (c.edge || 0) + tot * 0.10;
+      c.innovBonus = (c.innovBonus || 0) + 10;
+    }
+    checkLeadership(id);
+    saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: `${cfg.label} done — share shifting your way.` };
+  }
+
+  /* ------------------------------ Rankings -------------------------------- */
+
+  function playerMetric(id, cat) {
+    const c = co(id);
+    if (cat === 'share') return marketShare(id);
+    if (cat === 'value') return Math.max(c.valuation, valuationTarget(id));
+    if (cat === 'innovation') return innovationScore(id);
+    if (cat === 'satisfaction') return c.satisfaction;
+    if (cat === 'profit') return netProfitPerDay(id);
+    return 0;
+  }
+  function rivalMetric(id, r, cat) {
+    if (cat === 'share') return (r.strength / (playerStrength(id) + totalRivalStrength(id))) * 100;
+    if (cat === 'value') return r.value;
+    if (cat === 'innovation') return r.innovation;
+    if (cat === 'satisfaction') return r.satisfaction;
+    if (cat === 'profit') return r.profit;
+    return 0;
+  }
+  /** Player's 1-based rank in a category (1 = best). */
+  function playerRank(id, cat) {
+    const pv = playerMetric(id, cat);
+    let rank = 1;
+    for (const r of co(id).rivals) if (rivalMetric(id, r, cat) > pv) rank++;
+    return rank;
+  }
+  /** Grant a one-time reward the first time the player reaches #1 in a category. */
+  function checkLeadership(id) {
+    const c = co(id);
+    if (!c.leaders) c.leaders = {};
+    for (const cat of RANK_CATS) {
+      if (!c.leaders[cat.id] && playerRank(id, cat.id) === 1) {
+        c.leaders[cat.id] = true;
+        const bonus = baseIncome(id) * 50;
+        c.cash += bonus;
+        toast(`🏆 <b>#1 in ${cat.label}!</b><br>${companyName(id)} leads the industry: +${formatMoney(bonus)} and a permanent income boost.`);
+      }
+    }
+  }
+
+  /** Lightweight rival evolution: passive growth + occasional "acts". */
+  function evolveRivals(id, days) {
+    const c = co(id);
+    const d = Math.min(days, RIVAL_CFG.MAX_EVOLVE_DAYS);
+    const t = now();
+    for (const r of c.rivals) {
+      r.strength = clamp(r.strength * (1 + r.growth * d), 1, 800);
+      r.value *= (1 + r.growth * 0.5 * d);
+      r.profit *= (1 + r.growth * 0.3 * d);
+      if (t - r.lastAct > RIVAL_CFG.ACT_INTERVAL && RNG() < RIVAL_CFG.ACT_CHANCE) {
+        r.lastAct = t;
+        const roll = RNG();
+        let what;
+        if (roll < 0.4) { r.strength *= 1.08; what = 'launched a new product'; }
+        else if (roll < 0.7) { r.value *= 1.06; what = 'expanded into new markets'; }
+        else { r.rep = clamp(r.rep + 4, 0, 100); what = 'ran a big ad campaign'; }
+        if (dash && dash.id === id) toast(`🏭 <b>${r.name}</b> ${what}.`);
+      }
+    }
+  }
+
   /* --------------------------- Reception rolling --------------------------- */
 
   /** Roll a market reception, shifted by budget + quality (+ future staff/R&D).
@@ -326,19 +495,16 @@ const TechCo = (() => {
     const c = co(id);
     let rev = baseIncome(id) * researchMult(id); // baseline operations (× research)
     for (const p of c.products) rev += productIncome(id, p);
-    return rev;
+    // Phase 3: market share directly scales income; industry leadership bonuses
+    // stack on top; an active price undercut thins the margin briefly.
+    const undercut = (c.undercutUntil && now() < c.undercutUntil) ? 0.9 : 1;
+    return rev * shareIncomeMult(id) * leaderMult(id) * undercut;
   }
   // Net profit = revenue − operating costs − payroll. Overspending on staff
   // makes this negative and burns company cash (see advance()).
   function netProfitPerDay(id) {
     const rev = revenuePerDay(id);
     return rev - rev * opexRate(id) - payrollPerDay(id);
-  }
-  function marketShare(id) {
-    const c = co(id);
-    let s = c.baseShare;
-    for (const p of c.products) s += productShare(id, p);
-    return clamp(s * shareMult(id), 0.5, 95);
   }
 
   // Valuation target: grows with market cap, product portfolio, research and
@@ -416,11 +582,17 @@ const TechCo = (() => {
         c.products = c.products.filter((p) => p.health > 0);
         for (const p of retired) toast(`📦 <b>${p.type} retired</b><br>${companyName(id)} sunset an ageing product.`);
       }
+      // Rivals grow & occasionally act; your competitive edge fades over time.
+      evolveRivals(id, days);
+      c.edge = Math.max(0, (c.edge || 0) * (1 - RIVAL_CFG.EDGE_DECAY * Math.min(days, 60)));
     }
 
     // 4) Company valuation ratchets up toward its growth target.
     const target = valuationTarget(id);
     if (target > c.valuation) c.valuation = target;
+
+    // 5) Claim any newly-earned industry leaderships (passive check).
+    checkLeadership(id);
   }
 
   function completeBuild(id, b) {
@@ -622,7 +794,7 @@ const TechCo = (() => {
       case 'products': return productsHTML(id);
       case 'staff':    return staffHTML(id);
       case 'rnd':      return researchHTML(id);
-      case 'market':   return placeholderHTML('Market', '🏆', `Track ${def(id).rivals.length} rivals (${def(id).rivals.join(', ')}), fight for market share and become #1 — coming soon.`);
+      case 'market':   return marketHTML(id);
       case 'more':     return placeholderHTML('More', '🌍', 'Manufacturing, financial strategy, global expansion, rival acquisitions and events — coming soon.');
       default: return '';
     }
@@ -718,6 +890,67 @@ const TechCo = (() => {
     return `
       <p class="tc-hint">Research unlocks along a path — finish one project to reach the next. Each has a success chance (Engineering staff improves it); a failure refunds 60%.</p>
       <div class="tc-research-list">${rows}</div>
+    `;
+  }
+
+  /* ------------------------------- Market tab ------------------------------ */
+
+  const bar = (v, cls = '') => `<div class="tc-bar"><div class="tc-bar-fill ${cls}" style="width:${clamp(v, 0, 100)}%"></div></div>`;
+
+  function marketHTML(id) {
+    const c = co(id);
+    const share = marketShare(id);
+    const shareRank = playerRank(id, 'share');
+    const total = c.rivals.length + 1;
+    const denom = playerStrength(id) + totalRivalStrength(id);
+
+    // Compete actions.
+    const competeBtns = Object.keys(COMPETE).map((a) => {
+      const cost = competeCost(id, a), afford = c.cash >= cost;
+      return `<button class="btn tc-compete" data-tcact="compete" data-comp="${a}" ${afford ? '' : 'disabled'}>
+        <b>${COMPETE[a].icon} ${COMPETE[a].label}</b><small>${COMPETE[a].note} · ${afford ? formatMoney(cost) : 'need ' + formatMoney(cost)}</small></button>`;
+    }).join('');
+
+    // Rankings — where you stand, and which #1 crowns you hold.
+    const rankRows = RANK_CATS.map((cat) => {
+      const rank = playerRank(id, cat.id), led = !!c.leaders[cat.id];
+      return `<div class="tc-rank">
+        <span>${cat.label}</span>
+        <b class="${rank === 1 ? 'up' : ''}">#${rank}<small> / ${total}</small>${led ? ' 🏆' : ''}</b>
+      </div>`;
+    }).join('');
+
+    // Rivals, strongest first.
+    const rivalRows = c.rivals.slice().sort((a, b) => b.strength - a.strength).map((r) => {
+      const rs = (r.strength / denom) * 100;
+      return `<div class="tc-rival">
+        <div class="tc-rival-top"><b>${r.name}</b><span>${rs.toFixed(1)}% share</span></div>
+        <div class="tc-rival-bars">
+          <div><span>Reputation</span>${bar(r.rep)}</div>
+          <div><span>Innovation</span>${bar(r.innovation, 'alt')}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const ledCount = Object.keys(c.leaders).length;
+    return `
+      <div class="tc-share-hero">
+        <div class="tc-share-big" data-share>${share.toFixed(1)}%</div>
+        <div class="tc-share-sub">your market share · ranked <b>#${shareRank} of ${total}</b>${ledCount ? ` · 🏆 ${ledCount}/5 crowns` : ''}</div>
+        <div class="tc-share-track">
+          <div class="tc-share-you" style="width:${clamp(share, 1, 100)}%"></div>
+        </div>
+      </div>
+
+      <div class="tc-section-label">Compete for share</div>
+      <div class="tc-compete-grid">${competeBtns}</div>
+
+      <div class="tc-section-label">Become the Industry Leader</div>
+      <div class="tc-rank-grid">${rankRows}</div>
+      <p class="tc-hint">Reach <b>#1</b> in a category for a cash reward and a permanent +${Math.round(LEADER_INCOME_BONUS * 100)}% company income — five crowns to claim.</p>
+
+      <div class="tc-section-label">Rivals (${c.rivals.length})</div>
+      <div class="tc-rival-list">${rivalRows}</div>
     `;
   }
 
@@ -854,6 +1087,7 @@ const TechCo = (() => {
     if (act === 'hire')     { const r = hire(id, data.group);  if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
     if (act === 'train')    { const r = train(id, data.group); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
     if (act === 'research') { const r = startResearch(id, Number(data.tier)); if (r.ok) rebuildDash(); else toast(`⚠️ ${r.msg}`); return; }
+    if (act === 'compete')  { const r = compete(id, data.comp); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
   }
 
   /* --------------------------- Live patch (per tick) ----------------------- */
@@ -874,6 +1108,12 @@ const TechCo = (() => {
     set('[data-d="Active Products"]', s.activeProducts + ' · ' + s.slotsUsed + '/' + s.slots + ' slots');
     set('[data-d="Brand Reputation"]', Math.round(s.reputation) + '/100');
     set('[data-d="Customer Satisfaction"]', Math.round(s.satisfaction) + '/100');
+
+    // Live market-share figure (Market tab).
+    if (dash.tab === 'market' && !dash.launch) {
+      const shEl = dash.el.querySelector('[data-share]');
+      if (shEl) shEl.textContent = marketShare(id).toFixed(1) + '%';
+    }
 
     // Live research progress bar + countdown (Research tab).
     if (dash.tab === 'rnd' && !dash.launch) {
@@ -933,8 +1173,12 @@ const TechCo = (() => {
     concurrentSlots, buildSpeedMult, shareMult, staffReceptionBonus,
     startResearch, researchCost, researchSuccess, researchAvailable, researchDone,
     researchMult, catalogFor,
+    // Phase 3 — rivals, competitive share, rankings:
+    marketShare, shareIncomeMult, leaderMult, playerStrength, totalRivalStrength,
+    innovationScore, compete, competeCost, playerRank, checkLeadership, evolveRivals,
     // Config/data access for tests + future phases:
     CFG, BUDGETS, QUALITIES, PRICINGS, RECEPTIONS, STAFF, STAFF_CFG, RESEARCH_TIERS,
+    COMPETE, RANK_CATS, RIVAL_CFG, LEADER_INCOME_BONUS,
     _state: (id) => co(id),
   };
 })();

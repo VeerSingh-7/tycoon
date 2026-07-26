@@ -1098,3 +1098,45 @@ html, body {
 .tc-r-active .tc-progress { margin: 0 0 5px; }
 .tc-r-active span { font-size: 10.5px; }
 .tc-tag.gold { color: var(--gold); border-color: var(--gold); }
+
+/* Phase 3 — market share hero, compete actions, rankings, rivals. */
+.tc-share-hero {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px 14px; text-align: center; margin-bottom: 8px; box-shadow: 0 1px 3px var(--shadow);
+}
+.tc-share-big { font-size: 34px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; line-height: 1; }
+.tc-share-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.tc-share-sub b { color: var(--text); }
+.tc-share-track { height: 10px; background: var(--bg-elev-2); border-radius: 99px; overflow: hidden; margin-top: 12px; }
+.tc-share-you { height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); border-radius: 99px; transition: width 0.4s ease; }
+
+.tc-compete-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tc-compete {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  text-align: left; padding: 11px 12px; min-height: 0; height: auto; white-space: normal;
+  background: var(--bg-elev); border: 1px solid var(--line); color: var(--text);
+}
+.tc-compete b { font-size: 13px; font-weight: 700; }
+.tc-compete small { font-size: 10.5px; color: var(--muted); line-height: 1.35; font-weight: 500; }
+.tc-compete:disabled { opacity: 0.5; }
+
+.tc-rank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tc-rank {
+  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 12px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+}
+.tc-rank span { font-size: 12px; color: var(--muted); }
+.tc-rank b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.tc-rank b small { font-size: 10.5px; color: var(--muted); font-weight: 500; }
+
+.tc-rival-list { display: flex; flex-direction: column; gap: 8px; }
+.tc-rival { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; }
+.tc-rival-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 9px; }
+.tc-rival-top b { font-size: 14px; }
+.tc-rival-top span { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tc-rival-bars { display: flex; gap: 14px; }
+.tc-rival-bars > div { flex: 1; }
+.tc-rival-bars span { display: block; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+.tc-bar { height: 6px; background: var(--bg-elev-2); border-radius: 99px; overflow: hidden; }
+.tc-bar-fill { height: 100%; background: var(--green); border-radius: 99px; }
+.tc-bar-fill.alt { background: var(--gold); }

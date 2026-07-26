@@ -95,15 +95,16 @@ for (let i = 0; i < 400; i++) {
 check('blockbuster + polished never flops (always hit/breakout)', allTop);
 check('lean + rush never breaks out (always flop/modest)', allBottom);
 
-/* G) Net profit = revenue − operating costs − payroll; revenue = base + products. */
+/* G) Revenue scales with market share + leadership; net profit nets costs. */
 const rev = TechCo.revenuePerDay(ID);
-check('revenue = base income + product income', approx(rev, TechCo.baseIncome(ID) + TechCo.productIncome(ID, prod)));
+check('revenue = (base + product income) × share mult × leader mult',
+  approx(rev, (TechCo.baseIncome(ID) + TechCo.productIncome(ID, prod)) * TechCo.shareIncomeMult(ID) * TechCo.leaderMult(ID)));
 check('net profit = revenue − revenue×opex − payroll',
   approx(TechCo.netProfitPerDay(ID), rev - rev * TechCo.opexRate(ID) - TechCo.payrollPerDay(ID)));
 
-/* H) Market share = (baseline + product contributions) × marketing multiplier. */
-check('market share = (baseShare + product share) × shareMult',
-  approx(TechCo.marketShare(ID), (c.baseShare + TechCo.productShare(ID, prod)) * TechCo.shareMult(ID)));
+/* H) Market share is RELATIVE: your strength as a share of the whole field. */
+check('market share = playerStrength / (player + rivals) × 100',
+  approx(TechCo.marketShare(ID), TechCo.playerStrength(ID) / (TechCo.playerStrength(ID) + TechCo.totalRivalStrength(ID)) * 100));
 
 /* I) Products AGE: income falls as health decays over time. */
 const incFresh = TechCo.productIncome(ID, prod);
@@ -232,6 +233,76 @@ TechCo.advance(V);
 check('valuation ratchets up as the company grows', TechCo._state(V).valuation > val1);
 check('empire value ≥ this company valuation (feeds net worth)', TechCo.empireValue() >= TechCo._state(V).valuation);
 check('managed count reflects opened companies', TechCo.managedCount() >= 1);
+
+/* ============================ PHASE 3 ================================= */
+const F = 'faceblock'; // Lumen Social — a fresh company for rivals/market share
+const fc = TechCo._state(F);
+
+/* X) Rivals are seeded from the company's roster, each with its own state. */
+check('rivals seeded from the roster', fc.rivals.length === TECHCO_DEFS[F].rivals.length && fc.rivals.length >= 3);
+check('each rival has strength/reputation/innovation/value/profit',
+  fc.rivals.every((r) => r.strength > 0 && r.rep > 0 && r.innovation > 0 && r.value > 0 && r.profit !== undefined));
+
+/* Y) Market share is relative and its income multiplier tracks it. */
+const share0 = TechCo.marketShare(F);
+check('market share in (0.5, 99)', share0 > 0.5 && share0 < 99);
+check('share = playerStrength / (player + rivals) × 100',
+  approx(share0, TechCo.playerStrength(F) / (TechCo.playerStrength(F) + TechCo.totalRivalStrength(F)) * 100));
+
+/* Z) Compete — Marketing Push: costs cash, adds edge, raises your share.
+ *    Pre-claim crowns so a leadership bonus can't mask the pure cash deduction
+ *    (the crowns test AD resets leaders anyway). */
+fc.cash = TechCo.baseIncome(F) * 1000;
+fc.leaders = { share: true, value: true, innovation: true, satisfaction: true, profit: true };
+const pcost = TechCo.competeCost(F, 'push');
+check('compete cost scales off base income', approx(pcost, TechCo.baseIncome(F) * TechCo.COMPETE.push.costMult));
+const cash0 = fc.cash, str0 = TechCo.playerStrength(F), sim0 = TechCo.shareIncomeMult(F);
+const rp = TechCo.compete(F, 'push');
+check('marketing push ok', rp.ok === true);
+check('push deducted company cash', approx(fc.cash, cash0 - pcost));
+check('push raised competitive strength', TechCo.playerStrength(F) > str0);
+check('push raised market share', TechCo.marketShare(F) > share0);
+check('higher share → higher income multiplier', TechCo.shareIncomeMult(F) >= sim0);
+
+/* AA) Undercut lowers rivals’ strength and applies a temporary margin hit. */
+const rivalSum0 = TechCo.totalRivalStrength(F);
+TechCo.compete(F, 'undercut');
+check('undercut reduced total rival strength', TechCo.totalRivalStrength(F) < rivalSum0);
+check('undercut set a temporary margin window', fc.undercutUntil > globalThis.NOW);
+
+/* AB) Poach weakens the market leader; Innovation Sprint lifts innovation. */
+const leadBefore = fc.rivals.slice().sort((a, b) => b.strength - a.strength)[0];
+const leadStr0 = leadBefore.strength;
+TechCo.compete(F, 'poach');
+check('poach weakened the strongest rival', leadBefore.strength < leadStr0);
+const innov0 = TechCo.innovationScore(F);
+TechCo.compete(F, 'innovate');
+check('innovation sprint raised innovation score', TechCo.innovationScore(F) > innov0);
+
+/* AC) Rankings: player rank is 1..(rivals+1) in every category. */
+const totalPlayers = fc.rivals.length + 1;
+check('player rank is within 1..N for every category',
+  TechCo.RANK_CATS.every((cat) => { const r = TechCo.playerRank(F, cat.id); return r >= 1 && r <= totalPlayers; }));
+
+/* AD) Reaching #1 in every category claims all crowns + income bonus + cash. */
+fc.leaders = {}; fc.satisfaction = 95;
+fc.rivals.forEach((r) => { r.strength = 0.1; r.value = 1; r.innovation = 1; r.satisfaction = 1; r.profit = -1e12; });
+const lmBefore = TechCo.leaderMult(F), cashBeforeCrowns = fc.cash;
+TechCo.checkLeadership(F);
+check('all five crowns claimed when dominating', Object.keys(fc.leaders).length === 5);
+check('leadership paid a cash bonus', fc.cash > cashBeforeCrowns);
+check('leadership raised the permanent income multiplier', TechCo.leaderMult(F) > lmBefore);
+check('leaderMult = 1 + 0.03 × crowns', approx(TechCo.leaderMult(F), 1 + TechCo.LEADER_INCOME_BONUS * 5));
+
+/* AE) Rivals evolve (grow) over time. */
+fc.rivals.forEach((r) => { r.strength = 5; });
+TechCo.evolveRivals(F, 20);
+check('rivals grow passively over time', fc.rivals.some((r) => r.strength > 5));
+
+/* AF) Save migrates to v15 in place. */
+const out3 = migrate({ version: 14, balance: 42, portfolio: { mango: { shares: 3, cost: 9 } } });
+check('save migrates to v15+', out3.version >= 15);
+check('holdings + cash kept through v15 migration', out3.balance === 42 && out3.portfolio.mango.shares === 3);
 
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;

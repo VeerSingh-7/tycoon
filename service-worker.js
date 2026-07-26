@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v49'; // v49: Tech company management Phase 2 (staff, research, valuation)
+const CACHE_NAME = 'tycoon-v50'; // v50: Tech company management Phase 3 (rivals, market share, become #1)
 
 const ASSETS = [
   'index.html',
