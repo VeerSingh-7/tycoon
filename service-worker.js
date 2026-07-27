@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v61'; // v61: long owned names slide (marquee); every unowned stock/coin shows a made-up current owner
+const CACHE_NAME = 'tycoon-v62'; // v62: owner name off list rows (Owned tag only); owner stays on detail Stats; +6th stat box (Ownership/Volatility)
 
 const ASSETS = [
   'index.html',

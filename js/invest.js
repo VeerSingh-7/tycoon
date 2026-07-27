@@ -118,11 +118,10 @@ const Invest = (() => {
     return (_ownerCache[def.id] = name);
   }
 
-  // Status tag shown beside the name: "Owned" once you hold 100%, otherwise the
-  // company's current (fictional) owner.
-  const statusTag = (def) => (Market.isOwned(def.id)
-    ? ' <span class="owned-tag">Owned</span>'
-    : ` <span class="owner-tag" title="Current owner"><span class="owner-ic" aria-hidden="true">◈</span><span class="owner-nm">${ownerName(def)}</span></span>`);
+  // Status tag shown beside the name in lists: ONLY "Owned" once you hold 100%.
+  // The current (fictional) owner of companies you don't own is intentionally
+  // NOT shown on the row — it lives on the detail Stats page instead.
+  const statusTag = (def) => (Market.isOwned(def.id) ? ' <span class="owned-tag">Owned</span>' : '');
   const ownedBadge = statusTag; // back-compat alias
   const ownedCls = (def) => (Market.isOwned(def.id) ? ' owned' : '');
 
@@ -554,6 +553,7 @@ const Invest = (() => {
     const dy = Math.min(8, (s.divYield || 0) * 500);
     const rows = [];
     const owned = Market.isOwned(def.id);
+    const vol = Math.round(s.volPct) + '%';
     if (def.group === 'stock') {
       rows.push(['Sector', SECTOR_NAMES[def.sector] || def.sector]);
       rows.push(['Founded', String(s.founded)]);
@@ -561,6 +561,7 @@ const Invest = (() => {
       rows.push(['Dividend', dy >= 0.05 ? dy.toFixed(1) + '% / yr' : 'None']);
       rows.push(['Total shares', formatNumber(s.supply)]);
       rows.push(['Risk', risk]);
+      rows.push(['Volatility', vol]);
       rows.push(['Ownership', ownPctStr(Market.ownedFrac(def.id) * 100)]);
     } else {
       rows.push(['Type', 'Cryptocurrency']);
@@ -568,6 +569,7 @@ const Invest = (() => {
       rows.push([owned ? 'Owner' : 'Controlled by', owned ? 'You' : ownerName(def)]);
       rows.push(['Total coins', formatNumber(s.supply)]);
       rows.push(['Risk', risk]);
+      rows.push(['Ownership', ownPctStr(Market.ownedFrac(def.id) * 100)]);
     }
     return `<div class="card-title">Stats</div><div class="stat-grid">${
       rows.map(([k, v]) => `<div class="stat-cell"><span class="muted">${k}</span><b>${v}</b></div>`).join('')
