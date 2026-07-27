@@ -1198,6 +1198,9 @@ const TechCo = (() => {
   function rebuildDash() {
     if (!dash) return;
     const id = dash.id, d = def(id), s = snapshot(id);
+    // The Product Studio takes over the whole screen — a dedicated design page,
+    // not a panel under the dashboard chrome.
+    if (dash.launch) { dash.el.innerHTML = wizardHTML(id); wireWizard(); return; }
     dash.el.innerHTML = `
       <div class="tc-head">
         <button class="icon-btn" id="tcClose" aria-label="Close">✕</button>
@@ -1256,7 +1259,6 @@ const TechCo = (() => {
 
   function tabHTML(id) {
     if (dash.detailPid != null) return productDetailHTML(id);
-    if (dash.launch) return wizardHTML(id);
     switch (dash.tab) {
       case 'products': return productsHTML(id);
       case 'staff':    return staffHTML(id);
@@ -1763,13 +1765,21 @@ const TechCo = (() => {
     const l = dash.launch, cfg = l.cfg, s = wizardSummary(id, cfg), afford = co(id).cash >= s.cost;
     const q = s.cq.quality;
     const body = [studioBasics, studioSpecs, studioBudget, studioTeam, studioReview][l.step](id, cfg, s);
+    const steps = STUDIO_STEPS.map((name, i) => {
+      const cls = i === l.step ? 'on' : i < l.step ? 'done' : '';
+      return `<div class="tc-wiz-dot ${cls}"><span>${i < l.step ? '✓' : i + 1}</span><small>${name}</small></div>`;
+    }).join('<div class="tc-wiz-sep"></div>');
     return `
-      <div class="tc-wizard">
-        <div class="tc-launch-head">
+      <div class="tc-wizard-page">
+        <div class="tc-wiz-topbar">
           <button class="icon-btn" data-studio="back" aria-label="Back">‹</button>
-          <b>${l.step === 4 ? 'Review & Release' : 'New Product'}</b>
-          <span class="tc-wiz-step">Step ${l.step + 1}/5 · ${STUDIO_STEPS[l.step]}</span>
+          <div class="tc-wiz-title">
+            <div class="tc-wiz-co">${companyName(id)}</div>
+            <b>Product Studio</b>
+          </div>
+          <button class="icon-btn" data-studio="exit" aria-label="Close">✕</button>
         </div>
+        <div class="tc-wiz-steps">${steps}</div>
         <div class="tc-wiz-summary">
           <div class="tc-wiz-q-top"><span>Projected quality</span><b>${Math.round(q)} · ${qualityWord(q)}</b></div>
           <div class="tc-bar"><div class="tc-bar-fill ${q > 65 ? 'good' : q > 40 ? 'alt' : 'warn'}" style="width:${q}%"></div></div>
@@ -1781,6 +1791,7 @@ const TechCo = (() => {
         </div>
         <div class="tc-wiz-body">${body}</div>
         <div class="tc-wiz-nav">
+          ${l.step > 0 ? `<button class="btn tc-wiz-back" data-studio="back">‹ Back</button>` : ''}
           ${l.step < 4
             ? `<button class="btn btn-gold btn-wide" data-studio="next">Next ›</button>`
             : `<button class="btn btn-gold btn-wide" data-studio="build" ${afford ? '' : 'disabled'}>${afford ? '🚀 Build & Release' : 'Not enough company cash'}</button>`}
@@ -1915,20 +1926,35 @@ const TechCo = (() => {
     if (nameInput) nameInput.oninput = (e) => { if (dash.launch) dash.launch.cfg.name = e.target.value; };
   }
 
+  /** Wire the full-screen Product Studio page (no dashboard chrome present). */
+  function wireWizard() {
+    const el = dash.el;
+    el.querySelectorAll('[data-studio]').forEach((b) => b.onclick = () => { if (!b.disabled) onStudio(b.dataset); });
+    const nameInput = el.querySelector('#studioName');
+    if (nameInput) nameInput.oninput = (e) => { if (dash.launch) dash.launch.cfg.name = e.target.value; };
+  }
+
+  /** Re-render the full-screen Product Studio page (keeps the user on it). */
+  function refreshWizard() { dash.el.innerHTML = wizardHTML(dash.id); wireWizard(); }
+
+  /** Leave the Studio and return to the Products tab. */
+  function exitWizard() { dash.launch = null; dash.tab = 'products'; rebuildDash(); }
+
   /** Handle a click in the Product Studio wizard. */
   function onStudio(data) {
     const l = dash.launch; if (!l) return;
     const cfg = l.cfg, a = data.studio;
-    if (a === 'back')  { if (l.step > 0) l.step--; else dash.launch = null; refreshBody(); return; }
-    if (a === 'next')  { if (l.step < 4) l.step++; refreshBody(); return; }
-    if (a === 'type')  { if (!isTypeBusy(dash.id, data.val)) { cfg.type = data.val; cfg.specs = {}; } refreshBody(); return; }
-    if (a === 'tier')  { cfg.tier = data.val; refreshBody(); return; }
-    if (a === 'spec')  { cfg.specs[data.spec] = Number(data.idx); refreshBody(); return; }
-    if (a === 'budget'){ cfg.budget[data.area] = data.val; refreshBody(); return; }
-    if (a === 'team')  { cfg.team[data.role] = data.val; refreshBody(); return; }
+    if (a === 'exit')  { exitWizard(); return; }
+    if (a === 'back')  { if (l.step > 0) { l.step--; refreshWizard(); } else exitWizard(); return; }
+    if (a === 'next')  { if (l.step < 4) l.step++; refreshWizard(); return; }
+    if (a === 'type')  { if (!isTypeBusy(dash.id, data.val)) { cfg.type = data.val; cfg.specs = {}; } refreshWizard(); return; }
+    if (a === 'tier')  { cfg.tier = data.val; refreshWizard(); return; }
+    if (a === 'spec')  { cfg.specs[data.spec] = Number(data.idx); refreshWizard(); return; }
+    if (a === 'budget'){ cfg.budget[data.area] = data.val; refreshWizard(); return; }
+    if (a === 'team')  { cfg.team[data.role] = data.val; refreshWizard(); return; }
     if (a === 'build') {
       const r = startDeepBuild(dash.id, cfg);
-      if (r.ok) { dash.launch = null; dash.tab = 'products'; rebuildDash(); }
+      if (r.ok) exitWizard();
       return;
     }
   }
@@ -1952,7 +1978,7 @@ const TechCo = (() => {
 
   function onAct(act, data) {
     const id = dash.id;
-    if (act === 'newproduct')  { dash.detailPid = null; dash.launch = defaultLaunch(id); refreshBody(); return; }
+    if (act === 'newproduct')  { dash.detailPid = null; dash.launch = defaultLaunch(id); rebuildDash(); return; }
     if (act === 'proddetail')  { dash.detailPid = Number(data.pid); refreshBody(); return; }
     if (act === 'closedetail') { dash.detailPid = null; refreshBody(); return; }
     if (act === 'update') {

@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v59'; // v59: research depth — 9 categories/company, clickable projects w/ team+leader+priority assignment; owned badge no longer truncates
+const CACHE_NAME = 'tycoon-v60'; // v60: Product Studio opens as a dedicated full-screen page (stepper header, own nav)
 
 const ASSETS = [
   'index.html',
