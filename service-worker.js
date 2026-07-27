@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v60'; // v60: Product Studio opens as a dedicated full-screen page (stepper header, own nav)
+const CACHE_NAME = 'tycoon-v61'; // v61: long owned names slide (marquee); every unowned stock/coin shows a made-up current owner
 
 const ASSETS = [
   'index.html',

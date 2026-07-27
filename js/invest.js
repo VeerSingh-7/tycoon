@@ -97,9 +97,58 @@ const Invest = (() => {
   // "Crypto · AURM") — never the holding size (that lives in the Portfolio).
   const subLabel = (def) => `${def.group === 'crypto' ? 'Crypto' : (SECTOR_LABELS[def.sector] || 'Stock')} · ${def.ticker}`;
   const unitOf = (def) => (def.group === 'crypto' ? 'coins' : 'shares');
-  // A clean badge marking an asset you fully own (100%) — bought out.
-  const ownedBadge = (def) => (Market.isOwned(def.id) ? ' <span class="owned-tag">Owned</span>' : '');
+
+  /* ---- Made-up "current owner" for every company you haven't bought out ---- */
+  // Each unowned stock / coin is controlled by a fictional mogul, holding group
+  // or crypto whale — stable per asset (deterministic hash), so it never changes
+  // between renders. Once YOU own 100%, the tag flips to "Owned".
+  const _hashStr = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+  const OWN_FIRST = ['Cassian', 'Beatrix', 'Adrian', 'Marguerite', 'Dorian', 'Vivienne', 'Lucian', 'Ophelia', 'Rafael', 'Cordelia', 'Sterling', 'Isadora', 'Emeric', 'Rosalind', 'Thaddeus', 'Genevieve', 'Auguste', 'Seraphina', 'Leopold', 'Anouk', 'Matthias', 'Delphine'];
+  const OWN_LAST = ['Vale', 'Ashcroft', 'Thorne', 'Marchetti', 'Blackwood', 'Delacroix', 'Sinclair', 'Rothbury', 'Okonkwo', 'Yamashiro', 'Vanderberg', 'Castellano', 'Fairbanks', 'Novak', 'Kensington', 'Moreau', 'Halloran', 'Whitlock', 'Barsanti', 'Eskildsen', 'Dubois', 'Ferreira'];
+  const OWN_ENTITY = ['Meridian Holdings', 'Orion Capital Group', 'Ironhelm Partners', 'Blue Harbor Trust', 'Sable & Crane', 'Northwind Equity', 'Keystone Ventures', 'Vanguard Peak Fund', 'Aldergrove Capital', 'Silverline Group', 'Crownfield Partners', 'Halcyon Global', 'Bastion Holdings', 'Emberhart Trust'];
+  const CRY_OWNER = ['Genesis Whale DAO', 'Satoshi Estate', 'ByteForge Foundation', 'The Mempool Syndicate', 'Ledgerhaus DAO', 'Whalechain Capital', 'Cold Storage Collective', 'Anon Whale 0x7f3', 'Blockspire Foundation', 'DeFi Leviathan', 'Nakamoto Trust', 'Quorum Whale Group', 'Ivo “HODL” Petrov', 'Hashford Holdings'];
+  const _ownerCache = {};
+  function ownerName(def) {
+    if (_ownerCache[def.id]) return _ownerCache[def.id];
+    const h = _hashStr(def.id);
+    let name;
+    if (def.group === 'crypto') name = CRY_OWNER[h % CRY_OWNER.length];
+    else if (h % 5 < 2) name = OWN_ENTITY[(h >>> 3) % OWN_ENTITY.length];
+    else name = OWN_FIRST[(h >>> 3) % OWN_FIRST.length] + ' ' + OWN_LAST[(h >>> 7) % OWN_LAST.length];
+    return (_ownerCache[def.id] = name);
+  }
+
+  // Status tag shown beside the name: "Owned" once you hold 100%, otherwise the
+  // company's current (fictional) owner.
+  const statusTag = (def) => (Market.isOwned(def.id)
+    ? ' <span class="owned-tag">Owned</span>'
+    : ` <span class="owner-tag" title="Current owner"><span class="owner-ic" aria-hidden="true">◈</span><span class="owner-nm">${ownerName(def)}</span></span>`);
+  const ownedBadge = statusTag; // back-compat alias
   const ownedCls = (def) => (Market.isOwned(def.id) ? ' owned' : '');
+
+  // Name cell: the company name (marquees when too long to fit) + status tag.
+  const nameCell = (def, big) =>
+    `<div class="asset-sym${big ? ' big' : ''}"><span class="asset-nm"><span class="asset-nm-i">${def.name}</span></span>${statusTag(def)}</div>`;
+
+  /** Turn on the back-and-forth slide for any name too long to fit its row. */
+  function enableMarquee(root) {
+    const scope = root || container;
+    if (!scope) return;
+    scope.querySelectorAll('.asset-nm').forEach((wrap) => {
+      const inner = wrap.querySelector('.asset-nm-i');
+      if (!inner) return;
+      inner.classList.remove('marq');
+      inner.style.removeProperty('--marq');
+      inner.style.removeProperty('--marqDur');
+      const over = inner.scrollWidth - wrap.clientWidth;
+      if (over > 4) {
+        const shift = over + 8;
+        inner.style.setProperty('--marq', `-${shift}px`);
+        inner.style.setProperty('--marqDur', `${Math.max(4, shift / 20).toFixed(1)}s`);
+        inner.classList.add('marq');
+      }
+    });
+  }
 
   /** A tiny Trading-212-style performance sparkline (last 24h) for a list row:
    *  green if the price is up over the window, red if down. Built once per row
@@ -293,6 +342,7 @@ const Invest = (() => {
       ? `<div class="asset-list">${pool.map((d) => rowHTML(d, Market.dispPrice(d.id), Market.dispChangePct(d.id))).join('')}</div>`
       : emptyHTML();
     observeRows();
+    enableMarquee(el);
   }
 
   function rowHTML(def, p, ch) {
@@ -303,7 +353,7 @@ const Invest = (() => {
       <button class="asset-row${ownedCls(def)}" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
         <div class="asset-name-wrap">
-          <div class="asset-sym"><span class="asset-nm">${def.name}</span>${ownedBadge(def)}</div>
+          ${nameCell(def)}
           <div class="asset-name">${sub}</div>
         </div>
         ${sparkSVG(def)}
@@ -331,6 +381,7 @@ const Invest = (() => {
         `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="pfBody">${portfolioBodyHTML()}</div>
     `;
+    enableMarquee();
   }
 
   function portfolioBodyHTML() {
@@ -362,7 +413,7 @@ const Invest = (() => {
       <button class="asset-row${ownedCls(def)}" data-act="open" data-id="${def.id}">
         ${Logos.tile(def)}
         <div class="asset-name-wrap">
-          <div class="asset-sym"><span class="asset-nm">${def.name}</span>${ownedBadge(def)}</div>
+          ${nameCell(def)}
           <div class="asset-name">${fmtShares(h.shares)} ${unitOf(def)}</div>
         </div>
         ${sparkSVG(def)}
@@ -415,7 +466,7 @@ const Invest = (() => {
       <button class="back-link" data-act="back">‹ ${backLabel()}</button>
       <div class="detail-head">
         ${Logos.tile(def, 'lg')}
-        <div style="min-width:0"><div class="asset-sym big"><span class="asset-nm">${def.name}</span>${ownedBadge(def)}</div>
+        <div style="min-width:0">${nameCell(def, true)}
           <div class="asset-name">${subLabel(def)}</div></div>
       </div>
       <div class="detail-price-row">
@@ -439,6 +490,7 @@ const Invest = (() => {
       </div>
     `;
     initInlineChart();
+    enableMarquee();
   }
 
   function changesHTML(def) {
@@ -501,9 +553,11 @@ const Invest = (() => {
     const risk = s.volPct < 35 ? 'Low' : s.volPct < 60 ? 'Medium' : 'High';
     const dy = Math.min(8, (s.divYield || 0) * 500);
     const rows = [];
+    const owned = Market.isOwned(def.id);
     if (def.group === 'stock') {
       rows.push(['Sector', SECTOR_NAMES[def.sector] || def.sector]);
       rows.push(['Founded', String(s.founded)]);
+      rows.push([owned ? 'Owner' : 'Controlled by', owned ? 'You' : ownerName(def)]);
       rows.push(['Dividend', dy >= 0.05 ? dy.toFixed(1) + '% / yr' : 'None']);
       rows.push(['Total shares', formatNumber(s.supply)]);
       rows.push(['Risk', risk]);
@@ -511,6 +565,7 @@ const Invest = (() => {
     } else {
       rows.push(['Type', 'Cryptocurrency']);
       rows.push(['Since', String(s.founded)]);
+      rows.push([owned ? 'Owner' : 'Controlled by', owned ? 'You' : ownerName(def)]);
       rows.push(['Total coins', formatNumber(s.supply)]);
       rows.push(['Risk', risk]);
     }
