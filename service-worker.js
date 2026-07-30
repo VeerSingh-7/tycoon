@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v62'; // v62: owner name off list rows (Owned tag only); owner stays on detail Stats; +6th stat box (Ownership/Volatility)
+const CACHE_NAME = 'tycoon-v63'; // v63: per-company Signature operation (unique trait + ladder/doctrine) for all 48; richer 6-level product tiers
 
 const ASSETS = [
   'index.html',
@@ -25,6 +25,7 @@ const ASSETS = [
   'js/data/techspecs.js',
   'js/data/bizdefs.js',
   'js/data/research.js',
+  'js/data/signature.js',
   'js/state.js',
   'js/engine.js',
   'js/mechanics.js',

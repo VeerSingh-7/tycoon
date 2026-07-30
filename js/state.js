@@ -49,7 +49,10 @@ const SAVE_KEY = 'tycoon_save_v1';
 //      mass projects). Each company's research state is rebuilt to the new shape
 //      by TechCo.normalize() on load; unlocked products are kept. Cash/holdings
 //      and everything else untouched.
-const SAVE_VERSION = 18;
+// v19: per-company Signature operation — a unique always-on trait plus either a
+//      5-step ladder program or a 3-way doctrine dial, tailored to each of the
+//      48 companies. Seeded by TechCo.normalize() on load; nothing else changes.
+const SAVE_VERSION = 19;
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -296,6 +299,12 @@ function migrate(loaded) {
   // shape by TechCo.normalize() when a company is opened — no transform here.
   if (loaded.version < 18) {
     loaded.version = 18;
+  }
+  // v18 -> v19: per-company Signature operation (unique trait + ladder/doctrine).
+  // Each company's signature state is seeded by TechCo.normalize() on open — no
+  // transform here. All cash / holdings / progress untouched.
+  if (loaded.version < 19) {
+    loaded.version = 19;
   }
   return loaded;
 }

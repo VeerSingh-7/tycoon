@@ -178,6 +178,12 @@ const TechCo = (() => {
     if (c.event === undefined) c.event = null; // active themed event, if any
     if (c.nextEventAt == null) c.nextEventAt = now() + EVENT_FIRST_DELAY;
     if (c.supplyUntil == null) c.supplyUntil = 0;
+    // Signature (each company's unique operation): a ladder level or a doctrine
+    // stance. Seeded from data/signature.js; doctrines start on the middle stance.
+    if (!c.signature) {
+      const s = (typeof COMPANY_SIGNATURE !== 'undefined') ? COMPANY_SIGNATURE[id] : null;
+      c.signature = { level: 0, stance: (s && s.kind === 'doctrine' && s.stances[1]) ? s.stances[1].id : null };
+    }
   }
 
   function co(id) { const c = ensureCompany(id); normalize(c, id); return c; }
@@ -214,10 +220,12 @@ const TechCo = (() => {
       * researchMult(id) * manufacturingMult(id, p); // in-house lifts physical margins
   }
 
-  /** A live product's market-share contribution (percentage points). */
+  /** A live product's market-share contribution (percentage points). A cheaper
+   *  TIER reaches more buyers (volume), a flagship reaches fewer. */
   function productShare(id, p) {
     const pr = PRICINGS[p.pricing] || PRICINGS.balanced;
-    return p.shareBase * pr.shareFactor * (Math.max(0, p.health) / 100);
+    const vol = (TECH_TIERS[p.tier] || TECH_TIERS.standard).volume || 1;
+    return p.shareBase * pr.shareFactor * vol * (Math.max(0, p.health) / 100);
   }
 
   /* ================= Product Studio (in-depth product design) ============== */
@@ -264,7 +272,7 @@ const TechCo = (() => {
     }
     const teamScore = twMax ? clamp(tw / twMax, 0, 1.15) : 0;
     // Research breakthroughs add a flat quality bonus on top.
-    const quality = clamp(100 * (0.45 * specScore + 0.25 * bud + 0.30 * teamScore) + researchQualityBonus(id), 3, 100);
+    const quality = clamp(100 * (0.45 * specScore + 0.25 * bud + 0.30 * teamScore) + researchQualityBonus(id) + sigQualityBonus(id), 3, 100);
     return { quality, specScore, budgetScore: bud, teamScore };
   }
 
@@ -282,12 +290,12 @@ const TechCo = (() => {
     const pm = (TECH_TEAM_LEVELS[cfg.team.pm] || TECH_TEAM_LEVELS.none).v; // PM speeds delivery
     return Math.max(45, Math.round(base * clamp(buildSpeedMult(id) * (1 - pm * 0.15), 0.4, 1)));
   }
-  const tierToPricing = (tier) => (tier === 'budget' ? 'budget' : tier === 'standard' ? 'balanced' : 'premium');
+  const tierToPricing = (tier) => ((tier === 'economy' || tier === 'budget') ? 'budget' : tier === 'standard' ? 'balanced' : 'premium');
 
   function unitPriceOf(id, p) {
     const arch = archetypeOf(p.type), tier = TECH_TIERS[p.tier] || TECH_TIERS.standard;
     // Research (e.g. higher-density batteries) lets products command more.
-    return arch.basePrice * tier.priceMult * (0.8 + 0.4 * (p.specScore != null ? p.specScore : 0.5)) * researchPriceMult(id);
+    return arch.basePrice * tier.priceMult * (0.8 + 0.4 * (p.specScore != null ? p.specScore : 0.5)) * researchPriceMult(id) * sigPriceMult(id);
   }
   function productMargin(id, p) {
     const arch = archetypeOf(p.type);
@@ -296,7 +304,8 @@ const TechCo = (() => {
     let m = arch.margin != null ? arch.margin
       : (arch.focus === 'software' || arch.focus === 'ai' || arch.focus === 'social') ? 0.6 : 0.3;
     if (p.phys && co(id).manufacturing === 'inhouse') m += 0.06;
-    m += ((TECH_TIERS[p.tier] || TECH_TIERS.standard).incomeMult - 1) * 0.3 + researchMarginBonus(id);
+    const tierDef = TECH_TIERS[p.tier] || TECH_TIERS.standard;
+    m += (tierDef.incomeMult - 1) * 0.3 + (tierDef.margin || 0) + researchMarginBonus(id) + sigMarginBonus(id);
     return clamp(m, 0.15, 0.85);
   }
   function unitsPerDay(id, p) { const up = unitPriceOf(id, p); return up > 0 ? productIncome(id, p) / up : 0; }
@@ -407,10 +416,76 @@ const TechCo = (() => {
   const researchPriceMult = (id) => 1 + researchAgg(id).pr;           // unit price ×
   const researchMarginBonus = (id) => researchAgg(id).mg;             // product margin +
 
+  /* ============= Signature (each company's unique operation) =============== */
+  // Every company has a bespoke signature (data/signature.js): an always-on
+  // TRAIT plus either a 5-step LADDER program or a 3-way DOCTRINE dial. Their
+  // effects aggregate here and fold into the same economy levers as research.
+  const sigDef = (id) => (typeof COMPANY_SIGNATURE !== 'undefined' ? COMPANY_SIGNATURE[id] : null);
+  const LADDER_COSTS = [10, 20, 34, 52, 78]; // × base income, per step (escalating)
+  const sigState = (id) => co(id).signature;
+  const sigStance = (id) => { // resolve the currently-selected doctrine stance object
+    const s = sigDef(id); if (!s || s.kind !== 'doctrine') return null;
+    return s.stances.find((x) => x.id === sigState(id).stance) || s.stances[1];
+  };
+
+  /** Sum every signature effect the company currently has (trait + program). */
+  function sigAgg(id) {
+    const a = { inc: 0, mg: 0, pr: 0, ct: 0, share: 0, q: 0 };
+    const s = sigDef(id); if (!s) return a;
+    const st = sigState(id);
+    const add = (e) => { if (!e) return; a.inc += e.inc || 0; a.mg += e.mg || 0; a.pr += e.pr || 0; a.ct += e.ct || 0; a.share += e.share || 0; a.q += e.q || 0; };
+    add(s.trait && s.trait.effect);
+    if (s.kind === 'ladder') { const lvl = st.level || 0; for (let i = 0; i < lvl && i < s.steps.length; i++) add(s.steps[i][2]); }
+    else if (s.kind === 'doctrine') { add((sigStance(id) || {}).effect); }
+    return a;
+  }
+  const sigIncomeMult = (id) => 1 + sigAgg(id).inc;    // company income ×
+  const sigCostCut = (id) => sigAgg(id).ct;            // operating-cost cut +
+  const sigMarginBonus = (id) => sigAgg(id).mg;        // product margin +
+  const sigPriceMult = (id) => 1 + sigAgg(id).pr;      // unit price ×
+  const sigQualityBonus = (id) => sigAgg(id).q;        // product quality +
+  const sigShareMult = (id) => 1 + sigAgg(id).share;   // market strength ×
+
+  const ladderStepCost = (id, i) => baseIncome(id) * (LADDER_COSTS[i] != null ? LADDER_COSTS[i] : 90);
+
+  /** Buy the next milestone of a ladder-type signature program. */
+  function sigAdvanceLadder(id) {
+    const s = sigDef(id), c = co(id); if (!s || s.kind !== 'ladder') return { ok: false, msg: 'No program.' };
+    const st = sigState(id), lvl = st.level || 0;
+    if (lvl >= s.steps.length) return { ok: false, msg: 'Program already complete.' };
+    const cost = ladderStepCost(id, lvl);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} in company cash.` };
+    c.cash -= cost; st.level = lvl + 1; saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: `${s.steps[lvl][0]} completed.` };
+  }
+  /** Select a doctrine stance. */
+  function sigSetStance(id, stanceId) {
+    const s = sigDef(id); if (!s || s.kind !== 'doctrine') return { ok: false, msg: 'No doctrine.' };
+    if (!s.stances.some((x) => x.id === stanceId)) return { ok: false, msg: 'Unknown stance.' };
+    sigState(id).stance = stanceId; saveGame();
+    if (dash && dash.id === id) rebuildDash();
+    return { ok: true, msg: 'Doctrine set.' };
+  }
+
+  /** One-line human summary of a signature effect object. */
+  function sigEffectText(e) {
+    if (!e) return '';
+    const parts = [];
+    const pc = (v) => (v > 0 ? '+' : '') + Math.round(v * 100) + '%';
+    if (e.inc) parts.push(pc(e.inc) + ' income');
+    if (e.mg) parts.push(pc(e.mg) + ' margin');
+    if (e.pr) parts.push(pc(e.pr) + ' price');
+    if (e.ct) parts.push(pc(e.ct) + ' lower costs');
+    if (e.share) parts.push(pc(e.share) + ' market strength');
+    if (e.q) parts.push('+' + e.q + ' quality');
+    return parts.join(' · ');
+  }
+
   // Operating-cost rate after Operations staff + research cost-cuts.
   function opexRate(id) {
     const opsCut = clamp(groupEff(id, 'ops') * 0.012, 0, 0.28);
-    return clamp(CFG.OPEX - opsCut - researchCostCut(id) + strategyOpexDelta(id) + globalOpexAdd(id), 0.15, 0.70);
+    return clamp(CFG.OPEX - opsCut - researchCostCut(id) - sigCostCut(id) + strategyOpexDelta(id) + globalOpexAdd(id), 0.15, 0.70);
   }
   // Live catalog = base products + everything unlocked by research.
   function catalogFor(id) { return def(id).catalog.concat(co(id).unlocked); }
@@ -657,7 +732,7 @@ const TechCo = (() => {
     const c = co(id);
     let s = c.baseShare;
     for (const p of c.products) s += productShare(id, p);
-    return Math.max(0.5, s * shareMult(id) + (c.edge || 0));
+    return Math.max(0.5, (s * shareMult(id) + (c.edge || 0)) * sigShareMult(id));
   }
   function totalRivalStrength(id) { return co(id).rivals.reduce((n, r) => n + r.strength, 0); }
 
@@ -937,7 +1012,7 @@ const TechCo = (() => {
     // acquisitions stack on top; a price undercut or supply shortage bite briefly.
     const undercut = (c.undercutUntil && now() < c.undercutUntil) ? 0.9 : 1;
     const supply = (c.supplyUntil && now() < c.supplyUntil) ? 0.85 : 1;
-    return rev * shareIncomeMult(id) * leaderMult(id) * globalIncomeMult(id) * (1 + (c.acqBonus || 0)) * undercut * supply;
+    return rev * shareIncomeMult(id) * leaderMult(id) * globalIncomeMult(id) * sigIncomeMult(id) * (1 + (c.acqBonus || 0)) * undercut * supply;
   }
   // Net profit = revenue − operating costs − payroll. Overspending on staff
   // makes this negative and burns company cash (see advance()).
@@ -1068,8 +1143,10 @@ const TechCo = (() => {
     }
     c.products.push(p);
     const r = RECEPTIONS[reception];
-    // Reception nudges brand reputation + customer satisfaction.
-    c.reputation = clamp(c.reputation + r.rep, 0, 100);
+    // Reception nudges brand reputation + customer satisfaction; a higher product
+    // TIER lifts the brand a little more (halo effect), a budget tier less.
+    const tierBrand = (b.deep && TECH_TIERS[b.cfg.tier]) ? (TECH_TIERS[b.cfg.tier].brand || 0) : 0;
+    c.reputation = clamp(c.reputation + r.rep + tierBrand, 0, 100);
     c.satisfaction = clamp(c.satisfaction + r.sat, 0, 100);
     toast(`${r.emoji} <b>${p.type}: ${r.label}!</b><br>${companyName(id)} launched a new product (${'★'.repeat(r.rating)}).`);
     saveGame();
@@ -1164,11 +1241,12 @@ const TechCo = (() => {
 
   const companyName = (id) => (ASSET_BY_ID[id] ? ASSET_BY_ID[id].name : id);
   const TABS = [
-    { id: 'products', label: 'Products' },
-    { id: 'staff',    label: 'Staff' },
-    { id: 'rnd',      label: 'Research' },
-    { id: 'market',   label: 'Market' },
-    { id: 'more',     label: 'More' },
+    { id: 'products',  label: 'Products' },
+    { id: 'signature', label: 'Signature' },
+    { id: 'staff',     label: 'Staff' },
+    { id: 'rnd',       label: 'Research' },
+    { id: 'market',    label: 'Market' },
+    { id: 'more',      label: 'More' },
   ];
 
   function open(id) {
@@ -1260,11 +1338,12 @@ const TechCo = (() => {
   function tabHTML(id) {
     if (dash.detailPid != null) return productDetailHTML(id);
     switch (dash.tab) {
-      case 'products': return productsHTML(id);
-      case 'staff':    return staffHTML(id);
-      case 'rnd':      return dash.rDetail ? rDetailHTML(id) : researchHTML(id);
-      case 'market':   return marketHTML(id);
-      case 'more':     return moreHTML(id);
+      case 'products':  return productsHTML(id);
+      case 'signature': return signatureHTML(id);
+      case 'staff':     return staffHTML(id);
+      case 'rnd':       return dash.rDetail ? rDetailHTML(id) : researchHTML(id);
+      case 'market':    return marketHTML(id);
+      case 'more':      return moreHTML(id);
       default: return '';
     }
   }
@@ -1554,6 +1633,72 @@ const TechCo = (() => {
       ${action}`;
   }
 
+  /* ----------------------------- Signature tab ----------------------------- */
+  // The company's ONE-OF-A-KIND operation: an always-on trait plus either a
+  // 5-step ladder program you fund milestone-by-milestone, or a 3-way doctrine
+  // dial you tune to your strategy. Data lives in data/signature.js.
+
+  function signatureHTML(id) {
+    const s = sigDef(id);
+    if (!s) return placeholderHTML('No signature', '—', 'This company has no signature operation.');
+    const st = sigState(id), agg = sigAgg(id), c = co(id);
+    const summary = sigEffectText(agg) || 'No active bonuses yet';
+    const traitTxt = sigEffectText(s.trait.effect);
+
+    let body = '';
+    if (s.kind === 'ladder') {
+      const lvl = st.level || 0;
+      const rows = s.steps.map((step, i) => {
+        const done = i < lvl, next = i === lvl;
+        const cls = done ? 'is-done' : next ? 'is-next' : 'is-locked';
+        const cost = ladderStepCost(id, i);
+        const mark = done ? '<span class="tc-sig-tick">✓</span>' : `<span class="tc-sig-num">${i + 1}</span>`;
+        return `<div class="tc-sig-step ${cls}">
+          ${mark}
+          <div class="tc-sig-step-main">
+            <div class="tc-sig-step-name">${step[0]}${done ? ' <span class="tc-sig-doneflag">Active</span>' : ''}</div>
+            <div class="tc-sig-step-desc">${step[1]}</div>
+            <div class="tc-sig-step-eff">${sigEffectText(step[2])}</div>
+          </div>
+          ${next ? `<button class="btn btn-gold tc-mini tc-sig-buy" data-tcact="sigadv" ${c.cash >= cost ? '' : 'disabled'}>${c.cash >= cost ? 'Fund · ' + formatMoney(cost) : formatMoney(cost)}</button>` : ''}
+        </div>`;
+      }).join('');
+      const doneTxt = lvl >= s.steps.length ? '<p class="tc-hint">Program complete — every milestone unlocked.</p>' : '';
+      body = `<div class="tc-section-label">Signature Program · ${lvl}/${s.steps.length}</div>
+        <div class="tc-sig-track">${rows}</div>${doneTxt}`;
+    } else if (s.kind === 'doctrine') {
+      const cur = st.stance;
+      const cards = s.stances.map((x) => {
+        const on = x.id === cur;
+        return `<button class="tc-sig-stance ${on ? 'on' : ''}" data-tcact="sigstance" data-stance="${x.id}">
+          <div class="tc-sig-stance-top"><b>${x.label}</b>${on ? '<span class="tc-sig-onflag">Active</span>' : ''}</div>
+          <div class="tc-sig-stance-desc">${x.desc}</div>
+          <div class="tc-sig-step-eff">${sigEffectText(x.effect)}</div>
+        </button>`;
+      }).join('');
+      body = `<div class="tc-section-label">Strategic Doctrine</div>
+        <p class="tc-hint">Pick the stance that fits your strategy — switch any time, free.</p>
+        <div class="tc-sig-stances">${cards}</div>`;
+    }
+
+    return `
+      <div class="tc-sig-hero">
+        <div class="tc-sig-icon">${s.icon}</div>
+        <div class="tc-sig-hero-main">
+          <div class="tc-sig-title">${s.title}</div>
+          <div class="tc-sig-tag">${s.tagline}</div>
+        </div>
+      </div>
+      <div class="tc-sig-bonus"><span>Active bonuses</span><b>${summary}</b></div>
+      <div class="tc-sig-trait">
+        <div class="tc-sig-trait-badge">Signature Trait</div>
+        <div class="tc-sig-trait-name">${s.trait.name}</div>
+        <div class="tc-sig-trait-desc">${s.trait.desc}</div>
+        <div class="tc-sig-step-eff">${traitTxt} · always active</div>
+      </div>
+      ${body}`;
+  }
+
   /* ------------------------------- Market tab ------------------------------ */
 
   const bar = (v, cls = '') => `<div class="tc-bar"><div class="tc-bar-fill ${cls}" style="width:${clamp(v, 0, 100)}%"></div></div>`;
@@ -1812,8 +1957,30 @@ const TechCo = (() => {
       <div class="tc-type-grid">${types}</div>
       <div class="tc-field-label">Product name</div>
       <input id="studioName" class="tc-name-input" type="text" maxlength="28" value="${escapeAttr(cfg.name)}" placeholder="Name your product" autocomplete="off">
-      <div class="tc-field-label">Tier <span class="muted">${TECH_TIERS[cfg.tier].blurb}</span></div>
-      <div class="tc-chip-row tc-tier-row">${tiers}</div>`;
+      <div class="tc-field-label">Tier</div>
+      <div class="tc-chip-row tc-tier-row">${tiers}</div>
+      ${tierDetailHTML(cfg.tier)}`;
+  }
+
+  /** In-depth breakdown of the selected tier — what it means for the product. */
+  function tierDetailHTML(tierId) {
+    const t = TECH_TIERS[tierId] || TECH_TIERS.standard;
+    const pos = (v) => (v > 0 ? '+' : '') + Math.round(v * 100) + '%';
+    const reach = t.volume >= 1.3 ? 'Very wide' : t.volume >= 1.05 ? 'Wide' : t.volume >= 0.85 ? 'Balanced' : t.volume >= 0.6 ? 'Selective' : 'Exclusive';
+    const brand = t.brand >= 3 ? 'Halo lift' : t.brand >= 1 ? 'Positive' : t.brand === 0 ? 'Neutral' : 'Slight drag';
+    const cell = (label, val, cls = '') => `<div class="tc-tierstat"><span>${label}</span><b class="${cls}">${val}</b></div>`;
+    return `
+      <div class="tc-tier-detail">
+        <div class="tc-tier-blurb">${t.blurb} · <span class="muted">for ${t.audience}</span></div>
+        <div class="tc-tier-grid">
+          ${cell('Unit price', '×' + t.priceMult.toFixed(2))}
+          ${cell('Profit margin', pos(t.margin), t.margin >= 0 ? 'up' : 'down')}
+          ${cell('Market reach', reach)}
+          ${cell('Build cost', '×' + (t.costMult / 9).toFixed(2))}
+          ${cell('Brand impact', brand)}
+          ${cell('Positioning', t.label)}
+        </div>
+      </div>`;
   }
 
   function studioSpecs(id, cfg, s) {
@@ -2000,6 +2167,9 @@ const TechCo = (() => {
     if (act === 'rstartcfg') { const r = startProject(id, data.rid, dash.rDetail.cfg); if (r.ok) { dash.rDetail = null; rebuildDash(); } return; }
     if (act === 'reditcfg')  { const r = editProject(id, data.rid, dash.rDetail.cfg); if (r.ok) { dash.rDetail = null; rebuildDash(); } return; }
     if (act === 'rmasscfg')  { const r = startMass(id, data.rid, dash.rDetail.cfg); if (r.ok) { dash.rDetail = null; rebuildDash(); } return; }
+    // Signature (unique per-company operation).
+    if (act === 'sigadv')    { const r = sigAdvanceLadder(id); if (!r.ok && r.msg) toast(`⚠️ ${r.msg}`); return; }
+    if (act === 'sigstance') { sigSetStance(id, data.stance); return; }
     if (act === 'compete')  { const r = compete(id, data.comp); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
     if (act === 'strategy') { setStrategy(id, data.strat); return; }
     if (act === 'manu')     { const r = setManufacturing(id, data.mode); if (!r.ok) toast(`⚠️ ${r.msg}`); return; }
@@ -2031,7 +2201,7 @@ const TechCo = (() => {
 
     // Keep affordability of spend buttons fresh on the button-only tabs as cash
     // accrues (Staff / More have no sorted lists, so a soft rebuild is safe).
-    if ((dash.tab === 'staff' || dash.tab === 'more') && !dash.launch) {
+    if ((dash.tab === 'staff' || dash.tab === 'more' || dash.tab === 'signature') && !dash.launch) {
       const t = now();
       if (t - lastSoftRefresh > 2000) { lastSoftRefresh = t; refreshBody(); return; }
     }
@@ -2135,6 +2305,9 @@ const TechCo = (() => {
     hasManufacturing, manufacturingMult, setManufacturing, inhouseSetupCost,
     setStrategy, globalIncomeMult, globalOpexAdd, unlockRegion, regionCost,
     canAcquire, acquireCost, acquireRival, maybeRollEvent, resolveEvent, eventDef,
+    // Signature — each company's unique operation:
+    sigDef, sigAgg, sigAdvanceLadder, sigSetStance, ladderStepCost, sigEffectText,
+    sigIncomeMult, sigMarginBonus, sigPriceMult, sigCostCut, sigShareMult, sigQualityBonus,
     // Product Studio (in-depth product design):
     computeQuality, deepBuildCost, deepBuildTime, startDeepBuild, studioDefault,
     archetypeOf, unitPriceOf, productMargin, unitsPerDay, scoreToReception, tierToPricing,

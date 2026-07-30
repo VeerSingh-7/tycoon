@@ -13,12 +13,22 @@
  * a base unit price, and a focus (hardware vs software) that weights the team.
  * ========================================================================= */
 
-// Overall product tier — sets price point, market position and cost ceiling.
+// Overall product tier — the single biggest positioning decision. Each tier now
+// carries its own economics so the choice is a real strategic trade-off:
+//   priceMult   unit price ×            (how much each sale is worth)
+//   costMult    build cost & time base  (pricier tiers take longer, cost more)
+//   incomeMult  overall income weight
+//   margin      profit-margin add       (premium tiers keep more of each sale)
+//   volume      market-reach ×          (cheap tiers reach far more buyers)
+//   brand       reputation impact on launch (halo tiers build the brand)
+//   audience    who it's for            (shown in the Studio)
 const TECH_TIERS = {
-  budget:   { label: 'Budget',   priceMult: 0.6, costMult: 4,  incomeMult: 0.85, blurb: 'Affordable, mass-market' },
-  standard: { label: 'Standard', priceMult: 1.0, costMult: 8,  incomeMult: 1.0,  blurb: 'Mainstream, balanced' },
-  premium:  { label: 'Premium',  priceMult: 1.6, costMult: 16, incomeMult: 1.15, blurb: 'High-end, higher margin' },
-  flagship: { label: 'Flagship', priceMult: 2.4, costMult: 28, incomeMult: 1.35, blurb: 'No compromises, halo product' },
+  economy:  { label: 'Economy',  priceMult: 0.55, costMult: 3,  incomeMult: 0.80, margin: -0.06, volume: 1.7,  brand: -1, audience: 'Value & first-time buyers', blurb: 'Rock-bottom price, maximum reach' },
+  budget:   { label: 'Budget',   priceMult: 0.75, costMult: 5,  incomeMult: 0.90, margin: -0.03, volume: 1.35, brand:  0, audience: 'Price-led mainstream', blurb: 'Affordable, high volume' },
+  standard: { label: 'Standard', priceMult: 1.0,  costMult: 9,  incomeMult: 1.0,  margin:  0.0,  volume: 1.0,  brand:  1, audience: 'The mass market', blurb: 'Balanced price & margin' },
+  premium:  { label: 'Premium',  priceMult: 1.6,  costMult: 16, incomeMult: 1.15, margin:  0.06, volume: 0.72, brand:  2, audience: 'Quality seekers', blurb: 'Higher margin, refined build' },
+  flagship: { label: 'Flagship', priceMult: 2.4,  costMult: 28, incomeMult: 1.35, margin:  0.12, volume: 0.5,  brand:  3, audience: 'Enthusiasts & professionals', blurb: 'Halo product, no compromises' },
+  halo:     { label: 'Limited',  priceMult: 3.6,  costMult: 44, incomeMult: 1.55, margin:  0.20, volume: 0.34, brand:  4, audience: 'Collectors & status buyers', blurb: 'Ultra-premium, scarce, iconic' },
 };
 
 // Budget areas the player funds. Each area is set Lean / Standard / Heavy.

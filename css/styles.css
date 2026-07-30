@@ -1092,10 +1092,91 @@ html, body {
 }
 .tc-tab {
   flex: 1; text-align: center; background: none; border: none; color: var(--muted);
-  font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 4px;
-  border-radius: 9px; cursor: pointer;
+  font-family: inherit; font-size: 11px; font-weight: 700; padding: 8px 2px;
+  border-radius: 9px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tc-tab.on { background: var(--gold); color: var(--accent-ink); }
+
+/* ---- Signature tab: the company's unique operation ---- */
+.tc-sig-hero {
+  display: flex; align-items: center; gap: 12px; margin: 4px 0 12px;
+  background: linear-gradient(135deg, var(--bg-elev), var(--bg-elev-2));
+  border: 1px solid var(--line); border-radius: 16px; padding: 14px; box-shadow: 0 2px 10px var(--shadow);
+}
+.tc-sig-icon {
+  width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; font-size: 24px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-elev-2); border: 1px solid var(--line);
+}
+.tc-sig-hero-main { min-width: 0; }
+.tc-sig-title { font-size: 17px; font-weight: 800; line-height: 1.15; }
+.tc-sig-tag { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.tc-sig-bonus {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  background: var(--gold-glow); border: 1px solid var(--gold); border-radius: 12px;
+  padding: 9px 13px; margin-bottom: 12px;
+}
+.tc-sig-bonus span { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.tc-sig-bonus b { font-size: 12.5px; text-align: right; color: var(--gold-deep); }
+.tc-sig-trait {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 13px; padding: 12px 13px; margin-bottom: 6px;
+}
+.tc-sig-trait-badge {
+  display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--accent-ink); background: linear-gradient(135deg, var(--gold-deep), var(--gold));
+  padding: 2px 8px; border-radius: 999px; margin-bottom: 7px;
+}
+.tc-sig-trait-name { font-size: 15px; font-weight: 800; }
+.tc-sig-trait-desc { font-size: 12px; color: var(--muted); line-height: 1.4; margin: 3px 0 6px; }
+.tc-sig-step-eff { font-size: 11px; font-weight: 700; color: var(--gold-deep); }
+
+.tc-sig-track { display: flex; flex-direction: column; gap: 8px; }
+.tc-sig-step {
+  display: flex; align-items: flex-start; gap: 11px;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 13px; padding: 12px;
+}
+.tc-sig-step.is-locked { opacity: 0.55; }
+.tc-sig-step.is-next { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
+.tc-sig-step.is-done { background: linear-gradient(90deg, var(--gold-glow), transparent 60%); }
+.tc-sig-num, .tc-sig-tick {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;
+  background: var(--bg-elev-2); border: 1px solid var(--line); color: var(--muted);
+}
+.tc-sig-step.is-next .tc-sig-num { background: var(--gold); border-color: var(--gold); color: var(--accent-ink); }
+.tc-sig-tick { background: color-mix(in srgb, var(--gold) 26%, transparent); border-color: var(--gold); color: var(--gold-deep); }
+.tc-sig-step-main { flex: 1; min-width: 0; }
+.tc-sig-step-name { font-size: 14px; font-weight: 800; }
+.tc-sig-doneflag {
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--gold-deep); border: 1px solid var(--gold); border-radius: 999px; padding: 1px 6px; margin-left: 5px;
+}
+.tc-sig-step-desc { font-size: 11.5px; color: var(--muted); line-height: 1.4; margin: 2px 0 5px; }
+.tc-sig-buy { flex-shrink: 0; align-self: center; white-space: nowrap; }
+
+.tc-sig-stances { display: flex; flex-direction: column; gap: 8px; }
+.tc-sig-stance {
+  text-align: left; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 13px;
+  padding: 12px; cursor: pointer; font-family: inherit; color: var(--text); width: 100%;
+}
+.tc-sig-stance.on { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); background: linear-gradient(90deg, var(--gold-glow), transparent 65%); }
+.tc-sig-stance-top { display: flex; align-items: center; gap: 8px; }
+.tc-sig-stance-top b { font-size: 14px; font-weight: 800; }
+.tc-sig-onflag {
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--accent-ink); background: var(--gold); border-radius: 999px; padding: 1px 7px;
+}
+.tc-sig-stance-desc { font-size: 11.5px; color: var(--muted); line-height: 1.4; margin: 3px 0 5px; }
+
+/* ---- Studio: in-depth tier breakdown ---- */
+.tc-tier-detail {
+  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; margin-top: 8px;
+}
+.tc-tier-blurb { font-size: 12px; font-weight: 700; margin-bottom: 9px; }
+.tc-tier-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.tc-tierstat { display: flex; flex-direction: column; gap: 2px; }
+.tc-tierstat span { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.tc-tierstat b { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 .tc-body { flex: 1; }
 .tc-section-label {

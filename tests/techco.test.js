@@ -30,6 +30,7 @@ const files = [
   'js/data/techspecs.js',
   'js/data/bizdefs.js',
   'js/data/research.js',
+  'js/data/signature.js',
   'js/state.js',
   'js/market.js',
   'js/techco.js',
@@ -381,6 +382,9 @@ check('rolling an event pushes the next one out', ac.nextEventAt > globalThis.NO
 TechCo.resolveEvent(A2, 'dismiss');
 check('an event is dismissible', ac.event === null);
 // Viral: option A spends cash and boosts edge.
+// Pre-claim every leadership category so checkLeadership() can't award an
+// unrelated #1 cash bonus mid-resolve (which would otherwise mask the spend).
+ac.leaders = { share: true, value: true, innovation: true, satisfaction: true, profit: true };
 ac.event = { id: 'viral' }; ac.cash = TechCo.baseIncome(A2) * 1000;
 const edgePreV = ac.edge || 0, cashPreV = ac.cash;
 TechCo.resolveEvent(A2, 'a');
@@ -598,6 +602,59 @@ check('cannot over-assign beyond available scientists', TechCo.availableSci(RD, 
 TechCo.editProject(RD, catX, { lead: 1, sr: 2, jr: 1, priority: 'crash' });
 const projAfter = rdc.research.active.find((a) => a.cat === catX);
 check('editing an active project updates its team & priority', projAfter.priority === 'crash' && projAfter.jr === 1);
+
+/* ============== SIGNATURE (per-company unique operation) ============= */
+// Every one of the 48 companies has a Signature: a named trait plus either a
+// 5-step ladder or a 3-stance doctrine. Effects fold through the same economy
+// helpers as everything else, scaling off base income.
+const SG = 'mango';   // Ecosystem Flywheel — a ladder
+const sgc = TechCo._state(SG);
+sgc.cash = TechCo.baseIncome(SG) * 1e9;
+const sgDef = TechCo.sigDef(SG);
+check('every managed company has a signature definition', !!sgDef && !!sgDef.trait && !!sgDef.trait.effect);
+check('a ladder signature has exactly 5 steps', sgDef.kind !== 'ladder' || (sgDef.steps && sgDef.steps.length === 5));
+check('signature aggregate is a full effect vector', ['inc','mg','pr','ct','share','q'].every((k) => k in TechCo.sigAgg(SG)));
+// Ladder: funding a step costs cash (scaled off base income) and raises level.
+sgc.signature = { level: 0, stance: null };
+const sgLvl0 = sgc.signature.level, sgCash0 = sgc.cash;
+const sgStepCost = TechCo.ladderStepCost(SG, 0);
+check('ladder step cost scales off base income (>0)', sgStepCost > 0);
+const sgAdv = TechCo.sigAdvanceLadder(SG);
+check('funding a ladder step succeeds', sgAdv.ok === true);
+check('funding a ladder step raised the level', sgc.signature.level === sgLvl0 + 1);
+check('funding a ladder step spent company cash', sgc.cash < sgCash0);
+// Advancing the ladder strengthens the aggregate effect vector.
+const sgAggMag = (id) => { const a = TechCo.sigAgg(id); return a.inc + a.mg + a.pr + a.ct + a.share + a.q; };
+const sgMagAfter1 = sgAggMag(SG);
+TechCo.sigAdvanceLadder(SG);
+check('each ladder step deepens the signature bonuses', sgAggMag(SG) > sgMagAfter1);
+// Doctrine: a 3-stance company can switch stance and the aggregate changes.
+const DG = 'googol';  // Data Doctrine — a doctrine (3 stances)
+const dgDef = TechCo.sigDef(DG);
+check('a doctrine signature has exactly 3 stances', dgDef.kind !== 'doctrine' || (dgDef.stances && dgDef.stances.length === 3));
+const dgc = TechCo._state(DG);
+dgc.signature = { level: 0, stance: dgDef.stances[0].id };
+const dgAgg0 = JSON.stringify(TechCo.sigAgg(DG));
+TechCo.sigSetStance(DG, dgDef.stances[2].id);
+check('switching a doctrine stance takes effect', dgc.signature.stance === dgDef.stances[2].id);
+check('different doctrine stances give different bonuses', JSON.stringify(TechCo.sigAgg(DG)) !== dgAgg0);
+// Signature effects actually move the economy: a quality-trait company's
+// computed quality includes its signature quality bonus.
+check('signature quality bonus feeds computeQuality', TechCo.sigQualityBonus('auracle') > 0);
+// Every signature id maps to a real, managed company (48 total, no orphans).
+const SIG_ALL = COMPANY_SIGNATURE; // top-level const from js/data/signature.js
+check('signature covers all 48 companies', Object.keys(SIG_ALL).length === 48);
+check('every signature entry is a ladder(5) or doctrine(3)', Object.values(SIG_ALL).every((s) =>
+  (s.kind === 'ladder' && s.steps && s.steps.length === 5) ||
+  (s.kind === 'doctrine' && s.stances && s.stances.length === 3)));
+
+/* ============== RICHER PRODUCT TIERS (6 tiers, deep spec) ============ */
+check('there are 6 product tiers', Object.keys(TECH_TIERS || {}).length >= 6);
+const T = TECH_TIERS; // top-level const from js/data/techspecs.js
+check('premium tiers price higher than economy tiers', (T.halo.priceMult > T.premium.priceMult) && (T.premium.priceMult > T.economy.priceMult));
+check('cheaper tiers sell more volume than halo tiers', (T.economy.volume > T.standard.volume) && (T.standard.volume > T.halo.volume));
+check('every tier carries deep spec (margin, volume, brand, audience, blurb)', Object.values(T).every((t) =>
+  ('margin' in t) && ('volume' in t) && ('brand' in t) && !!t.audience && !!t.blurb));
 
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;
