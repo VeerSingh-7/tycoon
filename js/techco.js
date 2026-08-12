@@ -243,7 +243,7 @@ const TechCo = (() => {
 
   function suggestName(id, type) {
     const h = hash(id + type + Math.floor(now() / 1000));
-    return `${NAME_WORDS[h % NAME_WORDS.length]} ${NAME_SUFFIX[(h >> 4) % NAME_SUFFIX.length]}`;
+    return `${NAME_WORDS[h % NAME_WORDS.length]} ${NAME_SUFFIX[(h >>> 4) % NAME_SUFFIX.length]}`;
   }
   function studioDefault(id, type) {
     const budget = {}; TECH_BUDGET_AREAS.forEach((a) => { budget[a.id] = 'standard'; });
@@ -1895,6 +1895,153 @@ const TechCo = (() => {
     return { step: 0, cfg: studioDefault(id, firstFree[0]) };
   }
 
+  /* ------------- Blueprint reskin: icons, market intel, rival watch -------- */
+  // Simple line-icon glyphs, one per spec archetype, so every product-type card
+  // in the type grid gets a small technical pictogram. Purely presentational —
+  // derived at render time from the archetype already resolved for that type.
+  const ARCH_ICON = {
+    mobile:  '<rect x="7" y="2" width="10" height="20" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/>',
+    computer:'<rect x="3" y="4" width="18" height="12" rx="1.5"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/>',
+    audio:   '<path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/>',
+    home:    '<path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/>',
+    serverhw:'<rect x="4" y="4" width="16" height="6" rx="1"/><rect x="4" y="14" width="16" height="6" rx="1"/><circle cx="7" cy="7" r="0.7"/><circle cx="7" cy="17" r="0.7"/>',
+    platform:'<path d="M7 18a4 4 0 0 1-1-7.9 5 5 0 0 1 9.6-2A4.5 4.5 0 0 1 17 18H7z"/>',
+    software:'<path d="M8 6l-5 6 5 6"/><path d="M16 6l5 6-5 6"/>',
+    social:  '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="9" r="2.4"/><path d="M15.5 14.2c2.6.4 4.5 2.6 4.5 5.3"/>',
+    ai:      '<circle cx="12" cy="5" r="1.7"/><circle cx="5" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/><line x1="12" y1="6.7" x2="6.3" y2="10.6"/><line x1="12" y1="6.7" x2="17.7" y2="10.6"/><line x1="6.6" y1="13" x2="10.8" y2="17.4"/><line x1="17.4" y1="13" x2="13.2" y2="17.4"/>',
+    robotics:'<rect x="6" y="8" width="12" height="10" rx="2"/><circle cx="9.5" cy="13" r="1.2"/><circle cx="14.5" cy="13" r="1.2"/><line x1="12" y1="8" x2="12" y2="4"/><circle cx="12" cy="3" r="1.2"/>',
+    semiconductor:'<rect x="7" y="7" width="10" height="10" rx="1"/><line x1="9" y1="3" x2="9" y2="7"/><line x1="15" y1="3" x2="15" y2="7"/><line x1="9" y1="17" x2="9" y2="21"/><line x1="15" y1="17" x2="15" y2="21"/><line x1="3" y1="9" x2="7" y2="9"/><line x1="3" y1="15" x2="7" y2="15"/><line x1="17" y1="9" x2="21" y2="9"/><line x1="17" y1="15" x2="21" y2="15"/>',
+    auto:    '<path d="M4 16l1.5-5a2 2 0 0 1 1.9-1.4h9.2a2 2 0 0 1 1.9 1.4L20 16"/><rect x="3" y="16" width="18" height="4" rx="1.4"/><circle cx="7.5" cy="20" r="1.4"/><circle cx="16.5" cy="20" r="1.4"/>',
+    fintech: '<rect x="3" y="6" width="18" height="12" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="6" y1="14" x2="10" y2="14"/>',
+    banking: '<path d="M4 10l8-5 8 5"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="6" y1="10" x2="6" y2="18"/><line x1="10" y1="10" x2="10" y2="18"/><line x1="14" y1="10" x2="14" y2="18"/><line x1="18" y1="10" x2="18" y2="18"/><line x1="4" y1="20" x2="20" y2="20"/>',
+    pharma:  '<rect x="3" y="9.5" width="18" height="6" rx="3"/><line x1="12" y1="9.5" x2="12" y2="15.5"/>',
+    energy:  '<path d="M12 3c2 3-1 4-1 6.5A3.5 3.5 0 0 0 15 13c0 3.5-3 7-6 7-3.5 0-6-2.7-6-6.2C3 9 6 7 6 4c2 1 3 3 2.3 5C9.5 7 10 5 12 3z"/>',
+    telecom: '<line x1="12" y1="2" x2="12" y2="22"/><path d="M7 6a7 7 0 0 1 10 0"/><path d="M4 3a11 11 0 0 1 16 0"/><path d="M8 22l1.5-8h5L16 22"/>',
+    industrial:'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
+    utility: '<path d="M13 2 5 14h6l-1 8 8-12h-6z"/>',
+    retail:  '<path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+    consumer:'<path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/><line x1="12" y1="13" x2="12" y2="22"/>',
+    media:   '<rect x="3" y="5" width="18" height="14" rx="1.5"/><line x1="8" y1="5" x2="8" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/><line x1="3" y1="9" x2="8" y2="9"/><line x1="3" y1="15" x2="8" y2="15"/><line x1="16" y1="9" x2="21" y2="9"/><line x1="16" y1="15" x2="21" y2="15"/>',
+    luxury:  '<path d="M6 3h12l3 6-9 12L3 9l3-6z"/><path d="M3 9h18M9 3l-3 6 6 12 6-12-3-6"/>',
+    aerospace:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>',
+    materials:'<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+    generic: '<path d="M12 2 3 7v10l9 5 9-5V7l-9-5z"/><path d="M3 7l9 5 9-5M12 12v10"/>',
+  };
+  const archKeyOf = (type) => TECH_PRODUCT_ARCHETYPE[type] || 'generic';
+  function typeIconSVG(type) {
+    const p = ARCH_ICON[archKeyOf(type)] || ARCH_ICON.generic;
+    return `<svg class="tc-type-ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  }
+
+  // Market Intel — a 5-axis radar comparing "market demand this cycle" (cyan)
+  // vs "this build" (amber). Axis labels default to a general-purpose set but
+  // swap to sector-appropriate wording where the default reads oddly (a bank
+  // isn't sold on "Design"). Shape stays 5 axes everywhere.
+  const RADAR_AXES_DEFAULT = ['Design', 'Price', 'Innovation', 'Reliability', 'Brand'];
+  const RADAR_AXES_BY_SECTOR = {
+    bank:       ['Digital UX', 'Rates & Fees', 'Innovation', 'Trust & Security', 'Brand'],
+    fintech:    ['User Experience', 'Fees', 'Innovation', 'Security', 'Brand'],
+    pharma:     ['Formulation', 'Affordability', 'R&D Pipeline', 'Safety', 'Brand'],
+    energy:     ['Efficiency', 'Price', 'Innovation', 'Reliability', 'Brand'],
+    utility:    ['Grid Tech', 'Rates', 'Sustainability', 'Reliability', 'Brand'],
+    materials:  ['Purity & Grade', 'Price', 'Process Tech', 'Reliability', 'Brand'],
+    industrial: ['Engineering', 'Price', 'Automation', 'Durability', 'Brand'],
+    aerospace:  ['Engineering', 'Price', 'Innovation', 'Safety', 'Brand'],
+    telecom:    ['Coverage', 'Plan Value', 'Network Tech', 'Reliability', 'Brand'],
+    media:      ['Production', 'Price', 'Innovation', 'Reliability', 'Star Power'],
+  };
+  const radarAxesFor = (id) => RADAR_AXES_BY_SECTOR[(ASSET_BY_ID[id] || {}).sector] || RADAR_AXES_DEFAULT;
+
+  /** This build's 5 axis scores (0-100), derived from category + tier + budget
+   *  choices already in cfg — no new state. */
+  function buildAxisScores(id, cfg, s) {
+    const tier = s.tier, sp = s.cq.specScore, team = s.cq.teamScore;
+    const lv = (area) => (TECH_BUDGET_LEVELS[cfg.budget[area]] || TECH_BUDGET_LEVELS.standard).v;
+    const design = clamp(sp * 100, 0, 100);
+    const price = clamp(100 - ((tier.priceMult - 0.55) / (3.6 - 0.55)) * 100, 0, 100);
+    const innovation = clamp(sp * 55 + (tier.brand + 1) * 9 + (researchQualityBonus(id) + sigQualityBonus(id)), 0, 100);
+    const reliability = clamp(lv('qa') * 55 + team * 45, 0, 100);
+    const brand = clamp(50 + tier.brand * 11 + lv('marketing') * 22, 0, 100);
+    return [design, price, innovation, reliability, brand];
+  }
+
+  // Market demand shifts on a deterministic weekly rotation (per company + per
+  // category being viewed) — a simple pseudo-random cycle, no persisted state.
+  const marketWeek = () => Math.floor(now() / (CFG.DAY_SECONDS * 1000 * 7));
+  function marketDemandAxes(id, cfg) {
+    const h = hash(id + '#' + (cfg.type || '') + '#demand#' + marketWeek());
+    return [0, 1, 2, 3, 4].map((i) => 30 + ((h >>> (i * 6)) % 60));
+  }
+
+  function radarSVG(labels, demand, build) {
+    const N = labels.length, R = 62, CX = 108, CY = 100, LR = 88;
+    const pt = (i, v, rad) => {
+      const ang = -Math.PI / 2 + i * (2 * Math.PI / N);
+      const r = rad * clamp(v, 0, 100) / 100;
+      return [CX + r * Math.cos(ang), CY + r * Math.sin(ang)];
+    };
+    const poly = (vals, rad) => vals.map((v, i) => pt(i, v, rad).join(',')).join(' ');
+    const rings = [0.34, 0.67, 1].map((f) => `<polygon class="tc-radar-ring" points="${poly(Array(N).fill(f * 100), R)}"/>`).join('');
+    const axisLines = labels.map((_, i) => { const [x, y] = pt(i, 100, R); return `<line class="tc-radar-axis" x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`; }).join('');
+    const labelEls = labels.map((lab, i) => {
+      const [x, y] = pt(i, 100, LR);
+      const anchor = Math.abs(x - CX) < 4 ? 'middle' : (x > CX ? 'start' : 'end');
+      return `<text class="tc-radar-label" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}">${escapeHtml(lab)}</text>`;
+    }).join('');
+    return `<svg class="tc-radar" viewBox="0 0 216 200">${rings}${axisLines}
+      <polygon class="tc-radar-demand" points="${poly(demand, R)}"/>
+      <polygon class="tc-radar-build" points="${poly(build, R)}"/>
+      ${labelEls}</svg>`;
+  }
+
+  function marketIntelHTML(id, cfg, s) {
+    const labels = radarAxesFor(id), demand = marketDemandAxes(id, cfg), build = buildAxisScores(id, cfg, s);
+    return `
+      <div class="tc-side-card tc-intel-card">
+        <div class="tc-side-title">Market Intel</div>
+        ${radarSVG(labels, demand, build)}
+        <div class="tc-radar-legend">
+          <span class="tc-leg-dot demand"></span>Market demand
+          <span class="tc-leg-dot build"></span>This build
+        </div>
+      </div>`;
+  }
+
+  // Rival Watch — pulls the company's real rivals (name, strength, quality
+  // from the rival-simulation state) and derives a plausible price for the
+  // category being designed, so it reads as "rival offerings in this space".
+  function rivalOfferMult(name, category) { return 0.6 + (hash(name + '#' + category) % 160) / 100; }
+  function rivalWatchHTML(id, s) {
+    const list = co(id).rivals.slice().sort((a, b) => b.strength - a.strength).slice(0, 3);
+    if (!list.length) return '';
+    const rows = list.map((r) => ({ name: r.name, price: s.arch.basePrice * rivalOfferMult(r.name, s.arch.category), quality: clamp(r.quality, 0, 100) }));
+    const maxPrice = Math.max(s.projPrice, ...rows.map((r) => r.price), 1);
+    const rowsHTML = rows.map((r) => `
+      <div class="tc-rival-row">
+        <div class="tc-rival-name">${escapeHtml(r.name)}</div>
+        <div class="tc-rival-bar-line"><span>Price</span><div class="tc-rival-bar"><div class="tc-rival-bar-fill price" style="width:${clamp(r.price / maxPrice * 100, 4, 100)}%"></div></div><b>${formatMoney(r.price)}</b></div>
+        <div class="tc-rival-bar-line"><span>Quality</span><div class="tc-rival-bar"><div class="tc-rival-bar-fill qual" style="width:${clamp(r.quality, 4, 100)}%"></div></div><b>${Math.round(r.quality)}</b></div>
+      </div>`).join('');
+    return `
+      <div class="tc-side-card tc-rival-card">
+        <div class="tc-side-title">Rival Watch <span class="muted">${escapeHtml(s.arch.category)}</span></div>
+        <div class="tc-rival-you">
+          <span>Your build</span>
+          <div class="tc-rival-bar-line"><span>Price</span><div class="tc-rival-bar"><div class="tc-rival-bar-fill price you" style="width:${clamp(s.projPrice / maxPrice * 100, 4, 100)}%"></div></div><b>${formatMoney(s.projPrice)}</b></div>
+          <div class="tc-rival-bar-line"><span>Quality</span><div class="tc-rival-bar"><div class="tc-rival-bar-fill qual you" style="width:${clamp(s.cq.quality, 4, 100)}%"></div></div><b>${Math.round(s.cq.quality)}</b></div>
+        </div>
+        ${rowsHTML}
+      </div>`;
+  }
+
+  function qualityGaugeSVG(q) {
+    const pct = clamp(q, 0, 100) / 100, circ = Math.PI * 54;
+    return `<svg class="tc-gauge-svg" viewBox="0 0 128 70">
+      <path class="tc-gauge-track" d="M10,64 A54,54 0 0 1 118,64"/>
+      <path class="tc-gauge-fill" d="M10,64 A54,54 0 0 1 118,64" stroke-dasharray="${(circ * pct).toFixed(1)} ${circ.toFixed(1)}"/>
+    </svg>`;
+  }
+
   function wizardSummary(id, cfg) {
     const cq = computeQuality(id, cfg);
     const arch = archetypeOf(cfg.type), tier = TECH_TIERS[cfg.tier] || TECH_TIERS.standard;
@@ -1912,8 +2059,8 @@ const TechCo = (() => {
     const body = [studioBasics, studioSpecs, studioBudget, studioTeam, studioReview][l.step](id, cfg, s);
     const steps = STUDIO_STEPS.map((name, i) => {
       const cls = i === l.step ? 'on' : i < l.step ? 'done' : '';
-      return `<div class="tc-wiz-dot ${cls}"><span>${i < l.step ? '✓' : i + 1}</span><small>${name}</small></div>`;
-    }).join('<div class="tc-wiz-sep"></div>');
+      return `<div class="tc-way ${cls}"><span class="tc-way-node">${i < l.step ? '✓' : ''}</span><small>${name}</small></div>`;
+    }).join('');
     return `
       <div class="tc-wizard-page">
         <div class="tc-wiz-topbar">
@@ -1924,22 +2071,31 @@ const TechCo = (() => {
           </div>
           <button class="icon-btn" data-studio="exit" aria-label="Close">✕</button>
         </div>
-        <div class="tc-wiz-steps">${steps}</div>
-        <div class="tc-wiz-summary">
-          <div class="tc-wiz-q-top"><span>Projected quality</span><b>${Math.round(q)} · ${qualityWord(q)}</b></div>
-          <div class="tc-bar"><div class="tc-bar-fill ${q > 65 ? 'good' : q > 40 ? 'alt' : 'warn'}" style="width:${q}%"></div></div>
-          <div class="tc-wiz-metrics">
-            <div><span>Est. cost</span><b class="${afford ? 'gold' : 'down'}">${formatMoney(s.cost)}</b></div>
-            <div><span>Build time</span><b>${formatDuration(s.secs)}</b></div>
-            <div><span>~ Income/day</span><b>${formatMoney(s.projIncome)}</b></div>
+        <div class="tc-wiz-rail">${steps}</div>
+        <div class="tc-wiz-grid">
+          <aside class="tc-wiz-side">
+            <div class="tc-side-card tc-gauge-card">
+              <div class="tc-side-title">Projected Quality</div>
+              ${qualityGaugeSVG(q)}
+              <div class="tc-gauge-read"><b>${Math.round(q)}</b><span>${qualityWord(q)}</span></div>
+              <div class="tc-wiz-metrics">
+                <div><span>Est. cost</span><b class="${afford ? 'amber' : 'down'}">${formatMoney(s.cost)}</b></div>
+                <div><span>Build time</span><b>${formatDuration(s.secs)}</b></div>
+                <div><span>~ Income/day</span><b>${formatMoney(s.projIncome)}</b></div>
+              </div>
+            </div>
+            ${marketIntelHTML(id, cfg, s)}
+            ${rivalWatchHTML(id, s)}
+          </aside>
+          <div class="tc-wiz-main">
+            <div class="tc-wiz-body">${body}</div>
+            <div class="tc-wiz-nav">
+              ${l.step > 0 ? `<button class="btn tc-wiz-back" data-studio="back">‹ Back</button>` : ''}
+              ${l.step < 4
+                ? `<button class="btn btn-gold btn-wide" data-studio="next">Next ›</button>`
+                : `<button class="btn btn-gold btn-wide" data-studio="build" ${afford ? '' : 'disabled'}>${afford ? '🚀 Build & Release' : 'Not enough company cash'}</button>`}
+            </div>
           </div>
-        </div>
-        <div class="tc-wiz-body">${body}</div>
-        <div class="tc-wiz-nav">
-          ${l.step > 0 ? `<button class="btn tc-wiz-back" data-studio="back">‹ Back</button>` : ''}
-          ${l.step < 4
-            ? `<button class="btn btn-gold btn-wide" data-studio="next">Next ›</button>`
-            : `<button class="btn btn-gold btn-wide" data-studio="build" ${afford ? '' : 'disabled'}>${afford ? '🚀 Build & Release' : 'Not enough company cash'}</button>`}
         </div>
       </div>`;
   }
@@ -1947,18 +2103,25 @@ const TechCo = (() => {
   function studioBasics(id, cfg, s) {
     const cat = catalogFor(id);
     const types = cat.map(([name, phys]) => {
-      const busy = isTypeBusy(id, name), unlocked = co(id).unlocked.some((r) => r[0] === name);
-      return `<button class="tc-type ${cfg.type === name ? 'on' : ''}" data-studio="type" data-val="${escapeAttr(name)}" ${busy ? 'disabled' : ''}>${name}${phys ? ' <span class="tc-tag">physical</span>' : ''}${unlocked ? ' <span class="tc-tag gold">flagship</span>' : ''}${busy ? ' <span class="muted">· live</span>' : ''}</button>`;
+      const busy = isTypeBusy(id, name), unlocked = co(id).unlocked.some((r) => r[0] === name), on = cfg.type === name;
+      const corners = on ? '<span class="tc-corner tl"></span><span class="tc-corner tr"></span><span class="tc-corner bl"></span><span class="tc-corner br"></span>' : '';
+      return `<button class="tc-type ${on ? 'on' : ''}" data-studio="type" data-val="${escapeAttr(name)}" ${busy ? 'disabled' : ''}>${corners}<span class="tc-type-ico">${typeIconSVG(name)}</span><span class="tc-type-label">${escapeHtml(name)}</span>${phys ? ' <span class="tc-tag">physical</span>' : ''}${unlocked ? ' <span class="tc-tag gold">flagship</span>' : ''}${busy ? ' <span class="muted">· live</span>' : ''}</button>`;
     }).join('');
-    const tiers = Object.keys(TECH_TIERS).map((t) =>
-      `<button class="tc-chip ${cfg.tier === t ? 'on' : ''}" data-studio="tier" data-val="${t}">${TECH_TIERS[t].label}</button>`).join('');
+    const tierKeys = Object.keys(TECH_TIERS);
+    const tiers = tierKeys.map((t, i) => {
+      const on = cfg.tier === t, halo = i === tierKeys.length - 1;
+      return `<button class="tc-tier-node ${on ? 'on' : ''} ${halo ? 'halo' : ''}" data-studio="tier" data-val="${t}" style="--tn:${8 + i * 4}px"><span class="tc-tier-dot"></span><small>${TECH_TIERS[t].label}</small></button>`;
+    }).join('');
     return `
       <div class="tc-field-label">Product type <span class="muted">${s.arch.category}</span></div>
       <div class="tc-type-grid">${types}</div>
       <div class="tc-field-label">Product name</div>
-      <input id="studioName" class="tc-name-input" type="text" maxlength="28" value="${escapeAttr(cfg.name)}" placeholder="Name your product" autocomplete="off">
+      <div class="tc-name-plate">
+        <input id="studioName" class="tc-name-input" type="text" maxlength="28" value="${escapeAttr(cfg.name)}" placeholder="Name your product" autocomplete="off">
+        <span class="tc-name-cursor" aria-hidden="true"></span>
+      </div>
       <div class="tc-field-label">Tier</div>
-      <div class="tc-chip-row tc-tier-row">${tiers}</div>
+      <div class="tc-tier-rail">${tiers}</div>
       ${tierDetailHTML(cfg.tier)}`;
   }
 
@@ -2311,6 +2474,9 @@ const TechCo = (() => {
     // Product Studio (in-depth product design):
     computeQuality, deepBuildCost, deepBuildTime, startDeepBuild, studioDefault,
     archetypeOf, unitPriceOf, productMargin, unitsPerDay, scoreToReception, tierToPricing,
+    // Product Studio blueprint reskin — pure render helpers (also used by tests):
+    wizardSummary, studioBasics, marketIntelHTML, rivalWatchHTML, radarAxesFor,
+    buildAxisScores, marketDemandAxes, typeIconSVG, defaultLaunch,
     // Config/data access for tests + future phases:
     CFG, BUDGETS, QUALITIES, PRICINGS, RECEPTIONS, STAFF, STAFF_CFG,
     COMPETE, RANK_CATS, RIVAL_CFG, LEADER_INCOME_BONUS, MANU, STRATEGIES, REGIONS, EVENTS,

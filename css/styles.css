@@ -1234,14 +1234,6 @@ html, body {
 .tc-launch-head b { font-size: 16px; }
 .tc-field-label { font-size: 12.5px; font-weight: 700; margin: 14px 2px 7px; }
 .tc-field-label .muted { font-weight: 500; font-size: 11.5px; }
-.tc-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.tc-type {
-  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px;
-  color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 600;
-  padding: 10px 8px; cursor: pointer; text-align: left;
-}
-.tc-type.on { border-color: var(--gold); background: var(--gold-glow); }
-.tc-type:disabled { opacity: 0.45; cursor: default; }
 .tc-chip-row { display: flex; gap: 6px; }
 .tc-chip {
   flex: 1; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px;
@@ -1399,64 +1391,202 @@ html, body {
 /* Product Studio — wizard, name input, roles, review, product detail. */
 .tc-launch-head .tc-wiz-step { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600; }
 
-/* Full-screen Product Studio page (a dedicated design surface). */
-.tc-wizard-page { display: flex; flex-direction: column; min-height: 100%; animation: fadeIn 0.16s ease; }
-.tc-wiz-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.tc-wiz-title { flex: 1; min-width: 0; text-align: center; }
-.tc-wiz-title .tc-wiz-co { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-.tc-wiz-title b { font-size: 17px; font-weight: 800; }
-.tc-wiz-steps { display: flex; align-items: center; margin-bottom: 14px; }
-.tc-wiz-dot { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.tc-wiz-dot span {
-  width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 800; background: var(--bg-elev-2); border: 1px solid var(--line); color: var(--muted);
+/* =========================================================================
+ * PRODUCT STUDIO — "Blueprint / Product Lab" reskin.
+ * Every rule below is scoped under .tc-wizard-page so it only ever touches
+ * the Product Studio launch flow — the rest of the company dashboard (R&D,
+ * Market, product detail, etc.) keeps using the base .tc-chip/.tc-tag/…
+ * rules untouched, even though this page reuses those class names.
+ * ========================================================================= */
+.tc-wizard-page {
+  --bp-navy1: #0A2038; --bp-navy2: #0E2A47;
+  --bp-cyan: #6FD1EA; --bp-amber: #F2A93B;
+  --bp-text: #EDF4F8; --bp-muted: #7FA0B8;
+  --bp-line: rgba(111, 209, 234, 0.18); --bp-line-soft: rgba(111, 209, 234, 0.10);
+  --bp-panel: rgba(11, 32, 56, 0.55); --bp-panel-2: rgba(14, 42, 71, 0.6);
+  --bp-font-head: 'Oswald', 'Arial Narrow', 'Segoe UI', sans-serif;
+  --bp-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --bp-font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  display: flex; flex-direction: column; min-height: 100%; animation: fadeIn 0.16s ease;
+  color: var(--bp-text); font-family: var(--bp-font-body);
+  background:
+    repeating-linear-gradient(0deg, var(--bp-line-soft) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(90deg, var(--bp-line-soft) 0 1px, transparent 1px 40px),
+    linear-gradient(160deg, var(--bp-navy1), var(--bp-navy2));
+  margin: calc(-1 * (env(safe-area-inset-top) + 12px)) -14px calc(-1 * (env(safe-area-inset-bottom) + 18px));
+  padding: calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 18px);
 }
-.tc-wiz-dot small { font-size: 9.5px; color: var(--muted); font-weight: 600; }
-.tc-wiz-dot.on span { background: var(--gold); border-color: var(--gold); color: var(--accent-ink); }
-.tc-wiz-dot.on small { color: var(--text); }
-.tc-wiz-dot.done span { background: color-mix(in srgb, var(--gold) 24%, transparent); border-color: var(--gold); color: var(--gold); }
-.tc-wiz-sep { flex: 1; height: 2px; background: var(--line); margin: 0 4px; margin-bottom: 14px; border-radius: 2px; }
-.tc-wiz-back { flex: 0 0 auto; padding-left: 16px; padding-right: 16px; }
+.tc-wizard-page .amber { color: var(--bp-amber); font-weight: 800; }
+.tc-wizard-page .down { color: #e0687a; }
+.tc-wizard-page .muted { color: var(--bp-muted); }
 
-.tc-wiz-summary {
-  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 12px;
-  padding: 11px 13px; margin-bottom: 14px;
+/* Topbar */
+.tc-wiz-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.tc-wiz-title { flex: 1; min-width: 0; text-align: center; }
+.tc-wiz-title .tc-wiz-co { font-family: var(--bp-font-mono); font-size: 10px; color: var(--bp-cyan); font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; }
+.tc-wiz-title b { font-family: var(--bp-font-head); font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--bp-text); }
+.tc-wizard-page .icon-btn { background: rgba(111, 209, 234, 0.08); border: 1px solid var(--bp-line); color: var(--bp-cyan); }
+
+/* Waypoint stepper: nodes on a connecting rail. */
+.tc-wiz-rail { position: relative; display: flex; justify-content: space-between; margin: 4px 4px 18px; }
+.tc-wiz-rail::before {
+  content: ''; position: absolute; left: 12px; right: 12px; top: 9px; height: 2px;
+  background: var(--bp-line); z-index: 0;
 }
-.tc-wiz-q-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-.tc-wiz-q-top span { font-size: 11px; color: var(--muted); }
-.tc-wiz-q-top b { font-size: 13px; }
-.tc-wiz-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
-.tc-wiz-metrics > div { text-align: center; }
-.tc-wiz-metrics span { display: block; font-size: 10px; color: var(--muted); margin-bottom: 2px; }
-.tc-wiz-metrics b { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.tc-way { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
+.tc-way-node {
+  width: 18px; height: 18px; border-radius: 50%; background: var(--bp-navy2); border: 2px solid var(--bp-line);
+  display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--bp-cyan);
+}
+.tc-way small { font-family: var(--bp-font-head); font-size: 9px; color: var(--bp-muted); text-transform: uppercase; letter-spacing: 0.6px; }
+.tc-way.done .tc-way-node { background: var(--bp-cyan); border-color: var(--bp-cyan); color: #06222f; }
+.tc-way.done small { color: var(--bp-cyan); }
+.tc-way.on .tc-way-node { background: var(--bp-amber); border-color: var(--bp-amber); box-shadow: 0 0 0 4px rgba(242, 169, 59, 0.22), 0 0 12px rgba(242, 169, 59, 0.5); }
+.tc-way.on small { color: var(--bp-text); font-weight: 700; }
+
+/* Two-column reflow: side (live feedback) is first in markup — natural
+   mobile stack order — but pinned to the right on wide viewports. */
+.tc-wiz-grid { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.tc-wiz-side { display: flex; flex-direction: column; gap: 12px; }
+.tc-wiz-main { display: flex; flex-direction: column; }
 .tc-wiz-body { flex: 1; }
 .tc-wiz-nav { margin-top: 16px; display: flex; gap: 8px; }
-.tc-name-input {
-  width: 100%; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px;
-  color: var(--text); font-family: inherit; font-size: 15px; font-weight: 600;
-  padding: 11px 12px; margin-bottom: 4px;
+.tc-wiz-back.btn { flex: 0 0 auto; padding-left: 16px; padding-right: 16px; }
+@media (min-width: 860px) {
+  .tc-wiz-grid { display: grid; grid-template-columns: 1fr 300px; align-items: start; gap: 22px; }
+  .tc-wiz-main { grid-column: 1; grid-row: 1; }
+  .tc-wiz-side { grid-column: 2; grid-row: 1; position: sticky; top: 14px; }
 }
-.tc-name-input:focus { outline: none; border-color: var(--gold); }
-.tc-tier-row { flex-wrap: wrap; }
-.tc-spec-row { flex-wrap: wrap; }
-.tc-spec-row .tc-chip, .tc-tier-row .tc-chip { flex: 1 1 30%; }
 
-.tc-role { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
-.tc-role-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.tc-role-head b { font-size: 13.5px; }
-.tc-role-head small { font-size: 10.5px; color: var(--muted); text-align: right; }
-.tc-role .tc-chip-row { flex-wrap: wrap; }
-.tc-role .tc-chip { flex: 1 1 22%; padding: 7px 4px; font-size: 11.5px; }
-
-.tc-rev-title { font-size: 18px; font-weight: 800; }
-.tc-rev-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-.tc-rev-list {
-  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+.tc-wizard-page .btn-gold {
+  background: linear-gradient(135deg, var(--bp-amber), #d98f22); color: #1a1206; border: none;
+  box-shadow: 0 4px 18px rgba(242, 169, 59, 0.35); font-family: var(--bp-font-head);
+  text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;
 }
-.tc-rev-row { display: flex; justify-content: space-between; gap: 10px; padding: 9px 12px; font-size: 13px; border-top: 1px solid var(--line); }
-.tc-rev-row:first-child { border-top: none; }
-.tc-rev-row span { color: var(--muted); }
-.tc-rev-row b { font-weight: 700; text-align: right; }
+.tc-wizard-page .btn:not(.btn-gold) { background: rgba(111, 209, 234, 0.07); border: 1px solid var(--bp-line); color: var(--bp-cyan); }
+
+/* Sidebar cards. */
+.tc-side-card { background: var(--bp-panel); border: 1px solid var(--bp-line); border-radius: 14px; padding: 13px 14px; backdrop-filter: blur(2px); }
+.tc-side-title { font-family: var(--bp-font-head); font-size: 11.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--bp-cyan); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; }
+.tc-side-title .muted { font-family: var(--bp-font-mono); font-size: 9.5px; text-transform: none; letter-spacing: 0; }
+
+/* Quality gauge. */
+.tc-gauge-svg { width: 100%; height: auto; display: block; }
+.tc-gauge-track { fill: none; stroke: var(--bp-line); stroke-width: 9; stroke-linecap: round; }
+.tc-gauge-fill { fill: none; stroke: var(--bp-amber); stroke-width: 9; stroke-linecap: round; filter: drop-shadow(0 0 5px rgba(242, 169, 59, 0.55)); }
+.tc-gauge-read { text-align: center; margin-top: -8px; }
+.tc-gauge-read b { font-family: var(--bp-font-mono); font-size: 26px; font-weight: 700; color: var(--bp-text); display: block; line-height: 1; }
+.tc-gauge-read span { font-family: var(--bp-font-head); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--bp-cyan); }
+.tc-wiz-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bp-line); }
+.tc-wiz-metrics > div { text-align: center; }
+.tc-wiz-metrics span { display: block; font-family: var(--bp-font-mono); font-size: 8.5px; color: var(--bp-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+.tc-wiz-metrics b { font-family: var(--bp-font-mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--bp-text); }
+
+/* Market Intel radar. */
+.tc-radar { width: 100%; height: auto; display: block; margin-top: 2px; }
+.tc-radar-ring { fill: none; stroke: var(--bp-line); stroke-width: 1; }
+.tc-radar-axis { stroke: var(--bp-line); stroke-width: 1; }
+.tc-radar-demand { fill: rgba(111, 209, 234, 0.20); stroke: var(--bp-cyan); stroke-width: 1.6; }
+.tc-radar-build { fill: rgba(242, 169, 59, 0.20); stroke: var(--bp-amber); stroke-width: 1.6; }
+.tc-radar-label { fill: var(--bp-muted); font-family: var(--bp-font-mono); font-size: 7px; text-transform: uppercase; letter-spacing: 0.3px; }
+.tc-radar-legend { display: flex; gap: 14px; justify-content: center; margin-top: 4px; font-family: var(--bp-font-mono); font-size: 9.5px; color: var(--bp-muted); }
+.tc-leg-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.tc-leg-dot.demand { background: var(--bp-cyan); }
+.tc-leg-dot.build { background: var(--bp-amber); }
+
+/* Rival Watch. */
+.tc-rival-you { padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--bp-line); }
+.tc-rival-you > span { font-family: var(--bp-font-head); font-size: 10px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--bp-text); display: block; margin-bottom: 5px; }
+.tc-rival-row { padding-top: 9px; margin-top: 9px; border-top: 1px solid var(--bp-line); }
+.tc-rival-row:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+.tc-rival-name { font-family: var(--bp-font-head); font-size: 12px; letter-spacing: 0.3px; color: var(--bp-cyan); margin-bottom: 5px; }
+.tc-rival-bar-line { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
+.tc-rival-bar-line span { font-family: var(--bp-font-mono); font-size: 8.5px; color: var(--bp-muted); text-transform: uppercase; width: 34px; flex: 0 0 auto; }
+.tc-rival-bar { flex: 1; height: 5px; background: rgba(111, 209, 234, 0.10); border-radius: 99px; overflow: hidden; }
+.tc-rival-bar-fill { height: 100%; border-radius: 99px; }
+.tc-rival-bar-fill.price { background: var(--bp-cyan); }
+.tc-rival-bar-fill.qual { background: var(--bp-amber); }
+.tc-rival-bar-fill.you { background: var(--bp-text); }
+.tc-rival-bar-line b { font-family: var(--bp-font-mono); font-size: 10.5px; color: var(--bp-text); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+
+/* Shared dashboard classes, restyled only inside the Studio. */
+.tc-wizard-page .tc-field-label { font-family: var(--bp-font-head); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--bp-cyan); margin: 16px 2px 8px; font-weight: 500; }
+.tc-wizard-page .tc-field-label .muted { font-family: var(--bp-font-body); text-transform: none; letter-spacing: 0; font-size: 11.5px; }
+.tc-wizard-page .tc-hint { font-size: 12.5px; color: var(--bp-muted); line-height: 1.5; margin: 4px 2px 14px; }
+.tc-wizard-page .tc-chip {
+  background: var(--bp-panel-2); border: 1px solid var(--bp-line); color: var(--bp-text);
+  font-family: var(--bp-font-mono); font-size: 11.5px; border-radius: 8px; padding: 8px 10px;
+}
+.tc-wizard-page .tc-chip.on { background: rgba(242, 169, 59, 0.16); border-color: var(--bp-amber); color: var(--bp-amber); box-shadow: 0 0 10px rgba(242, 169, 59, 0.22); }
+.tc-wizard-page .tc-tag { font-family: var(--bp-font-mono); background: rgba(111, 209, 234, 0.12); color: var(--bp-cyan); }
+.tc-wizard-page .tc-tag.gold { background: rgba(242, 169, 59, 0.16); color: var(--bp-amber); }
+.tc-wizard-page .tc-section-label { color: var(--bp-cyan); font-family: var(--bp-font-head); text-transform: uppercase; letter-spacing: 0.7px; }
+.tc-wizard-page .tc-detail-grid { }
+.tc-wizard-page .tc-dstat { background: var(--bp-panel-2); border: 1px solid var(--bp-line); }
+.tc-wizard-page .tc-dstat span { color: var(--bp-muted); }
+.tc-wizard-page .tc-dstat b { font-family: var(--bp-font-mono); color: var(--bp-text); }
+.tc-wizard-page .tc-rev-title { font-family: var(--bp-font-head); font-size: 19px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; color: var(--bp-text); }
+.tc-wizard-page .tc-rev-sub { color: var(--bp-muted); }
+.tc-wizard-page .tc-rev-list { background: var(--bp-panel-2); border: 1px solid var(--bp-line); }
+.tc-wizard-page .tc-rev-row { border-top-color: var(--bp-line); }
+.tc-wizard-page .tc-rev-row span { color: var(--bp-muted); }
+.tc-wizard-page .tc-rev-row b { font-family: var(--bp-font-mono); color: var(--bp-text); }
+.tc-wizard-page .tc-tier-detail { background: var(--bp-panel-2); border: 1px solid var(--bp-line); }
+.tc-wizard-page .tc-tierstat span { color: var(--bp-muted); font-family: var(--bp-font-mono); }
+.tc-wizard-page .tc-tierstat b { font-family: var(--bp-font-mono); color: var(--bp-text); }
+.tc-wizard-page .tc-tierstat b.up { color: var(--bp-cyan); }
+.tc-wizard-page .tc-tierstat b.down { color: #e0687a; }
+
+/* Name field — engraved plate with a static cursor bar. */
+.tc-wizard-page .tc-name-plate {
+  position: relative; background: rgba(4, 16, 29, 0.55); border: 1px solid var(--bp-line); border-radius: 8px;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.35); margin-bottom: 4px;
+}
+.tc-wizard-page .tc-name-input {
+  width: 100%; background: none; border: none; color: var(--bp-text); font-family: var(--bp-font-mono);
+  font-size: 15px; font-weight: 600; letter-spacing: 0.5px; padding: 12px 26px 12px 12px;
+}
+.tc-wizard-page .tc-name-input:focus { outline: none; }
+.tc-wizard-page .tc-name-plate:focus-within { border-color: var(--bp-cyan); }
+.tc-wizard-page .tc-name-cursor { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 2px; height: 15px; background: var(--bp-amber); }
+
+/* Type / category grid — line icon + viewfinder corner brackets when selected. */
+.tc-wizard-page .tc-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tc-wizard-page .tc-type {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  background: var(--bp-panel-2); border: 1px solid var(--bp-line); border-radius: 10px; padding: 12px 10px;
+  color: var(--bp-text); text-align: left; font-family: inherit;
+}
+.tc-wizard-page .tc-type-ico { color: var(--bp-cyan); }
+.tc-wizard-page .tc-type-ico-svg { width: 20px; height: 20px; display: block; }
+.tc-wizard-page .tc-type-label { font-family: var(--bp-font-mono); font-size: 12px; }
+.tc-wizard-page .tc-type.on { border-color: var(--bp-amber); background: rgba(242, 169, 59, 0.10); box-shadow: 0 0 14px rgba(242, 169, 59, 0.25); }
+.tc-wizard-page .tc-type.on .tc-type-ico { color: var(--bp-amber); }
+.tc-wizard-page .tc-type:disabled { opacity: 0.4; }
+.tc-wizard-page .tc-corner { position: absolute; width: 9px; height: 9px; border: 2px solid var(--bp-amber); opacity: 0.9; }
+.tc-wizard-page .tc-corner.tl { top: 4px; left: 4px; border-right: none; border-bottom: none; }
+.tc-wizard-page .tc-corner.tr { top: 4px; right: 4px; border-left: none; border-bottom: none; }
+.tc-wizard-page .tc-corner.bl { bottom: 4px; left: 4px; border-right: none; border-top: none; }
+.tc-wizard-page .tc-corner.br { bottom: 4px; right: 4px; border-left: none; border-top: none; }
+
+/* Tier rail — node size grows with prestige; the top tier renders as a diamond. */
+.tc-wizard-page .tc-tier-rail { position: relative; display: flex; justify-content: space-between; align-items: flex-end; margin: 4px 4px 14px; padding-top: 4px; }
+.tc-wizard-page .tc-tier-rail::before { content: ''; position: absolute; left: 6px; right: 6px; bottom: 20px; height: 2px; background: var(--bp-line); z-index: 0; }
+.tc-wizard-page .tc-tier-node { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; flex: 1; font-family: inherit; }
+.tc-wizard-page .tc-tier-dot { width: var(--tn, 14px); height: var(--tn, 14px); border-radius: 50%; background: var(--bp-navy2); border: 2px solid var(--bp-line); }
+.tc-wizard-page .tc-tier-node.halo .tc-tier-dot { border-radius: 3px; transform: rotate(45deg); }
+.tc-wizard-page .tc-tier-node small { font-family: var(--bp-font-mono); font-size: 8.5px; color: var(--bp-muted); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+.tc-wizard-page .tc-tier-node.on .tc-tier-dot { background: var(--bp-amber); border-color: var(--bp-amber); box-shadow: 0 0 10px rgba(242, 169, 59, 0.6); }
+.tc-wizard-page .tc-tier-node.on small { color: var(--bp-amber); font-weight: 700; }
+
+.tc-wizard-page .tc-role { background: var(--bp-panel-2); border: 1px solid var(--bp-line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.tc-wizard-page .tc-role-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.tc-wizard-page .tc-role-head b { font-family: var(--bp-font-head); text-transform: uppercase; letter-spacing: 0.4px; font-size: 13px; color: var(--bp-text); }
+.tc-wizard-page .tc-role-head small { font-size: 10.5px; color: var(--bp-muted); text-align: right; }
+.tc-wizard-page .tc-role .tc-chip-row { flex-wrap: wrap; }
+.tc-wizard-page .tc-role .tc-chip { flex: 1 1 22%; padding: 7px 4px; font-size: 11px; }
+.tc-wizard-page .tc-spec-row { flex-wrap: wrap; }
+.tc-wizard-page .tc-spec-row .tc-chip { flex: 1 1 30%; }
 
 /* Product row main becomes a tappable button. */
 .tc-prod-main { background: none; border: none; text-align: left; padding: 0; font-family: inherit; color: var(--text); cursor: pointer; flex: 1; min-width: 0; }

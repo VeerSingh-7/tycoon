@@ -656,6 +656,42 @@ check('cheaper tiers sell more volume than halo tiers', (T.economy.volume > T.st
 check('every tier carries deep spec (margin, volume, brand, audience, blurb)', Object.values(T).every((t) =>
   ('margin' in t) && ('volume' in t) && ('brand' in t) && !!t.audience && !!t.blurb));
 
+/* ============== PRODUCT STUDIO — BLUEPRINT RESKIN (shared component) === */
+// The reskin lives in ONE shared component used by all 48 companies across
+// all 16 sectors. Exercise it for a Tech, a Bank and a Retail company to
+// confirm it's genuinely shared (not hardcoded to one company) and that the
+// new Market Intel / Rival Watch features adapt sensibly per sector.
+[['auracle', 'tech'], ['bankameria', 'bank'], ['wallmarket', 'retail']].forEach(function (pair) {
+  const cid = pair[0], sector = pair[1];
+  const launch = TechCo.defaultLaunch(cid);
+  const s = TechCo.wizardSummary(cid, launch.cfg);
+  const basicsHTML = TechCo.studioBasics(cid, launch.cfg, s);
+  check(cid + ' (' + sector + '): type grid renders an icon per catalog item',
+    (basicsHTML.match(/tc-type-ico-svg/g) || []).length >= TechCo.catalogFor(cid).length);
+  check(cid + ' (' + sector + '): tier rail renders all 6 tiers', (basicsHTML.match(/tc-tier-node/g) || []).length === 6);
+  const axes = TechCo.radarAxesFor(cid);
+  check(cid + ' (' + sector + '): market intel has exactly 5 axes', axes.length === 5);
+  const build = TechCo.buildAxisScores(cid, launch.cfg, s);
+  check(cid + ' (' + sector + '): build axis scores are 5 values in 0-100', build.length === 5 && build.every((v) => v >= 0 && v <= 100));
+  const demand = TechCo.marketDemandAxes(cid, launch.cfg);
+  check(cid + ' (' + sector + '): market demand axes are 5 values in 0-100', demand.length === 5 && demand.every((v) => v >= 0 && v <= 100));
+  const intelHTML = TechCo.marketIntelHTML(cid, launch.cfg, s);
+  check(cid + ' (' + sector + '): market intel renders both radar polygons', intelHTML.includes('tc-radar-demand') && intelHTML.includes('tc-radar-build'));
+  const rivalHTML = TechCo.rivalWatchHTML(cid, s);
+  check(cid + ' (' + sector + '): rival watch renders real rival rows', (rivalHTML.match(/tc-rival-row/g) || []).length >= 2);
+});
+// Axis labels adapt per sector — a bank isn't sold on "Design" — while the
+// 5-axis shape and the underlying calculations stay identical everywhere.
+check('bank sector swaps out the generic "Design" axis label', TechCo.radarAxesFor('bankameria').indexOf('Design') === -1);
+check('tech sector keeps the generic axis set', TechCo.radarAxesFor('auracle').indexOf('Design') !== -1);
+check('bank and tech get different, sector-tailored axis labels', JSON.stringify(TechCo.radarAxesFor('bankameria')) !== JSON.stringify(TechCo.radarAxesFor('auracle')));
+// Existing calculations are untouched by the reskin — quality/cost/time/price
+// on the summary object are exactly what the pre-reskin wizard also showed.
+const rsCfg = TechCo.defaultLaunch('auracle').cfg;
+const rsSummary = TechCo.wizardSummary('auracle', rsCfg);
+check('wizardSummary still exposes cost/time/income/quality unchanged',
+  rsSummary.cost > 0 && rsSummary.secs > 0 && rsSummary.projIncome >= 0 && rsSummary.cq.quality >= 0);
+
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;
 `;

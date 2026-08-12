@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v63'; // v63: per-company Signature operation (unique trait + ladder/doctrine) for all 48; richer 6-level product tiers
+const CACHE_NAME = 'tycoon-v64'; // v64: Product Studio "blueprint" reskin — waypoint stepper, viewfinder type grid, tier rail, Market Intel radar, Rival Watch
 
 const ASSETS = [
   'index.html',
