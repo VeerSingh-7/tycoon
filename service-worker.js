@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v65'; // v65: Portfolio page "Manage" section — run every 100%-owned stock/coin without opening it
+const CACHE_NAME = 'tycoon-v66'; // v66: Recruitment/Employee system foundation — named-candidate hiring wired into the Product Studio Team step
 
 const ASSETS = [
   'index.html',
@@ -26,6 +26,7 @@ const ASSETS = [
   'js/data/bizdefs.js',
   'js/data/research.js',
   'js/data/signature.js',
+  'js/data/employees.js',
   'js/state.js',
   'js/engine.js',
   'js/mechanics.js',

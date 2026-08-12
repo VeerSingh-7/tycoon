@@ -31,6 +31,7 @@ const files = [
   'js/data/bizdefs.js',
   'js/data/research.js',
   'js/data/signature.js',
+  'js/data/employees.js',
   'js/state.js',
   'js/market.js',
   'js/techco.js',
@@ -691,6 +692,114 @@ const rsCfg = TechCo.defaultLaunch('auracle').cfg;
 const rsSummary = TechCo.wizardSummary('auracle', rsCfg);
 check('wizardSummary still exposes cost/time/income/quality unchanged',
   rsSummary.cost > 0 && rsSummary.secs > 0 && rsSummary.projIncome >= 0 && rsSummary.cq.quality >= 0);
+
+/* ============== RECRUITMENT / EMPLOYEE SYSTEM (foundation) ============ */
+// Pure candidate generation + wage formula (data/employees.js), then the
+// Product Studio Team-step integration (js/techco.js) as the proof of concept.
+
+check('role taxonomy covers all 6 categories', EMP_CATEGORIES.length === 6);
+check('40 roles are defined across the taxonomy', EMP_ROLE_IDS.length === 40);
+check('every role has a full attribute-weight profile and a speciality list',
+  EMP_ROLE_IDS.every((r) => EMP_ROLES[r].specialities.length >= 3 && EMP_ATTRS.every((a) => (EMP_ROLES[r].weights[a] || 0) >= 0)));
+
+// Determinism: candidate generation must be pure — same (role, seed) always
+// yields the same person, so pools never need to be persisted.
+const cand1 = empGenCandidate('ai_engineer', 555001, { reputation: 60, cycle: 3 });
+const cand2 = empGenCandidate('ai_engineer', 555001, { reputation: 60, cycle: 3 });
+check('candidate generation is deterministic given the same seed', JSON.stringify(cand1) === JSON.stringify(cand2));
+check('a candidate has a real name, not a generic label', /[A-Za-z]+ [A-Za-z]/.test(cand1.name));
+check('Overall is within 0-99', cand1.overall >= 0 && cand1.overall <= 99);
+
+// A role's zero-weight attributes are never rolled ("—" in the UI = null here).
+const genericQA = empGenCandidate('qa_tester', 42, { reputation: 60, cycle: 0 });
+check('an attribute the role does not use is null, not a fabricated number',
+  EMP_ATTRS.some((a) => genericQA.attrs[a] === null));
+
+// Weight-driven specialisation: across many draws, a role's HIGH-weight
+// attribute should average meaningfully above its LOW-weight attribute —
+// "two candidates with the same Overall can look genuinely different".
+let techSum = 0, leadSum = 0;
+const SCI_N = 400;
+for (let i = 0; i < SCI_N; i++) {
+  const c = empGenCandidate('scientist', i * 7919 + 11, { reputation: 60, cycle: 0 });
+  techSum += c.attrs.technical; leadSum += c.attrs.leadership;
+}
+check('Scientist (technical weight 1.4) rolls meaningfully higher technical than leadership (weight 0.5) on average',
+  (techSum / SCI_N) - (leadSum / SCI_N) > 8);
+
+/* ------------------------------- Wage formula -------------------------- */
+check('salary always falls in the human-realistic range', (function () {
+  for (let i = 0; i < 200; i++) {
+    const c = empGenCandidate('cto', i * 104729 + 1, { reputation: 60, cycle: i % 7 });
+    if (c.salaryYear < EMP_SALARY_MIN || c.salaryYear > EMP_SALARY_MAX) return false;
+  }
+  return true;
+})());
+const loOverall = empSalaryFor(30, 30, 'scientist', 'AI', 60, 0);
+const hiOverall = empSalaryFor(95, 90, 'scientist', 'AI', 60, 0);
+check('higher Overall + Experience commands a higher salary', hiOverall > loOverall);
+const hot = empHotSpeciality('scientist', 5);
+const hotPay = empSalaryFor(70, 70, 'scientist', hot, 60, 5);
+const coldPay = empSalaryFor(70, 70, 'scientist', hot === 'AI' ? 'Robotics' : 'AI', 60, 5);
+check('a speciality matching current demand pays a premium over an otherwise-identical off-demand candidate', hotPay > coldPay);
+
+/* -------------------- Product Studio Team-step integration ------------- */
+const EMPCO = 'wallmarket'; // Homestead Retail — a non-hand-crafted sector company
+const empc = TechCo._state(EMPCO);
+empc.cash = TechCo.baseIncome(EMPCO) * 1e9;
+empc.reputation = 60;
+
+check('TechCo exposes exactly the 5 Research & Technology hire-able roles', JSON.stringify(TechCo.EMP_TEAM_ROLES) ===
+  JSON.stringify(['ai_engineer', 'software_engineer', 'hardware_engineer', 'robotics_engineer', 'data_scientist']));
+
+const pool = TechCo.empPassivePoolFor(EMPCO, 'software_engineer');
+check('the passive pool returns real candidates for a real company', pool.length > 0 && !!pool[0].name);
+
+const empRosterBefore = empc.employeeRoster.length;
+const empCashBefore = empc.cash;
+const hireRes = TechCo.empHire(EMPCO, 'software_engineer', pool[0]);
+check('hiring a candidate succeeds', hireRes.ok === true);
+check('hiring adds exactly one person to the roster', empc.employeeRoster.length === empRosterBefore + 1);
+check('hiring spends company cash on the signing bonus', empc.cash < empCashBefore);
+check('the hired employee keeps their generated stats', empc.employeeRoster[empc.employeeRoster.length - 1].overall === pool[0].overall);
+
+const launch = TechCo.defaultLaunch(EMPCO);
+const baseQuality = TechCo.computeQuality(EMPCO, launch.cfg).quality;
+const baseTime = TechCo.deepBuildTime(EMPCO, launch.cfg);
+check('an empty roster leaves quality/time exactly as before (no regression for untouched builds)',
+  TechCo.empQualityBonus(EMPCO, launch.cfg) === 0 && TechCo.empSpeedMult(EMPCO, launch.cfg) === 1);
+
+const hiredId = empc.employeeRoster[empc.employeeRoster.length - 1].id;
+launch.cfg.roster.software_engineer = hiredId;
+const withQuality = TechCo.computeQuality(EMPCO, launch.cfg).quality;
+const withTime = TechCo.deepBuildTime(EMPCO, launch.cfg);
+check('assigning a hired engineer to the build raises quality', withQuality > baseQuality);
+check('assigning a hired engineer speeds up (or holds) build time', withTime <= baseTime);
+
+check('merely drafting an assignment in the wizard does not reserve the employee (nothing committed yet)',
+  TechCo.empIsBusy(EMPCO, hiredId) === false);
+
+const empPayrollBefore = TechCo.rosterPayrollPerDay(EMPCO);
+check('an unassigned-but-hired employee already draws payroll', empPayrollBefore > 0);
+
+// Starting a real build with them assigned marks them busy via co(id).builds.
+const cfg2 = TechCo.studioDefault(EMPCO, launch.cfg.type);
+cfg2.roster.software_engineer = hiredId;
+const startRes = TechCo.startDeepBuild(EMPCO, cfg2);
+check('a build using a hired engineer starts ok', startRes.ok === true);
+check('that engineer is now busy (assigned to an in-progress build)', TechCo.empIsBusy(EMPCO, hiredId) === true);
+check('a busy employee is excluded from the benched pool', TechCo.empBenchFor(EMPCO, 'software_engineer').every((e) => e.id !== hiredId));
+
+/* ------------------------------- Headhunting ----------------------------- */
+const searchCostBefore = TechCo.empSearchCost(EMPCO, 'ai_engineer', {});
+const huntCashBefore = empc.cash;
+const huntRes = TechCo.empRunHeadhunt(EMPCO, 'ai_engineer', {});
+check('running a headhunt search succeeds and costs cash', huntRes.ok === true && empc.cash < huntCashBefore);
+const searchCostAfter = TechCo.empSearchCost(EMPCO, 'ai_engineer', {});
+check('re-searching the same role gets pricier each time', searchCostAfter > searchCostBefore);
+const huntPool = TechCo.empHeadhuntPoolFor(EMPCO, 'ai_engineer', { minOverall: 90 });
+check('a headhunted pool is smaller than the passive pool', huntPool.length < TechCo.empPassivePoolFor(EMPCO, 'ai_engineer').length);
+check('a headhunt filter is enforced as a floor', huntPool.every((c) => c.overall >= 90));
 
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;

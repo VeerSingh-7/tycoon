@@ -156,6 +156,11 @@ const TechCo = (() => {
       mkt: { count: STAFF_SEED.mkt, training: 0 },
       ops: { count: STAFF_SEED.ops, training: 0 },
     };
+    // Recruitment: named employees hired from the candidate system (see
+    // data/employees.js). Persistent per company; nothing here is per-build.
+    if (!c.employeeRoster) c.employeeRoster = [];
+    if (!c.empSearch) c.empSearch = {};       // headhunt search counters, per role
+    if (c.nextEmpId == null) c.nextEmpId = 1;
     // Research meta-game state (new shape). Old {done,active} saves are reset to
     // the new structure — a full research revamp; unlocked products are kept.
     if (!c.research || !c.research.levels) {
@@ -248,9 +253,10 @@ const TechCo = (() => {
   function studioDefault(id, type) {
     const budget = {}; TECH_BUDGET_AREAS.forEach((a) => { budget[a.id] = 'standard'; });
     const team = {}; TECH_ROLES.forEach((r) => { team[r.id] = 'none'; });
-    return { type, name: suggestName(id, type), tier: 'standard', specs: {}, budget, team };
+    const roster = {}; EMP_TEAM_ROLES.forEach((r) => { roster[r] = null; });
+    return { type, name: suggestName(id, type), tier: 'standard', specs: {}, budget, team, roster };
   }
-  const cloneCfg = (cfg) => ({ type: cfg.type, name: cfg.name, tier: cfg.tier, specs: Object.assign({}, cfg.specs), budget: Object.assign({}, cfg.budget), team: Object.assign({}, cfg.team) });
+  const cloneCfg = (cfg) => ({ type: cfg.type, name: cfg.name, tier: cfg.tier, specs: Object.assign({}, cfg.specs), budget: Object.assign({}, cfg.budget), team: Object.assign({}, cfg.team), roster: Object.assign({}, cfg.roster) });
 
   /** Quality 0–100 plus the sub-scores, from specs + budget + team. */
   function computeQuality(id, cfg) {
@@ -271,8 +277,9 @@ const TechCo = (() => {
       tw += lvl.v * w * backing; twMax += w;
     }
     const teamScore = twMax ? clamp(tw / twMax, 0, 1.15) : 0;
-    // Research breakthroughs add a flat quality bonus on top.
-    const quality = clamp(100 * (0.45 * specScore + 0.25 * bud + 0.30 * teamScore) + researchQualityBonus(id) + sigQualityBonus(id), 3, 100);
+    // Research breakthroughs, the company Signature and named engineers you've
+    // actually hired (Recruitment system) each add a flat quality bonus on top.
+    const quality = clamp(100 * (0.45 * specScore + 0.25 * bud + 0.30 * teamScore) + researchQualityBonus(id) + sigQualityBonus(id) + empQualityBonus(id, cfg), 3, 100);
     return { quality, specScore, budgetScore: bud, teamScore };
   }
 
@@ -288,7 +295,7 @@ const TechCo = (() => {
     const tier = TECH_TIERS[cfg.tier] || TECH_TIERS.standard;
     const base = 140 + tier.costMult * 6;
     const pm = (TECH_TEAM_LEVELS[cfg.team.pm] || TECH_TEAM_LEVELS.none).v; // PM speeds delivery
-    return Math.max(45, Math.round(base * clamp(buildSpeedMult(id) * (1 - pm * 0.15), 0.4, 1)));
+    return Math.max(45, Math.round(base * clamp(buildSpeedMult(id) * empSpeedMult(id, cfg) * (1 - pm * 0.15), 0.4, 1)));
   }
   const tierToPricing = (tier) => ((tier === 'economy' || tier === 'budget') ? 'budget' : tier === 'standard' ? 'balanced' : 'premium');
 
@@ -325,6 +332,7 @@ const TechCo = (() => {
       pid: c.nextPid++, type: b.type, phys: b.phys, deep: true,
       name: b.name || b.type, tier,
       specs: Object.assign({}, b.cfg.specs), team: Object.assign({}, b.cfg.team), budget: Object.assign({}, b.cfg.budget),
+      roster: Object.assign({}, b.cfg.roster || {}),
       quality: Math.round(cq.quality), specScore: cq.specScore,
       pricing: tierToPricing(tier), shareBase: r.share,
       reception, rating: r.rating,
@@ -385,6 +393,148 @@ const TechCo = (() => {
     c.cash -= cost; c.staff[g].training++; saveGame();
     if (dash && dash.id === id) rebuildDash();
     return { ok: true, msg: `${STAFF[g].label} trained.` };
+  }
+
+  /* ===================== Recruitment / Employee system ======================
+   * Foundation for a unified, named-candidate hiring system (data/employees.js)
+   * covering every company. First wired consumer: the Product Studio Team step,
+   * scoped to the five Research & Technology roles below. Persistent hires live
+   * in co(id).employeeRoster; candidate POOLS are never persisted — they're
+   * re-derived deterministically from (company, role, cycle) so browsing them
+   * costs nothing and never desyncs from what a "Hire" click actually gets.
+   * ========================================================================== */
+
+  // The Team step's five hire-able roles, in display order.
+  const EMP_TEAM_ROLES = ['ai_engineer', 'software_engineer', 'hardware_engineer', 'robotics_engineer', 'data_scientist'];
+
+  // How well each role fits a product archetype's focus — drives both the
+  // "% fit" shown on a candidate and their actual quality contribution.
+  const EMP_ROLE_FOCUS_FIT = {
+    ai_engineer:       { hardware: 0.55, software: 0.80, ai: 1.15, social: 0.70 },
+    software_engineer: { hardware: 0.45, software: 1.15, ai: 0.80, social: 0.90 },
+    hardware_engineer: { hardware: 1.15, software: 0.40, ai: 0.50, social: 0.35 },
+    robotics_engineer: { hardware: 1.00, software: 0.45, ai: 0.60, social: 0.35 },
+    data_scientist:    { hardware: 0.45, software: 0.90, ai: 1.00, social: 0.95 },
+  };
+  function empRoleFit(roleId, arch) {
+    const table = EMP_ROLE_FOCUS_FIT[roleId];
+    if (!table) return 0.6;
+    let fit = table[arch.focus] != null ? table[arch.focus] : 0.6;
+    if (roleId === 'robotics_engineer' && arch.category === 'Robotics') fit = Math.max(fit, 1.25);
+    return fit;
+  }
+
+  // Weekly-ish rotation (reuses the same cycle as Market Intel demand).
+  const empCycle = () => Math.floor(now() / (CFG.DAY_SECONDS * 1000 * 7));
+
+  function findEmployee(id, empId) {
+    const roster = co(id).employeeRoster;
+    for (let i = 0; i < roster.length; i++) if (roster[i].id === empId) return roster[i];
+    return null;
+  }
+
+  /** An employee is "busy" while assigned to an IN-PROGRESS build; finished
+   *  builds free them automatically (they're no longer in co(id).builds). */
+  function empIsBusy(id, empId) {
+    const builds = co(id).builds;
+    for (let i = 0; i < builds.length; i++) {
+      const roster = builds[i].cfg && builds[i].cfg.roster;
+      if (!roster) continue;
+      for (const k in roster) if (roster[k] === empId) return true;
+    }
+    return false;
+  }
+  function empBenchFor(id, roleId) {
+    return co(id).employeeRoster.filter((e) => e.roleId === roleId && !empIsBusy(id, e.id));
+  }
+
+  function empGenOpts(id) { return { reputation: co(id).reputation, cycle: empCycle() }; }
+  function empPassivePoolFor(id, roleId) { return empPassivePool(id, roleId, 4, empCycle(), empGenOpts(id)); }
+  function empHeadhuntPoolFor(id, roleId, filters) {
+    const n = (co(id).empSearch && co(id).empSearch[roleId]) || 0;
+    return empHeadhuntPool(id, roleId, filters, n, empCycle(), empGenOpts(id));
+  }
+
+  // A search's cost rises with how strict the filter is, and with how many
+  // times you've already re-rolled this role this cycle.
+  function empSearchCost(id, roleId, filters) {
+    filters = filters || {};
+    const n = (co(id).empSearch && co(id).empSearch[roleId]) || 0;
+    const strictness = 1 + (filters.minOverall ? Math.max(0, filters.minOverall - 50) / 50 : 0);
+    return baseIncome(id) * 6 * strictness * (1 + n * 0.6);
+  }
+  function empRunHeadhunt(id, roleId, filters) {
+    const c = co(id), cost = empSearchCost(id, roleId, filters);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to run a search.` };
+    c.cash -= cost;
+    c.empSearch[roleId] = (c.empSearch[roleId] || 0) + 1;
+    saveGame();
+    return { ok: true };
+  }
+
+  // Flavour salary → actual company-cash cost, scaled against the SAME rate
+  // the existing eng/mkt/ops payroll already uses, so totals roll up at any
+  // company size instead of introducing a second currency scale.
+  const EMP_SALARY_REFERENCE = 120000; // the "average" salary STAFF_CFG.PAYROLL_PER_HEAD implicitly represents
+  function empSatMult(e) { return 0.7 + 0.3 * (e.satisfaction / 100); }
+  function employeePayrollPerDay(id, e) {
+    return baseIncome(id) * STAFF_CFG.PAYROLL_PER_HEAD * (e.salaryYear / EMP_SALARY_REFERENCE) * empSatMult(e);
+  }
+  function employeeHireCost(id, e) {
+    return baseIncome(id) * STAFF_CFG.PAYROLL_PER_HEAD * (e.signingBonus / EMP_SALARY_REFERENCE) * 10;
+  }
+  function rosterPayrollPerDay(id) {
+    const roster = co(id).employeeRoster;
+    let sum = 0;
+    for (let i = 0; i < roster.length; i++) sum += employeePayrollPerDay(id, roster[i]);
+    return sum;
+  }
+
+  function empHire(id, roleId, candidate) {
+    if (!candidate) return { ok: false, msg: 'That candidate is no longer available.' };
+    const c = co(id), cost = employeeHireCost(id, candidate);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} for the signing bonus.` };
+    c.cash -= cost;
+    const employee = Object.assign({}, candidate, { id: 'emp' + (c.nextEmpId++), hiredAt: now() });
+    delete employee.seed;
+    c.employeeRoster.push(employee);
+    saveGame();
+    return { ok: true, employee };
+  }
+
+  /** Quality contribution from every employee assigned to cfg.roster, weighted
+   *  by role fit to the product archetype and their own job satisfaction.
+   *  0 when nothing is assigned — new/other companies see no change at all. */
+  const EMP_QUALITY_SCALE = 5;
+  function empQualityBonus(id, cfg) {
+    if (!cfg.roster) return 0;
+    const arch = archetypeOf(cfg.type);
+    let total = 0;
+    for (const roleId of EMP_TEAM_ROLES) {
+      const empId = cfg.roster[roleId];
+      if (!empId) continue;
+      const e = findEmployee(id, empId);
+      if (!e) continue;
+      total += (e.overall / 100) * empRoleFit(roleId, arch) * empSatMult(e);
+    }
+    return total * EMP_QUALITY_SCALE;
+  }
+
+  /** Faster builds with a more efficient assigned roster; 1 (no change) with
+   *  nobody assigned, so every existing build/company is unaffected. */
+  function empSpeedMult(id, cfg) {
+    if (!cfg.roster) return 1;
+    let total = 0, filled = 0;
+    for (const roleId of EMP_TEAM_ROLES) {
+      const empId = cfg.roster[roleId];
+      if (!empId) continue;
+      const e = findEmployee(id, empId);
+      if (!e) continue;
+      filled++;
+      total += e.attrs.efficiency != null ? e.attrs.efficiency : e.overall;
+    }
+    if (!filled) return 1;
+    return clamp(1 - (total / filled / 99) * 0.18, 0.75, 1);
   }
 
   /* ================= Research meta-game (categories, scientists) =========== */
@@ -1014,11 +1164,11 @@ const TechCo = (() => {
     const supply = (c.supplyUntil && now() < c.supplyUntil) ? 0.85 : 1;
     return rev * shareIncomeMult(id) * leaderMult(id) * globalIncomeMult(id) * sigIncomeMult(id) * (1 + (c.acqBonus || 0)) * undercut * supply;
   }
-  // Net profit = revenue − operating costs − payroll. Overspending on staff
-  // makes this negative and burns company cash (see advance()).
+  // Net profit = revenue − operating costs − payroll (group staff + any hired
+  // named employees). Overspending makes this negative and burns company cash.
   function netProfitPerDay(id) {
     const rev = revenuePerDay(id);
-    return rev - rev * opexRate(id) - payrollPerDay(id) - researchSpendPerDay(id);
+    return rev - rev * opexRate(id) - payrollPerDay(id) - researchSpendPerDay(id) - rosterPayrollPerDay(id);
   }
 
   // Valuation target: grows with market cap, product portfolio, research and
@@ -1040,7 +1190,7 @@ const TechCo = (() => {
       cash: c.cash,
       share: marketShare(id),
       revenueDay: revenuePerDay(id),
-      payrollDay: payrollPerDay(id),
+      payrollDay: payrollPerDay(id) + rosterPayrollPerDay(id),
       employees: c.employees,
       activeProducts: c.products.length,
       buildsActive: c.builds.length,
@@ -1892,7 +2042,7 @@ const TechCo = (() => {
   function defaultLaunch(id) {
     const cat = catalogFor(id);
     const firstFree = cat.find((row) => !isTypeBusy(id, row[0])) || cat[0];
-    return { step: 0, cfg: studioDefault(id, firstFree[0]) };
+    return { step: 0, cfg: studioDefault(id, firstFree[0]), empOpen: null };
   }
 
   /* ------------- Blueprint reskin: icons, market intel, rival watch -------- */
@@ -2166,14 +2316,96 @@ const TechCo = (() => {
       }).join('');
   }
 
+  /** One candidate row (bench member to assign, or pool member to hire). */
+  function empCandidateCard(id, c, roleId, arch, action) {
+    const fit = empRoleFit(roleId, arch);
+    const fitCls = fit >= 1 ? 'good' : fit >= 0.65 ? 'alt' : 'warn';
+    const stats = EMP_ATTRS.filter((a) => c.attrs[a] != null)
+      .map((a) => `<div><span>${EMP_ATTR_LABELS[a].split(' ')[0]}</span><b>${c.attrs[a]}</b></div>`).join('');
+    const btn = action.assign
+      ? `<button class="btn btn-gold tc-mini" data-studio="empAssign" data-role="${roleId}" data-emp="${c.id}">Assign</button>`
+      : `<button class="btn btn-gold tc-mini" data-studio="empHireCand" data-role="${roleId}" data-src="${action.src}" data-idx="${action.idx}" ${co(id).cash >= employeeHireCost(id, c) ? '' : 'disabled'}>Hire · ${formatMoney(c.signingBonus)} signing</button>`;
+    return `
+      <div class="tc-emp-cand">
+        <div class="tc-emp-cand-top"><b>${escapeHtml(c.name)}</b><span class="tc-emp-fit ${fitCls}">${Math.round(fit * 100)}% fit</span></div>
+        <div class="tc-emp-cand-sub">${escapeHtml(c.speciality)} · Overall ${c.overall} · ${formatMoney(c.salaryYear)}/yr</div>
+        <div class="tc-emp-stat-row">${stats}</div>
+        ${btn}
+      </div>`;
+  }
+
+  /** One of the five Research & Technology seats: assigned card, or an
+   *  expandable browser (bench you've already hired + a candidate pool + a
+   *  paid headhunt re-roll) when tapped open. */
+  function empSeatHTML(id, cfg, roleId, arch, openRole) {
+    const role = EMP_ROLES[roleId];
+    const assignedId = cfg.roster && cfg.roster[roleId];
+    const assigned = assignedId ? findEmployee(id, assignedId) : null;
+    const open = openRole === roleId;
+    let head;
+    if (assigned) {
+      const fit = empRoleFit(roleId, arch);
+      const fitCls = fit >= 1 ? 'good' : fit >= 0.65 ? 'alt' : 'warn';
+      head = `
+        <div class="tc-emp-card on">
+          <button class="tc-emp-card-main" data-studio="empToggle" data-role="${roleId}">
+            <div class="tc-emp-card-top"><b>${escapeHtml(assigned.name)}</b><span class="tc-emp-fit ${fitCls}">${Math.round(fit * 100)}% fit</span></div>
+            <div class="tc-emp-cand-sub">${role.label} · ${escapeHtml(assigned.speciality)} · Overall ${assigned.overall}</div>
+          </button>
+          <button class="btn tc-mini" data-studio="empUnassign" data-role="${roleId}">Unassign</button>
+        </div>`;
+    } else {
+      head = `
+        <button class="tc-emp-card empty" data-studio="empToggle" data-role="${roleId}">
+          <div class="tc-emp-card-top"><b class="muted">— Unassigned —</b></div>
+          <div class="tc-emp-cand-sub">${role.label} · tap to hire</div>
+        </button>`;
+    }
+    if (!open) return `<div class="tc-emp-seat">${head}</div>`;
+
+    const bench = empBenchFor(id, roleId).filter((e) => e.id !== assignedId);
+    const pool = empPassivePoolFor(id, roleId);
+    const searches = (co(id).empSearch && co(id).empSearch[roleId]) || 0;
+    const hunted = searches > 0 ? empHeadhuntPoolFor(id, roleId, {}) : null;
+    const huntCost = empSearchCost(id, roleId, {});
+    const benchHTML = bench.length
+      ? `<div class="tc-emp-group-label">Already on payroll</div>${bench.map((e) => empCandidateCard(id, e, roleId, arch, { assign: true })).join('')}`
+      : '';
+    const poolHTML = `<div class="tc-emp-group-label">Candidate pool</div>${pool.map((c, i) => empCandidateCard(id, c, roleId, arch, { src: 'passive', idx: i })).join('')}`;
+    const huntHTML = hunted
+      ? `<div class="tc-emp-group-label">Headhunt results</div>${hunted.map((c, i) => empCandidateCard(id, c, roleId, arch, { src: 'hunt', idx: i })).join('')}`
+      : '';
+    return `
+      <div class="tc-emp-seat open">
+        ${head}
+        <div class="tc-emp-browse">
+          ${benchHTML}
+          ${poolHTML}
+          ${huntHTML}
+          <button class="btn tc-mini tc-emp-hunt" data-studio="empHunt" data-role="${roleId}" ${co(id).cash >= huntCost ? '' : 'disabled'}>🔍 Headhunt a sharper pool · ${formatMoney(huntCost)}</button>
+        </div>
+      </div>`;
+  }
+
   function studioTeam(id, cfg) {
-    return `<p class="tc-hint">Assign a team to each role. Bigger teams cost more; your company's staff (Staff tab) makes them more effective.</p>` +
-      TECH_ROLES.map((role) => {
-        const cur = cfg.team[role.id] || 'none';
-        const chips = Object.keys(TECH_TEAM_LEVELS).map((k) =>
-          `<button class="tc-chip ${cur === k ? 'on' : ''}" data-studio="team" data-role="${role.id}" data-val="${k}">${TECH_TEAM_LEVELS[k].label}</button>`).join('');
-        return `<div class="tc-role"><div class="tc-role-head"><b>${role.label}</b><small>${role.desc}</small></div><div class="tc-chip-row">${chips}</div></div>`;
-      }).join('');
+    if (!cfg.roster) { cfg.roster = {}; EMP_TEAM_ROLES.forEach((r) => { cfg.roster[r] = null; }); }
+    const arch = archetypeOf(cfg.type);
+    const openRole = (dash && dash.launch) ? dash.launch.empOpen : null;
+    const seats = EMP_TEAM_ROLES.map((roleId) => empSeatHTML(id, cfg, roleId, arch, openRole)).join('');
+    const legacyIds = ['pm', 'design', 'qa', 'mkt'];
+    const legacy = TECH_ROLES.filter((r) => legacyIds.indexOf(r.id) >= 0).map((role) => {
+      const cur = cfg.team[role.id] || 'none';
+      const chips = Object.keys(TECH_TEAM_LEVELS).map((k) =>
+        `<button class="tc-chip ${cur === k ? 'on' : ''}" data-studio="team" data-role="${role.id}" data-val="${k}">${TECH_TEAM_LEVELS[k].label}</button>`).join('');
+      return `<div class="tc-role"><div class="tc-role-head"><b>${role.label}</b><small>${role.desc}</small></div><div class="tc-chip-row">${chips}</div></div>`;
+    }).join('');
+    return `
+      <div class="tc-field-label">Engineering Roster <span class="muted">named hires, not headcount</span></div>
+      <p class="tc-hint">Assign real engineers to this build — their stats and how well their speciality fits ${escapeHtml(arch.category)} decide how much they add to quality and speed.</p>
+      <div class="tc-emp-seats">${seats}</div>
+      <div class="tc-field-label">Coordination &amp; Support</div>
+      <p class="tc-hint">These teams still run on committed levels; bigger commitments cost more.</p>
+      ${legacy}`;
   }
 
   function studioReview(id, cfg, s) {
@@ -2183,6 +2415,10 @@ const TechCo = (() => {
     const teamLines = team.length
       ? team.map((r) => `<div class="tc-rev-row"><span>${r.label}</span><b>${TECH_TEAM_LEVELS[cfg.team[r.id]].label}</b></div>`).join('')
       : `<div class="tc-rev-row"><span>Team</span><b>None assigned</b></div>`;
+    const roster = cfg.roster ? EMP_TEAM_ROLES.filter((r) => cfg.roster[r]) : [];
+    const rosterLines = roster.length
+      ? roster.map((r) => { const e = findEmployee(id, cfg.roster[r]); return e ? `<div class="tc-rev-row"><span>${EMP_ROLES[r].label}</span><b>${escapeHtml(e.name)}</b></div>` : ''; }).join('')
+      : `<div class="tc-rev-row"><span>Engineering Roster</span><b>None assigned</b></div>`;
     return `
       <div class="tc-rev-title">${escapeHtml(cfg.name || cfg.type)} <span class="tc-tag gold">${TECH_TIERS[cfg.tier].label}</span></div>
       <div class="tc-rev-sub">${cfg.type} · ${s.arch.category}</div>
@@ -2195,7 +2431,9 @@ const TechCo = (() => {
       </div>
       <div class="tc-section-label">Specifications</div>
       <div class="tc-rev-list">${specLines}</div>
-      <div class="tc-section-label">Team</div>
+      <div class="tc-section-label">Engineering Roster</div>
+      <div class="tc-rev-list">${rosterLines}</div>
+      <div class="tc-section-label">Coordination &amp; Support</div>
       <div class="tc-rev-list">${teamLines}</div>`;
   }
 
@@ -2282,6 +2520,24 @@ const TechCo = (() => {
     if (a === 'spec')  { cfg.specs[data.spec] = Number(data.idx); refreshWizard(); return; }
     if (a === 'budget'){ cfg.budget[data.area] = data.val; refreshWizard(); return; }
     if (a === 'team')  { cfg.team[data.role] = data.val; refreshWizard(); return; }
+    if (a === 'empToggle')   { l.empOpen = (l.empOpen === data.role) ? null : data.role; refreshWizard(); return; }
+    if (a === 'empAssign')   { if (!cfg.roster) cfg.roster = {}; cfg.roster[data.role] = data.emp; l.empOpen = null; refreshWizard(); return; }
+    if (a === 'empUnassign') { if (cfg.roster) cfg.roster[data.role] = null; refreshWizard(); return; }
+    if (a === 'empHunt') {
+      const r = empRunHeadhunt(dash.id, data.role, {});
+      if (!r.ok) toast(`⚠️ ${r.msg}`);
+      refreshWizard();
+      return;
+    }
+    if (a === 'empHireCand') {
+      const pool = data.src === 'hunt' ? empHeadhuntPoolFor(dash.id, data.role, {}) : empPassivePoolFor(dash.id, data.role);
+      const cand = pool[Number(data.idx)];
+      const r = empHire(dash.id, data.role, cand);
+      if (r.ok) { if (!cfg.roster) cfg.roster = {}; cfg.roster[data.role] = r.employee.id; l.empOpen = null; }
+      else toast(`⚠️ ${r.msg}`);
+      refreshWizard();
+      return;
+    }
     if (a === 'build') {
       const r = startDeepBuild(dash.id, cfg);
       if (r.ok) exitWizard();
@@ -2477,6 +2733,11 @@ const TechCo = (() => {
     // Product Studio blueprint reskin — pure render helpers (also used by tests):
     wizardSummary, studioBasics, marketIntelHTML, rivalWatchHTML, radarAxesFor,
     buildAxisScores, marketDemandAxes, typeIconSVG, defaultLaunch,
+    // Recruitment / Employee system — foundation + Product Studio Team-step wiring:
+    EMP_TEAM_ROLES, empRoleFit, empCycle, findEmployee, empIsBusy, empBenchFor,
+    empPassivePoolFor, empHeadhuntPoolFor, empSearchCost, empRunHeadhunt,
+    employeePayrollPerDay, employeeHireCost, rosterPayrollPerDay, empHire,
+    empQualityBonus, empSpeedMult, studioTeam,
     // Config/data access for tests + future phases:
     CFG, BUDGETS, QUALITIES, PRICINGS, RECEPTIONS, STAFF, STAFF_CFG,
     COMPETE, RANK_CATS, RIVAL_CFG, LEADER_INCOME_BONUS, MANU, STRATEGIES, REGIONS, EVENTS,

@@ -52,7 +52,12 @@ const SAVE_KEY = 'tycoon_save_v1';
 // v19: per-company Signature operation — a unique always-on trait plus either a
 //      5-step ladder program or a 3-way doctrine dial, tailored to each of the
 //      48 companies. Seeded by TechCo.normalize() on load; nothing else changes.
-const SAVE_VERSION = 19;
+// v20: Recruitment/Employee system foundation (data/employees.js) — adds
+//      state.techco[id].employeeRoster (hired, named engineers) and empSearch
+//      (headhunt counters), back-filled by TechCo.normalize() on load. Every
+//      existing hire under the old eng/mkt/ops staff groups and Team-step
+//      levels is untouched; the new roster starts empty for everyone.
+const SAVE_VERSION = 20;
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -305,6 +310,12 @@ function migrate(loaded) {
   // transform here. All cash / holdings / progress untouched.
   if (loaded.version < 19) {
     loaded.version = 19;
+  }
+  // v19 -> v20: Recruitment/Employee system foundation. employeeRoster/empSearch
+  // are seeded empty by TechCo.normalize() on open — no transform here. Every
+  // existing eng/mkt/ops hire and Team-step level is untouched.
+  if (loaded.version < 20) {
+    loaded.version = 20;
   }
   return loaded;
 }
