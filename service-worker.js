@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v66'; // v66: Recruitment/Employee system foundation — named-candidate hiring wired into the Product Studio Team step
+const CACHE_NAME = 'tycoon-v67'; // v67: auto-reload when a new service worker takes control, so deploys actually reach already-open tabs/PWAs
 
 const ASSETS = [
   'index.html',

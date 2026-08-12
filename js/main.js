@@ -42,6 +42,20 @@
 
   // 6. Register the service worker (PWA / offline shell). Non-fatal if it fails.
   if ('serviceWorker' in navigator) {
+    // A new service worker (service-worker.js calls skipWaiting() + clients.claim()
+    // on its own) takes control of any already-open tab/PWA automatically — but the
+    // JS already loaded in that tab keeps running until it reloads. Without this,
+    // a returning player can sit on stale code indefinitely after a deploy. Reload
+    // once when control genuinely CHANGES (an update); do nothing on the very first
+    // install, since there's nothing to refresh from yet.
+    let hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) { hadController = true; return; }
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('service-worker.js').catch((e) => {
         console.warn('SW registration failed', e);
