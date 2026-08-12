@@ -217,8 +217,8 @@ const Invest = (() => {
     else if (a === 'fullscreen') openFullscreen();
     else if (a === 'buy') openTicket('buy');
     else if (a === 'sell') openTicket('sell');
-    else if (a === 'manage') doManage(t.dataset.action);
-    else if (a === 'managehub') { if (typeof TechCo !== 'undefined') TechCo.open(view.assetId); }
+    else if (a === 'manage') doManage(t.dataset.action, id || view.assetId);
+    else if (a === 'managehub') { if (typeof TechCo !== 'undefined') TechCo.open(id || view.assetId); }
   }
 
   function render() {
@@ -379,6 +379,8 @@ const Invest = (() => {
       <div class="seg-row">${PF_SEGS.map((s) =>
         `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="pfBody">${portfolioBodyHTML()}</div>
+      <div class="section-head pf-manage-head"><h2>Manage</h2></div>
+      <div id="pfManage">${portfolioManageHTML()}</div>
     `;
     enableMarquee();
   }
@@ -439,6 +441,69 @@ const Invest = (() => {
       if (pe) { pe.textContent = plStr(pl, pct); pe.className = `asset-change ${plCls(pl)}`; }
     });
   }
+
+  /* ------------------------- Manage-from-Portfolio ------------------------ */
+  // Every stock/coin you own 100% of, with its management actions right on
+  // the Portfolio page — no need to open the asset and scroll down to it.
+
+  function portfolioManageHTML() {
+    const owned = ASSET_DEFS.filter((d) => Market.isOwned(d.id));
+    if (!owned.length) {
+      return `
+        <div class="pf-empty">
+          <div class="pf-empty-title">Nothing to manage yet</div>
+          <div class="pf-empty-sub">Own 100% of a stock or coin to run it right here.</div>
+        </div>`;
+    }
+    return `<div class="pf-manage-list">${owned.map(pfManageCardHTML).join('')}</div>`;
+  }
+
+  function pfManageCardHTML(def) {
+    const s = Market.stats(def.id);
+    if (typeof TechCo !== 'undefined' && TechCo.isManaged(def.id)) return pfManageTechHTML(def, s);
+    return pfManageLeverHTML(def, s);
+  }
+
+  /** Owned TECH company, condensed: identity + 3 stats + straight into the dashboard. */
+  function pfManageTechHTML(def) {
+    const snap = TechCo.snapshot(def.id);
+    return `
+      <div class="card manage-card tc-entry pf-manage-card">
+        <div class="card-title">${Logos.tile(def)} <span class="pf-manage-name">${def.name}</span></div>
+        <div class="tc-entry-stats">
+          <div><span>Net profit / day</span><b class="${snap.netProfitDay >= 0 ? 'up' : 'down'}">${formatMoney(snap.netProfitDay)}</b></div>
+          <div><span>Market share</span><b>${snap.share.toFixed(1)}%</b></div>
+          <div><span>Active products</span><b>${snap.activeProducts}</b></div>
+        </div>
+        <button class="btn btn-gold btn-wide" data-act="managehub" data-id="${def.id}">Manage Company ›</button>
+      </div>`;
+  }
+
+  /** Owned coin (or any non-TechCo owned asset): the four quick levers, right here. */
+  function pfManageLeverHTML(def, s) {
+    const L = MANAGE_LABELS[def.group] || MANAGE_LABELS.stock;
+    const m = Market.mgmtState(def.id);
+    const now = Date.now();
+    const divCd = m.lastDivAt && now - m.lastDivAt < 300000;
+    const cutActive = m.boostUntil && now < m.boostUntil;
+    const btn = (action, disabled, costText) => {
+      const [icon, title, effect] = L[action];
+      return `<button class="btn manage-btn" data-act="manage" data-id="${def.id}" data-action="${action}" ${disabled ? 'disabled' : ''}>
+        ${icon} <b>${title}</b><small>${costText} · ${effect}</small></button>`;
+    };
+    return `
+      <div class="card manage-card pf-manage-card">
+        <div class="card-title">${Logos.tile(def)} <span class="pf-manage-name">${def.name}</span></div>
+        <div class="card-sub">Pays you ${formatMoney(s.marketCap * MARKET.OWNER_INCOME_RATE)} every 5 min. Make a call:</div>
+        <div class="manage-grid">
+          ${btn('growth', false, 'Costs ' + formatMoney(s.marketCap * 0.05))}
+          ${btn('dividend', divCd, divCd ? 'On cooldown' : 'Get ' + formatMoney(s.marketCap * 0.02))}
+          ${btn('cutcosts', cutActive, cutActive ? 'Boost active' : 'Free')}
+          ${btn('expand', false, 'Costs ' + formatMoney(s.marketCap * 0.10))}
+        </div>
+      </div>`;
+  }
+
 
   /** Track which rows are on screen so refresh() only patches those. */
   function observeRows() {
@@ -663,8 +728,8 @@ const Invest = (() => {
       </div>`;
   }
 
-  function doManage(action) {
-    const r = Market.manage(view.assetId, action);
+  function doManage(action, assetId) {
+    const r = Market.manage(assetId || view.assetId, action);
     UI.showToast(`${r.ok ? '👑' : '⚠️'} ${r.msg}`, { tone: r.ok ? 'good' : 'bad' });
     if (r.ok) { UI.renderBalance(); render(); }
   }

@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v64'; // v64: Product Studio "blueprint" reskin — waypoint stepper, viewfinder type grid, tier rail, Market Intel radar, Rival Watch
+const CACHE_NAME = 'tycoon-v65'; // v65: Portfolio page "Manage" section — run every 100%-owned stock/coin without opening it
 
 const ASSETS = [
   'index.html',

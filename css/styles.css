@@ -763,6 +763,14 @@ html, body {
 .pf-empty-sub { font-size: 14px; color: var(--muted); margin-bottom: 14px; }
 .pf-empty .btn-wide { max-width: 280px; }
 
+/* Portfolio page — "Manage" section: fully-owned stocks/coins, run right here. */
+.pf-manage-head { margin-top: 22px; }
+.pf-manage-list { display: flex; flex-direction: column; gap: 10px; }
+.pf-manage-card { margin-bottom: 0; }
+.pf-manage-card .card-title { display: flex; align-items: center; gap: 10px; }
+.pf-manage-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-manage-card .tc-entry-stats { margin-top: 10px; }
+
 /* Search bar */
 .search-wrap {
   position: relative; margin-bottom: 12px;
