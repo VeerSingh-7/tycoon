@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v71'; // v71: 5 new Services placeholders (Banking, Legal, Tax, Training, Shop)
+const CACHE_NAME = 'tycoon-v72'; // v72: internal cleanup pass (dead code removal) — no gameplay change
 
 const ASSETS = [
   'index.html',
