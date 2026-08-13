@@ -219,6 +219,7 @@ const Invest = (() => {
     // page's own back-link always returns to Markets.
     else if (a === 'back') { view.mode = view.mode === 'portfolio' ? 'list' : (view.returnTo === 'portfolio' ? 'portfolio' : 'list'); destroyChart(); render(); restoreScroll(view.scrollY); }
     else if (a === 'portfolio') { view.mode = 'portfolio'; destroyChart(); render(); }
+    else if (a === 'manageOwned') { view.mode = 'manageOwned'; destroyChart(); render(); setScroll(0); }
     else if (a === 'pfSeg') { view.pfSeg = id; render(); }
     else if (a === 'browse') { view.mode = 'list'; view.seg = id; destroyChart(); render(); }
     else if (a === 'seg') { view.seg = id; render(); }
@@ -242,6 +243,7 @@ const Invest = (() => {
     else if (view.mode === 'shop') renderMountedScreen(Shop);
     else if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'portfolio') renderPortfolio();
+    else if (view.mode === 'manageOwned') renderManageOwned();
     else renderList();
   }
 
@@ -364,6 +366,23 @@ const Invest = (() => {
     return Market.portfolioSummary();
   }
 
+  /** Box under the Portfolio card: the one and only door into managing owned
+   *  companies (see ownedTeaserHTML — the per-asset detail page no longer
+   *  carries the management controls, just a pointer back here). */
+  function ownedManagementCardHTML() {
+    const count = ASSET_DEFS.filter((d) => Market.isOwned(d.id)).length;
+    return `
+      <div class="card pf-card owned-mgmt-card" data-act="manageOwned" role="button" tabindex="0" aria-label="Manage your owned companies">
+        <div class="card-row">
+          <div>
+            <div class="card-title">👑 Manage Your Owned Companies</div>
+            <div class="card-sub">${count ? `${count} compan${count === 1 ? 'y' : 'ies'} you run` : 'Own 100% of a stock or coin to unlock this'}</div>
+          </div>
+          <span class="hub-arrow">›</span>
+        </div>
+      </div>`;
+  }
+
   function renderList() {
     const g = grandTotal();
     container.innerHTML = `
@@ -379,6 +398,7 @@ const Invest = (() => {
         </div>
         <button class="btn btn-wide pf-view-btn" data-act="portfolio">View Portfolio ›</button>
       </div>
+      ${ownedManagementCardHTML()}
       <div class="seg-row">${SEGS.map((s) =>
         `<button class="seg ${view.seg === s.id ? 'seg-active' : ''}" data-act="seg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="mktBody"></div>
@@ -448,6 +468,8 @@ const Invest = (() => {
   /* ---------------------------- Portfolio page --------------------------- */
   // A dedicated page: pick Stocks / Crypto and see what you own. Empty
   // categories show a "Not owned" prompt that links straight to buying.
+  // (The old inline "Manage" section here moved out to its own page — see
+  // renderManageOwned — so owned companies are only ever managed from there.)
 
   function renderPortfolio() {
     container.innerHTML = `
@@ -456,10 +478,21 @@ const Invest = (() => {
       <div class="seg-row">${PF_SEGS.map((s) =>
         `<button class="seg ${view.pfSeg === s.id ? 'seg-active' : ''}" data-act="pfSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="pfBody">${portfolioBodyHTML()}</div>
-      <div class="section-head pf-manage-head"><h2>Manage</h2></div>
-      <div id="pfManage">${portfolioManageHTML()}</div>
     `;
     enableMarquee();
+  }
+
+  /* ------------------------- Manage Owned Companies ------------------------ */
+  // The ONE place every 100%-owned stock/coin is actually run from. Reached
+  // from the box under the Portfolio card on Markets, and from the teaser on
+  // an owned asset's own detail page (ownedTeaserHTML).
+
+  function renderManageOwned() {
+    container.innerHTML = `
+      <button class="back-link" data-act="finances">‹ Markets</button>
+      <div class="section-head"><h2>Manage Your Owned Companies</h2></div>
+      <div id="ownedMgmtBody">${portfolioManageHTML()}</div>
+    `;
   }
 
   function portfolioBodyHTML() {
@@ -519,9 +552,9 @@ const Invest = (() => {
     });
   }
 
-  /* ------------------------- Manage-from-Portfolio ------------------------ */
-  // Every stock/coin you own 100% of, with its management actions right on
-  // the Portfolio page — no need to open the asset and scroll down to it.
+  /* --------------------------- Manage Owned list --------------------------- */
+  // Every stock/coin you own 100% of, with its management actions — rendered
+  // on the dedicated Manage Your Owned Companies page (renderManageOwned).
 
   function portfolioManageHTML() {
     const owned = ASSET_DEFS.filter((d) => Market.isOwned(d.id));
@@ -738,12 +771,7 @@ const Invest = (() => {
 
   function ownershipHTML(def, s) {
     const frac = Market.ownedFrac(def.id);
-    if (Market.isOwned(def.id)) {
-      // The five TECH companies get a full operations dashboard (Manage Company);
-      // every other owned asset keeps the simple four-lever manage card.
-      if (typeof TechCo !== 'undefined' && TechCo.isManaged(def.id)) return techManageHTML(def, s);
-      return manageHTML(def, s);
-    }
+    if (Market.isOwned(def.id)) return ownedTeaserHTML(def);
     const pct = frac * 100;
     const units = def.group === 'crypto' ? 'coins' : 'shares';
     // Cost to buy the rest to 100%, at the SAME price the Company value uses,
@@ -765,43 +793,14 @@ const Invest = (() => {
       </div>`;
   }
 
-  function manageHTML(def, s) {
-    const L = MANAGE_LABELS[def.group] || MANAGE_LABELS.stock;
-    const m = Market.mgmtState(def.id);
-    const now = Date.now();
-    const divCd = m.lastDivAt && now - m.lastDivAt < 300000;
-    const cutActive = m.boostUntil && now < m.boostUntil;
-    const btn = (action, disabled, costText) => {
-      const [icon, title, effect] = L[action];
-      return `<button class="btn manage-btn" data-act="manage" data-action="${action}" ${disabled ? 'disabled' : ''}>
-        ${icon} <b>${title}</b><small>${costText} · ${effect}</small></button>`;
-    };
+  /** Owned company's detail page: a pointer, not the controls — every owned
+   *  stock/coin is ONLY actually managed from the dedicated page. */
+  function ownedTeaserHTML(def) {
     return `
-      <div class="card manage-card">
+      <div class="card manage-card owned-teaser-card">
         <div class="card-title">👑 ${def.name} <span class="owned-badge">100% yours</span></div>
-        <div class="card-sub">Pays you ${formatMoney(s.marketCap * MARKET.OWNER_INCOME_RATE)} every 5 min. Make a call:</div>
-        <div class="manage-grid">
-          ${btn('growth', false, 'Costs ' + formatMoney(s.marketCap * 0.05))}
-          ${btn('dividend', divCd, divCd ? 'On cooldown' : 'Get ' + formatMoney(s.marketCap * 0.02))}
-          ${btn('cutcosts', cutActive, cutActive ? 'Boost active' : 'Free')}
-          ${btn('expand', false, 'Costs ' + formatMoney(s.marketCap * 0.10))}
-        </div>
-      </div>`;
-  }
-
-  /** Owned TECH company: a snapshot card + a button into the full dashboard. */
-  function techManageHTML(def, s) {
-    const snap = TechCo.snapshot(def.id);
-    return `
-      <div class="card manage-card tc-entry">
-        <div class="card-title">🏢 ${def.name} <span class="owned-badge">100% yours</span></div>
-        <div class="card-sub">Run it like a real company — develop products, grow market share, become #1.</div>
-        <div class="tc-entry-stats">
-          <div><span>Net profit / day</span><b class="${snap.netProfitDay >= 0 ? 'up' : 'down'}">${formatMoney(snap.netProfitDay)}</b></div>
-          <div><span>Market share</span><b>${snap.share.toFixed(1)}%</b></div>
-          <div><span>Active products</span><b>${snap.activeProducts}</b></div>
-        </div>
-        <button class="btn btn-gold btn-wide" data-act="managehub">Manage Company ›</button>
+        <div class="card-sub">Run it from Manage Your Owned Companies — every lever and dashboard lives there now.</div>
+        <button class="btn btn-gold btn-wide" data-act="manageOwned">Manage Your Owned Companies ›</button>
       </div>`;
   }
 
@@ -1060,9 +1059,11 @@ const Invest = (() => {
     if (!container) return;
 
     // Static hub / coming-soon service screens — nothing to update.
+    // (manageOwned: its cards already refresh on every action via doManage's
+    // own render() call — same as the old inline Portfolio Manage section.)
     if (view.mode === 'hub' || view.mode === 'marketing' || view.mode === 'hiring' ||
         view.mode === 'banking' || view.mode === 'legal' || view.mode === 'tax' ||
-        view.mode === 'training' || view.mode === 'shop') return;
+        view.mode === 'training' || view.mode === 'shop' || view.mode === 'manageOwned') return;
 
     // Portfolio page: patch owned rows' value + P/L in place each tick (the
     // numbers only actually change on each asset's own staggered ~15s phase).

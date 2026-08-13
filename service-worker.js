@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v74'; // v74: real estate retired from the Business tab (placeholder on Invest); dedicated per-business page
+const CACHE_NAME = 'tycoon-v75'; // v75: Manage Your Owned Companies — a dedicated page for every 100%-owned stock/coin
 
 const ASSETS = [
   'index.html',
