@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v70'; // v70: Marketing & Growth — Advanced mode, Influencer Deals, Sponsorships, Market Research
+const CACHE_NAME = 'tycoon-v71'; // v71: 5 new Services placeholders (Banking, Legal, Tax, Training, Shop)
 
 const ASSETS = [
   'index.html',
@@ -40,6 +40,11 @@ const ASSETS = [
   'js/invest.js',
   'js/hiring.js',
   'js/marketing.js',
+  'js/banking.js',
+  'js/legal.js',
+  'js/tax.js',
+  'js/training.js',
+  'js/shop.js',
   'js/assetstab.js',
   'js/ui.js',
   'js/profile.js',

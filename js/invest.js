@@ -203,6 +203,11 @@ const Invest = (() => {
     if (a === 'finances') { view.mode = 'list'; destroyChart(); render(); setScroll(0); }
     else if (a === 'marketing') { view.mode = 'marketing'; destroyChart(); render(); setScroll(0); }
     else if (a === 'hiring') { view.mode = 'hiring'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'banking') { view.mode = 'banking'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'legal') { view.mode = 'legal'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'tax') { view.mode = 'tax'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'training') { view.mode = 'training'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'shop') { view.mode = 'shop'; destroyChart(); render(); setScroll(0); }
     else if (a === 'hub') { view.mode = 'hub'; destroyChart(); render(); setScroll(0); }
     else if (a === 'open') { view.scrollY = getScroll(); view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); setScroll(0); }
     // From a detail, go back to wherever it was opened from (Portfolio or
@@ -226,6 +231,11 @@ const Invest = (() => {
     if (view.mode === 'hub') renderHub();
     else if (view.mode === 'marketing') renderMarketingScreen();
     else if (view.mode === 'hiring') renderHiringScreen();
+    else if (view.mode === 'banking') renderPlaceholderScreen(Banking);
+    else if (view.mode === 'legal') renderPlaceholderScreen(Legal);
+    else if (view.mode === 'tax') renderPlaceholderScreen(Tax);
+    else if (view.mode === 'training') renderPlaceholderScreen(Training);
+    else if (view.mode === 'shop') renderPlaceholderScreen(Shop);
     else if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'portfolio') renderPortfolio();
     else renderList();
@@ -248,6 +258,33 @@ const Invest = (() => {
     hiring: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
         <circle cx="20" cy="15" r="6" fill="rgba(255,255,255,0.20)" stroke="#fff" stroke-width="2.6"/>
         <path d="M9 31 C9 24 14 22 20 22 C26 22 31 24 31 31" fill="rgba(255,255,255,0.20)" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    banking: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <path d="M20 8 L32 16 L8 16 Z" fill="rgba(255,255,255,0.20)"/>
+        <path d="M20 8 L32 16 L8 16 Z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M10 18 L10 28 M16 18 L16 28 M24 18 L24 28 M30 18 L30 28" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M7 31 L33 31" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>`,
+    legal: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <path d="M20 9 L20 30" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M9 31 L31 31" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M8 13 L32 13" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M8 13 L4 21 A6 6 0 0 0 12 21 Z" fill="rgba(255,255,255,0.20)" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M32 13 L28 21 A6 6 0 0 0 36 21 Z" fill="rgba(255,255,255,0.20)" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
+    tax: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <path d="M11 6 L26 6 L31 11 L31 34 L11 34 Z" fill="rgba(255,255,255,0.20)"/>
+        <path d="M11 6 L26 6 L31 11 L31 34 L11 34 Z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/>
+        <circle cx="17" cy="21" r="2.2" fill="none" stroke="#fff" stroke-width="2"/>
+        <circle cx="25" cy="27" r="2.2" fill="none" stroke="#fff" stroke-width="2"/>
+        <path d="M25 17 L17 31" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
+    training: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <path d="M20 10 L36 17 L20 24 L4 17 Z" fill="rgba(255,255,255,0.20)"/>
+        <path d="M20 10 L36 17 L20 24 L4 17 Z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M12 20.5 L12 27 C12 29 16 31 20 31 C24 31 28 29 28 27 L28 20.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M36 17 L36 26" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+    shop: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <path d="M10 15 L30 15 L28 33 L12 33 Z" fill="rgba(255,255,255,0.20)"/>
+        <path d="M10 15 L30 15 L28 33 L12 33 Z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M14 15 C14 10 16 7 20 7 C24 7 26 10 26 15" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M20 20 L20 28 M16 24 L20 20 L24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   };
 
   function hubCard(act, title, sub) {
@@ -268,6 +305,11 @@ const Invest = (() => {
       ${hubCard('finances', 'Finances', 'Trade stocks &amp; crypto and grow your portfolio')}
       ${hubCard('marketing', 'Marketing &amp; Growth', 'Run campaigns to build your brand and reach')}
       ${hubCard('hiring', 'Hiring &amp; Talent', 'Recruit and manage top talent for your empire')}
+      ${hubCard('banking', 'Banking &amp; Finance', "Loans, credit lines, and interest on your companies' cash reserves")}
+      ${hubCard('legal', 'Legal &amp; Compliance', 'Contracts, lawsuits, patents, and regulatory risk across your empire')}
+      ${hubCard('tax', 'Tax &amp; Treasury', 'Manage corporate tax rates, deductions, and audits')}
+      ${hubCard('training', 'Training &amp; Development', "Train your employees — sharpen their skills and boost their performance")}
+      ${hubCard('shop', 'Shop &amp; Upgrades', 'Premium upgrades, cosmetics, and boosts for your empire')}
     `;
   }
 
@@ -286,6 +328,16 @@ const Invest = (() => {
   function renderMarketingScreen() {
     container.innerHTML = `<div id="mktgRoot"></div>`;
     if (typeof Marketing !== 'undefined') Marketing.mount(document.getElementById('mktgRoot'));
+  }
+
+  /** Services still in the works, each in its own isolated module (see
+   *  js/banking.js, js/legal.js, js/tax.js, js/training.js, js/shop.js) so
+   *  they can be built out independently later, same as Hiring & Talent and
+   *  Marketing & Growth were before them. Invest owns the back-link; the
+   *  module just mounts its "Coming Soon" content below it. */
+  function renderPlaceholderScreen(mod) {
+    container.innerHTML = `<button class="back-link" data-act="hub">‹ Services</button><div id="placeholderRoot"></div>`;
+    if (mod) mod.mount(document.getElementById('placeholderRoot'));
   }
 
   /** A tidy "coming soon" screen for the services still in the works. */
@@ -1000,7 +1052,9 @@ const Invest = (() => {
     if (!container) return;
 
     // Static hub / coming-soon service screens — nothing to update.
-    if (view.mode === 'hub' || view.mode === 'marketing' || view.mode === 'hiring') return;
+    if (view.mode === 'hub' || view.mode === 'marketing' || view.mode === 'hiring' ||
+        view.mode === 'banking' || view.mode === 'legal' || view.mode === 'tax' ||
+        view.mode === 'training' || view.mode === 'shop') return;
 
     // Portfolio page: patch owned rows' value + P/L in place each tick (the
     // numbers only actually change on each asset's own staggered ~15s phase).
