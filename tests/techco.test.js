@@ -812,14 +812,15 @@ state.balance = 1e18; // enough cash to buy out 100% for this check
 Market.buy(gateId, 1e17);
 check('gate: buying out 100% flips it to hireable', Market.isOwned(gateId) === true);
 
-/* B) Roster read/write consistency: the standalone screen's general hire
- *    (empHireGeneral) and the Product Studio Team step read/write the SAME
- *    co(id).employeeRoster — not a second copy of the data. */
+/* B) Roster read/write consistency: the standalone screen's hire (empHire —
+ *    fully generic, not restricted to the Team step's 5 roles) and the
+ *    Product Studio Team step read/write the SAME co(id).employeeRoster —
+ *    not a second copy of the data. */
 const RCO = 'wallmarket';
 const rc = TechCo.ensureCompany(RCO);
 const rosterStart = rc.employeeRoster.length;
 const genPool = TechCo.empPassivePoolFor(RCO, 'accountant'); // a Business role, never assignable in the Team step
-const genRes = TechCo.empHireGeneral(RCO, 'accountant', genPool[0]);
+const genRes = TechCo.empHire(RCO, 'accountant', genPool[0]);
 check('standalone-screen general hire succeeds', genRes.ok === true);
 check('it lands in the SAME employeeRoster the Team step reads', rc.employeeRoster.length === rosterStart + 1);
 const genId = rc.employeeRoster[rc.employeeRoster.length - 1].id;
@@ -849,11 +850,11 @@ for (const sectorCo of [ID, BANK, 'tezla']) {
   const revBefore = TechCo.revenuePerDay(sectorCo);
   const opexBefore = TechCo.opexRate(sectorCo);
 
-  TechCo.empHireGeneral(sectorCo, 'accountant', mkCand('accountant', 100));           // Business
-  TechCo.empHireGeneral(sectorCo, 'factory_manager', mkCand('factory_manager', 100)); // Operations
-  TechCo.empHireGeneral(sectorCo, 'salesperson', mkCand('salesperson', 100));         // Sales & Marketing
-  TechCo.empHireGeneral(sectorCo, 'ceo', mkCand('ceo', 100));                         // Leadership
-  TechCo.empHireGeneral(sectorCo, 'product_manager', mkCand('product_manager', 100)); // Product Development
+  TechCo.empHire(sectorCo, 'accountant', mkCand('accountant', 100));           // Business
+  TechCo.empHire(sectorCo, 'factory_manager', mkCand('factory_manager', 100)); // Operations
+  TechCo.empHire(sectorCo, 'salesperson', mkCand('salesperson', 100));         // Sales & Marketing
+  TechCo.empHire(sectorCo, 'ceo', mkCand('ceo', 100));                         // Leadership
+  TechCo.empHire(sectorCo, 'product_manager', mkCand('product_manager', 100)); // Product Development
 
   check(sectorCo + ': revenue bonus matches the chosen +10% (sales) + 4% (leadership)', approx(TechCo.hiringIncomeMult(sectorCo), 1.14));
   check(sectorCo + ': cost cut matches the chosen 10% (business) + 8% (ops) + 4% (leadership)', approx(TechCo.hiringCostCut(sectorCo), 0.22));
@@ -915,7 +916,7 @@ function mk_runCampaign(id, objective, audience, budgetFrac, staffOverall) {
   if (staffOverall) {
     const pool3 = TechCo.empPassivePoolFor(id, 'marketing_specialist');
     const cand3 = Object.assign({}, pool3[0], { overall: staffOverall });
-    TechCo.empHireGeneral(id, 'marketing_specialist', cand3);
+    TechCo.empHire(id, 'marketing_specialist', cand3);
   }
   const range3 = TechCo.mktBudgetRange(id);
   const budget3 = range3.min + (range3.max - range3.min) * budgetFrac;
@@ -1019,7 +1020,7 @@ check('sponsorship adds a passive income boost (' + mk_spMultBefore.toFixed(3) +
 const mk_rsCo = 'lindygas';
 const mk_rsCostBefore = TechCo.mktResearchCost(mk_rsCo);
 const mk_rsPool = TechCo.empPassivePoolFor(mk_rsCo, 'market_researcher');
-TechCo.empHireGeneral(mk_rsCo, 'market_researcher', mk_rsPool[0]);
+TechCo.empHire(mk_rsCo, 'market_researcher', mk_rsPool[0]);
 const mk_rsCostAfter = TechCo.mktResearchCost(mk_rsCo);
 check('Market Researcher hire halves the research cost ($' + Math.round(mk_rsCostBefore) + ' -> $' + Math.round(mk_rsCostAfter) + ')', approx(mk_rsCostAfter, mk_rsCostBefore * 0.5));
 const mk_rsRes = TechCo.mktRunResearch(mk_rsCo, 'manufacturers');

@@ -546,7 +546,6 @@ const TechCo = (() => {
     return clamp(1 - (total / filled / 99) * 0.18, 0.75, 1);
   }
 
-  /* release ---------------------------------------------------------------- */
   /** Let an employee go. Blocked while they're assigned to an in-progress
    *  build (finish or unassign first) so a live build never loses a seat out
    *  from under it. Frees their payroll immediately. */
@@ -559,11 +558,6 @@ const TechCo = (() => {
     saveGame();
     return { ok: true };
   }
-
-  /** Hire ANY candidate (all 40 roles) straight onto the roster — the general
-   *  form empHire() only ever used from the Team-step's 5 R&T roles. Same
-   *  cost/persistence; no build-seat assignment happens here. */
-  function empHireGeneral(id, roleId, candidate) { return empHire(id, roleId, candidate); }
 
   /* ============ Hiring & Talent — company-wide ambient roster effects =======
    * A company's FULL roster (any of the 40 roles, hired from the standalone
@@ -676,6 +670,9 @@ const TechCo = (() => {
     const e = findEmployee(id, empId);
     return e ? clamp(0.85 + (e.overall / 100) * 0.5, 0.85, 1.35) : 1;
   }
+  /** Reputation feeding BACK into performance — shared by campaign
+   *  effectiveness and influencer-deal odds. */
+  function mktReputationMult(id) { return clamp(0.6 + co(id).reputation / 100 * 0.8, 0.6, 1.4); }
 
   /** Full effectiveness breakdown — the ONE formula both Quick and Advanced
    *  campaigns resolve through. Each factor is an existing/parallel signal:
@@ -691,12 +688,13 @@ const TechCo = (() => {
     for (const chId in camp.channels) { chanFit += camp.channels[chId] * mktChannelSectorFit(chId, sector); chanW += camp.channels[chId]; }
     chanFit = chanW > 0 ? chanFit / chanW : 1;
     const staffMult = mktStaffMult(id, camp.empId);
-    const repMult = clamp(0.6 + co(id).reputation / 100 * 0.8, 0.6, 1.4);
+    const repMult = mktReputationMult(id);
     // Bought Market Research for this audience nudges effectiveness up a
     // little — the same researchInsights read the influencer-deal score uses.
-    const c = co(id);
-    const researchMult = (c.marketing.researchInsights && c.marketing.researchInsights[camp.audience]) ? 1.1 : 1;
-    return { audFit, msgFit, chanFit, staffMult, repMult, researchMult, total: audFit * msgFit * chanFit * staffMult * repMult * researchMult };
+    // (Named researchInsightMult, not researchMult, to avoid colliding with
+    // the pre-existing R&D researchMult(id) — same word, unrelated systems.)
+    const researchInsightMult = co(id).marketing.researchInsights[camp.audience] ? 1.1 : 1;
+    return { audFit, msgFit, chanFit, staffMult, repMult, researchInsightMult, total: audFit * msgFit * chanFit * staffMult * repMult * researchInsightMult };
   }
 
   /** Start a campaign — Quick and Advanced share this one entry point.
@@ -820,8 +818,8 @@ const TechCo = (() => {
   function mktInfluencerScore(id, audience, empId) {
     const audFit = mktAudienceFit(mktSector(id), audience);
     const staffMult = mktStaffMult(id, empId);
-    const repMult = clamp(0.6 + co(id).reputation / 100 * 0.8, 0.6, 1.4);
-    const researched = co(id).marketing.researchInsights && co(id).marketing.researchInsights[audience];
+    const repMult = mktReputationMult(id);
+    const researched = co(id).marketing.researchInsights[audience];
     return audFit * staffMult * repMult + (researched ? 0.25 : 0);
   }
   /** Score -> outcome probabilities. At the baseline score (~1, no staff, no
@@ -900,8 +898,8 @@ const TechCo = (() => {
 
   /* ============================ Market Research ================================
    * Pay a scaled cost, get a short plausible insight for one audience that
-   * nudges recommended channels/messages (via the researchMult read above and
-   * the Quick Campaign message auto-pick in marketing.js) — cached per
+   * nudges recommended channels/messages (via the researchInsightMult read
+   * above and the Quick Campaign message auto-pick in marketing.js) — cached per
    * audience in co(id).marketing.researchInsights until re-bought. A hired
    * Market Researcher (the new employees.js role) halves the cost AND
    * tightens/raises the confidence range, giving that role a real purpose.
@@ -3164,10 +3162,10 @@ const TechCo = (() => {
     employeePayrollPerDay, employeeHireCost, rosterPayrollPerDay, empHire,
     empQualityBonus, empSpeedMult, studioTeam,
     // Hiring & Talent screen — general roster CRUD + company-wide ambient bonus:
-    empRelease, empHireGeneral, empCategoryAvg, hiringIncomeMult, hiringCostCut,
+    empRelease, empCategoryAvg, hiringIncomeMult, hiringCostCut,
     hiringQualityBonus, hiringSpeedMult, empFunds,
     // Marketing & Growth — campaign engine (core loop):
-    MKT_CFG, mktSector, mktBudgetRange, mktBenchFor, mktBestBenchFor, mktStaffMult,
+    MKT_CFG, mktSector, mktBudgetRange, mktBenchFor, mktBestBenchFor, mktStaffMult, mktReputationMult,
     mktEffectiveness, mktStartCampaign, mktResolveCampaign, marketingIncomeMult, mktAdvance,
     repReceptionBonus,
     // Marketing & Growth — Influencer Deals, Sponsorships, Market Research:

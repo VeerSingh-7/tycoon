@@ -54,7 +54,7 @@ const Hiring = (() => {
   function doHire(roleId, src, idx) {
     const id = view.companyId;
     const pool = src === 'hunt' ? TechCo.empHeadhuntPoolFor(id, roleId, {}) : TechCo.empPassivePoolFor(id, roleId);
-    const r = TechCo.empHireGeneral(id, roleId, pool[idx]);
+    const r = TechCo.empHire(id, roleId, pool[idx]);
     if (!r.ok) warn(r.msg); else render();
   }
   function doHunt(roleId) {
@@ -193,7 +193,7 @@ const Hiring = (() => {
     const stats = EMP_ATTRS.filter((a) => e.attrs[a] != null)
       .map((a) => `<div><span>${EMP_ATTR_LABELS[a].split(' ')[0]}</span><b>${e.attrs[a]}</b></div>`).join('');
     return `
-      <div class="tc-emp-cand hire-roster-card">
+      <div class="tc-emp-cand">
         <div class="tc-emp-cand-top"><b>${_esc(e.name)}</b><span class="tc-emp-fit ${e.overall >= 75 ? 'good' : e.overall >= 50 ? 'alt' : 'warn'}">Overall ${e.overall}</span></div>
         <div class="tc-emp-cand-sub">${_esc(e.speciality)} · ${formatMoney(e.salaryYear)}/yr · Satisfaction ${e.satisfaction}%</div>
         <div class="tc-emp-stat-row">${stats}</div>
@@ -218,5 +218,3 @@ const Hiring = (() => {
 
   return { mount };
 })();
-
-if (typeof module !== 'undefined' && module.exports) module.exports = Hiring;

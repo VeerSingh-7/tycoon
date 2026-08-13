@@ -230,12 +230,12 @@ const Invest = (() => {
     if (!container) return;
     if (view.mode === 'hub') renderHub();
     else if (view.mode === 'marketing') renderMarketingScreen();
-    else if (view.mode === 'hiring') renderHiringScreen();
-    else if (view.mode === 'banking') renderPlaceholderScreen(Banking);
-    else if (view.mode === 'legal') renderPlaceholderScreen(Legal);
-    else if (view.mode === 'tax') renderPlaceholderScreen(Tax);
-    else if (view.mode === 'training') renderPlaceholderScreen(Training);
-    else if (view.mode === 'shop') renderPlaceholderScreen(Shop);
+    else if (view.mode === 'hiring') renderMountedScreen(Hiring);
+    else if (view.mode === 'banking') renderMountedScreen(Banking);
+    else if (view.mode === 'legal') renderMountedScreen(Legal);
+    else if (view.mode === 'tax') renderMountedScreen(Tax);
+    else if (view.mode === 'training') renderMountedScreen(Training);
+    else if (view.mode === 'shop') renderMountedScreen(Shop);
     else if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'portfolio') renderPortfolio();
     else renderList();
@@ -313,12 +313,16 @@ const Invest = (() => {
     `;
   }
 
-  /** Hiring & Talent — a real, standalone company-wide screen (js/hiring.js).
-   *  Invest only owns the back-link; Hiring mounts into #hireRoot and runs
-   *  its own click handling (data-h, not data-act) so the two never collide. */
-  function renderHiringScreen() {
-    container.innerHTML = `<button class="back-link" data-act="hub">‹ Services</button><div id="hireRoot"></div>`;
-    if (typeof Hiring !== 'undefined') Hiring.mount(document.getElementById('hireRoot'));
+  /** Every other Services entry (Hiring & Talent, and the still-in-the-works
+   *  Banking/Legal/Tax/Training/Shop placeholders) shares this one shape:
+   *  Invest owns the back-link, the module mounts its own content below it
+   *  and runs its own click handling (data-h/data-mk/etc., never data-act),
+   *  so the two never collide. Each module lives in its own isolated file
+   *  (js/hiring.js, js/banking.js, js/legal.js, js/tax.js, js/training.js,
+   *  js/shop.js) so any one can be built out independently later. */
+  function renderMountedScreen(mod) {
+    container.innerHTML = `<button class="back-link" data-act="hub">‹ Services</button><div id="mountedRoot"></div>`;
+    if (mod) mod.mount(document.getElementById('mountedRoot'));
   }
 
   /** Marketing & Growth — a real, standalone company-wide screen
@@ -328,16 +332,6 @@ const Invest = (() => {
   function renderMarketingScreen() {
     container.innerHTML = `<div id="mktgRoot"></div>`;
     if (typeof Marketing !== 'undefined') Marketing.mount(document.getElementById('mktgRoot'));
-  }
-
-  /** Services still in the works, each in its own isolated module (see
-   *  js/banking.js, js/legal.js, js/tax.js, js/training.js, js/shop.js) so
-   *  they can be built out independently later, same as Hiring & Talent and
-   *  Marketing & Growth were before them. Invest owns the back-link; the
-   *  module just mounts its "Coming Soon" content below it. */
-  function renderPlaceholderScreen(mod) {
-    container.innerHTML = `<button class="back-link" data-act="hub">‹ Services</button><div id="placeholderRoot"></div>`;
-    if (mod) mod.mount(document.getElementById('placeholderRoot'));
   }
 
   /** A tidy "coming soon" screen for the services still in the works. */

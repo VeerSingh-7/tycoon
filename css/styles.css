@@ -1757,8 +1757,8 @@ html, body {
 .mk-nav-row { display: flex; gap: 8px; margin: 10px 0 20px; }
 .mk-nav-btn { flex: 1; font-size: 11.5px; padding: 10px 6px; white-space: nowrap; }
 
-.mk-inf-expanded { padding-top: 0; }
-.mk-inf-expanded .mk-hist-row { margin: 0 -16px 12px; width: calc(100% + 32px); border-radius: 0; border-left: none; border-right: none; border-top: none; box-shadow: none; }
+.mk-expanded-card { padding-top: 0; }
+.mk-expanded-card .mk-hist-row { margin: 0 -16px 12px; width: calc(100% + 32px); border-radius: 0; border-left: none; border-right: none; border-top: none; box-shadow: none; }
 .mk-odds-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; text-align: center; }
 .mk-odds-row span { display: block; font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
 .mk-odds-row b { font-size: 15px; }

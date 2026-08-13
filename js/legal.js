@@ -20,5 +20,3 @@ const Legal = (() => {
   }
   return { mount };
 })();
-
-if (typeof module !== 'undefined' && module.exports) module.exports = Legal;

@@ -20,5 +20,3 @@ const Tax = (() => {
   }
   return { mount };
 })();
-
-if (typeof module !== 'undefined' && module.exports) module.exports = Tax;

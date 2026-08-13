@@ -20,5 +20,3 @@ const Training = (() => {
   }
   return { mount };
 })();
-
-if (typeof module !== 'undefined' && module.exports) module.exports = Training;

@@ -449,7 +449,7 @@ const Marketing = (() => {
     const probs = TechCo.mktInfluencerProbs(score);
     const afford = TechCo.empFunds(id) >= cost;
     return `
-      <div class="card mk-inf-expanded">
+      <div class="card mk-expanded-card">
         ${head}
         <div class="mk-field-label">Target Audience</div>
         <div class="chip-row">${audiences.map((aid) =>
@@ -529,7 +529,7 @@ const Marketing = (() => {
     const cost = TechCo.mktSponsorshipCost(id, view.spTier);
     const afford = TechCo.empFunds(id) >= cost;
     return `
-      <div class="card mk-inf-expanded">
+      <div class="card mk-expanded-card">
         ${head}
         <div class="mk-field-label">Tier</div>
         <div class="chip-row">${SPONSORSHIP_TIER_IDS.map((tid) =>
@@ -597,5 +597,3 @@ const Marketing = (() => {
 
   return { mount };
 })();
-
-if (typeof module !== 'undefined' && module.exports) module.exports = Marketing;
