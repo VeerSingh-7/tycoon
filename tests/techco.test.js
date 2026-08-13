@@ -1041,7 +1041,7 @@ const mk_migPayrollBefore = TechCo.rosterPayrollPerDay(mk_migId); // reads the L
 
 const mk_migSave = JSON.parse(JSON.stringify({ version: 21, balance: 77000, portfolio: {}, techco: { [mk_migId]: mk_migLiveBefore } }));
 const mk_migOut = migrate(mk_migSave);
-check('v21 -> v22: version bumped to 22', mk_migOut.version === 22);
+check('v21 -> v22: version bumped to latest (23, cascades past the v22 step tested here)', mk_migOut.version === SAVE_VERSION);
 check('v21 -> v22: balance untouched by the migration', mk_migOut.balance === 77000);
 check('v21 -> v22: migrate() itself does not touch techco content (no marketing field added yet)', mk_migOut.techco[mk_migId].marketing === undefined);
 

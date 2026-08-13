@@ -29,6 +29,19 @@
     saveGame();
   }
 
+  // 3c. One-time notice: the Business tab overhaul (state.js v23) bought out
+  //     any owned businesses from the old lineup at full value.
+  if (state.businessBuyoutNotice && state.businessBuyoutNotice.count > 0) {
+    const n = state.businessBuyoutNotice;
+    UI.showToast(
+      `🏢 <b>${n.count} business${n.count === 1 ? '' : 'es'} bought out</b><br>` +
+      `Your old lineup was retired — full value refunded (+${formatMoney(n.cash)}). Check out the new businesses!`,
+      { ms: 9000 }
+    );
+    delete state.businessBuyoutNotice;
+    saveGame();
+  }
+
   // 4. Economy tick — 10x/sec, uses real elapsed time so it's frame-independent.
   setInterval(tick, 100);
 

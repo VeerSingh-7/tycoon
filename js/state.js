@@ -72,7 +72,85 @@ const SAVE_KEY = 'tycoon_save_v1';
 //      writing to it. Two new employee roles (Market Researcher, Marketing
 //      Assistant) join the existing Sales & Marketing taxonomy. Everything
 //      else — cash, products, existing income/quality formulas — untouched.
-const SAVE_VERSION = 22;
+// v23: Business tab overhaul — the original 11 businesses (Retail Store, Taxi
+//      Company, Restaurant, Clothing Business, Transportation, Construction,
+//      Bank, Oil & Gas, IT Company, Sports Club, Airline) are replaced by 14
+//      new ones. Players who owned any of the 11 are FULLY bought out (not
+//      the 25% voluntary-sell rate — this is a forced removal, not a player
+//      choice): every dollar ever spent on levels, staff hires and purchased
+//      upgrades is refunded, plus any cash parked in a business-specific
+//      mechanic (Bank's vault, Construction's in-flight materials, Airline's
+//      paid-for routes). See REMOVED_BIZ_V23 below for the exact formulas.
+//      Their save records are then deleted — no orphaned fields. Players with
+//      none of the 11 see zero disruption; the new 14 default in normally.
+const SAVE_VERSION = 23;
+
+// Buyout data for v22 -> v23 migration (see below). Copied from the removed
+// businesses' definitions so the refund math matches exactly what players
+// actually paid; the live BUSINESS_DEFS no longer carries these entries.
+const REMOVED_BIZ_V23 = {
+  retail:       { baseCost: 4900 },
+  taxi:         { baseCost: 10000 },
+  restaurant:   { baseCost: 20000 },
+  clothing:     { baseCost: 25000 },
+  transport:    { baseCost: 35000 },
+  construction: { baseCost: 40000,       hasMaterials: true },
+  bank:         { baseCost: 200000,      hasVault: true },
+  oil:          { baseCost: 1000000 },
+  it:           { baseCost: 5000000 },
+  sports:       { baseCost: 50000000 },
+  airline:      { baseCost: 1000000000, routeCostX: 0.4, routeCostGrowth: 2 },
+};
+const REMOVED_BIZ_COST_MULT = 1.15; // costMultiplier every removed business used
+const REMOVED_UPGRADE_COST = {
+  retail_signage: 245000,     retail_loyalty: 5880000,     retail_chain: 122500000,
+  taxi_dispatch: 500000,      taxi_app: 12000000,          taxi_ev: 250000000,
+  rest_menu: 1000000,         rest_star: 24000000,         rest_franchise: 500000000,
+  cloth_design: 1250000,      cloth_brand: 30000000,       cloth_global: 625000000,
+  trans_hub: 1750000,         trans_rail: 42000000,        trans_ships: 875000000,
+  constr_crane: 2000000,      constr_pre: 48000000,        constr_mega: 1000000000,
+  bank_branch: 10000000,      bank_invest: 240000000,      bank_global: 5000000000,
+  oil_rigs: 50000000,         oil_refine: 1200000000,      oil_cartel: 25000000000,
+  it_cloud: 250000000,        it_ai: 6000000000,           it_uni: 125000000000,
+  sport_academy: 2500000000,  sport_stadium: 60000000000,  sport_league: 1250000000000,
+  air_biz: 50000000000,       air_hub: 1200000000000,      air_flag: 25000000000000,
+};
+
+/** Full buyout refund for one removed business's saved record (v23 migration). */
+function removedBizRefund(id, biz) {
+  const cfg = REMOVED_BIZ_V23[id];
+  if (!cfg || !biz) return 0;
+  let refund = 0;
+
+  const L = biz.level || 0;
+  if (L > 0) {
+    refund += cfg.baseCost * (Math.pow(REMOVED_BIZ_COST_MULT, L) - 1) / (REMOVED_BIZ_COST_MULT - 1);
+  }
+
+  const staff = biz.staff || 0;
+  if (staff > 0) {
+    // Mirrors engine.js hireCost(): baseCost * STAFF_HIRE_COST_X * STAFF_HIRE_GROWTH^n
+    const X = 0.35, G = 1.35;
+    refund += cfg.baseCost * X * (Math.pow(G, staff) - 1) / (G - 1);
+  }
+
+  if (biz.upgrades) {
+    for (const upId of Object.keys(biz.upgrades)) {
+      if (biz.upgrades[upId] && REMOVED_UPGRADE_COST[upId] != null) refund += REMOVED_UPGRADE_COST[upId];
+    }
+  }
+
+  if (biz.mech) {
+    if (cfg.hasVault && biz.mech.vault) refund += biz.mech.vault;
+    if (cfg.hasMaterials && biz.mech.job && biz.mech.job.materials) refund += biz.mech.job.materials;
+    if (cfg.routeCostX && biz.mech.routes) {
+      const n = biz.mech.routes;
+      refund += cfg.baseCost * cfg.routeCostX * (Math.pow(cfg.routeCostGrowth, n) - 1) / (cfg.routeCostGrowth - 1);
+    }
+  }
+
+  return refund;
+}
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -342,6 +420,29 @@ function migrate(loaded) {
   // pre-existing field, so nothing to migrate for it either.
   if (loaded.version < 22) {
     loaded.version = 22;
+  }
+  // v22 -> v23: Business tab overhaul. Fully buy out any of the 11 removed
+  // businesses the player owns (see removedBizRefund above), credit the cash,
+  // then delete their save records so nothing orphaned lingers. Players with
+  // none of the 11 are untouched; the new 14 default in via getBiz() as usual.
+  if (loaded.version < 23) {
+    if (loaded.businesses) {
+      let totalRefund = 0, refundedCount = 0;
+      for (const id of Object.keys(REMOVED_BIZ_V23)) {
+        const biz = loaded.businesses[id];
+        if (biz && biz.level > 0) {
+          const refund = removedBizRefund(id, biz);
+          totalRefund += refund;
+          refundedCount++;
+        }
+        delete loaded.businesses[id];
+      }
+      if (totalRefund > 0) {
+        loaded.balance = (loaded.balance || 0) + totalRefund;
+        loaded.businessBuyoutNotice = { count: refundedCount, cash: totalRefund };
+      }
+    }
+    loaded.version = 23;
   }
   return loaded;
 }

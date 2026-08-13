@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v72'; // v72: internal cleanup pass (dead code removal) — no gameplay change
+const CACHE_NAME = 'tycoon-v73'; // v73: Business tab overhaul — 11 old businesses replaced by 14 new ones
 
 const ASSETS = [
   'index.html',

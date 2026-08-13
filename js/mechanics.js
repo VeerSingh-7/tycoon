@@ -1,16 +1,20 @@
 /* =========================================================================
- * mechanics.js — Distinct per-business mini-mechanics (Phase 2)
+ * mechanics.js — Distinct per-business mini-mechanics
  * -------------------------------------------------------------------------
  * Each mechanic is a handler keyed by `def.mechanic.type`:
  *   mult(def, s)            -> income multiplier applied by the engine
- *   tick(def, s, dt)        -> per-tick housekeeping (e.g. vault interest)
- *   offline(def, s, secs)   -> apply offline time (e.g. compound interest)
+ *   tick(def, s, dt)        -> per-tick housekeeping
+ *   offline(def, s, secs)   -> apply offline time
  *   panel(def, s)           -> HTML for the card's mechanic panel
  *   action(def, s, act, arg)-> handle a button press; return true if changed
  *
  * Mechanic state is stored per-business in state.businesses[id].mech, so it
  * saves/loads with everything else. Timers use wall-clock (Date.now()) so
- * projects/builds progress while the app is closed.
+ * projects/missions progress while the app is closed.
+ *
+ * A handful of GENERIC handler types cover all 14 businesses, each shaped by
+ * its own def.mechanic config (tiers, project lists, node economics) rather
+ * than one bespoke implementation per business.
  * ========================================================================= */
 
 const Mechanics = (() => {
@@ -21,131 +25,163 @@ const Mechanics = (() => {
     return getBiz(id).mech;
   }
 
-  /* ---------------- Shared market simulations (deterministic) ----------- */
-
-  /**
-   * Oil price factor ~0.35..1.8, a smooth deterministic cycle of wall time.
-   * Deterministic = consistent across reloads, no state to save.
-   */
-  function oilPrice(offsetSec = 0) {
-    const t = WALL() / 1000 - offsetSec;
-    const p = 1.1 + 0.45 * Math.sin(t / 149) + 0.25 * Math.sin(t / 47 + 2);
-    return Math.max(0.35, p);
+  /** Small deterministic per-business phase offset (not shared/exported —
+   * each business with a volatility flavor gets its own independent wobble). */
+  function idPhase(id) {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997;
+    return h;
   }
 
-  // Fashion trends rotate on a fixed wall-clock schedule.
-  const TREND_STYLES = ['🧢 Streetwear', '👔 Formal', '🕰️ Vintage', '🏃 Athletic'];
+  /* --------------------------- Shared helpers ---------------------------- */
 
-  function trendIndex(def) {
-    const period = def.mechanic.periodMin * 60 * 1000;
-    return Math.floor(WALL() / period) % TREND_STYLES.length;
-  }
-
-  function trendSecsLeft(def) {
-    const period = def.mechanic.periodMin * 60 * 1000;
-    return (period - (WALL() % period)) / 1000;
+  /** Clamp a success chance into a sane playable band. */
+  function clampChance(c, lo, hi) {
+    return Math.max(lo, Math.min(hi, c));
   }
 
   /* --------------------------- Handlers --------------------------------- */
 
   const HANDLERS = {
 
-    /* BANK — deposit cash: vault earns interest AND boosts bank income. */
-    interest: {
-      ratePerSec(def) {
-        return Math.pow(1 + def.mechanic.ratePerHour, 1 / 3600) - 1;
+    /* TIER PICK — choose among unlock-gated tiers (chips), each strictly
+     * better than the last. Optional per-tier `volatile` flag adds a small
+     * self-contained wobble (own sine cycle, not shared across businesses). */
+    tierPick: {
+      fuelIndex(def) {
+        const t = WALL() / 1000;
+        const phase = idPhase(def.id);
+        return 1 + 0.15 * Math.sin(t / 130 + phase);
+      },
+      activeTier(def, s) {
+        const tiers = def.mechanic.tiers;
+        return tiers[Math.min(s.tier || 0, tiers.length - 1)];
       },
       mult(def, s) {
-        return 1 + Math.min(1, (s.vault || 0) / (def.baseCost * def.mechanic.vaultTargetX));
-      },
-      tick(def, s, dt) {
-        if (s.vault) s.vault *= Math.pow(1 + this.ratePerSec(def), dt);
-      },
-      offline(def, s, secs) {
-        if (s.vault) s.vault *= Math.pow(1 + this.ratePerSec(def), secs);
-      },
-      panel(def, s) {
-        const vault = s.vault || 0;
-        const boost = this.mult(def, s);
-        return `
-          <div class="mech-head">🏦 Vault: <b class="gold">${formatMoney(vault)}</b>
-            <span class="muted">· ${Math.round(def.mechanic.ratePerHour * 100)}%/hr interest</span></div>
-          <div class="mech-note">Deposits boost bank income (now ×${boost.toFixed(2)}, max ×2)</div>
-          <div class="chip-row">
-            <button class="btn btn-sm" data-biz="${def.id}" data-mech-action="deposit" data-arg="0.25">Deposit 25%</button>
-            <button class="btn btn-sm" data-biz="${def.id}" data-mech-action="deposit" data-arg="0.5">Deposit 50%</button>
-            <button class="btn btn-sm" data-biz="${def.id}" data-mech-action="withdraw" ${vault > 0 ? '' : 'disabled'}>Withdraw all</button>
-          </div>`;
-      },
-      action(def, s, act, arg) {
-        if (act === 'deposit') {
-          const amt = state.balance * parseFloat(arg);
-          if (amt <= 0) return false;
-          state.balance -= amt;
-          s.vault = (s.vault || 0) + amt;
-          return true;
-        }
-        if (act === 'withdraw' && s.vault > 0) {
-          state.balance += s.vault;
-          s.vault = 0;
-          return true;
-        }
-        return false;
-      },
-    },
-
-    /* TRANSPORT — pick a route; fuel cost moves against the oil price. */
-    routes: {
-      fuelFactor() {
-        return Math.min(1.25, Math.max(0.8, 1.45 - 0.35 * oilPrice()));
-      },
-      mult(def, s) {
-        const route = def.mechanic.routes[s.route || 0];
-        return route.mult * this.fuelFactor();
+        const tier = this.activeTier(def, s);
+        return tier.volatile ? tier.mult * this.fuelIndex(def) : tier.mult;
       },
       panel(def, s) {
         const biz = getBiz(def.id);
-        const active = s.route || 0;
-        const fuel = this.fuelFactor();
-        const chips = def.mechanic.routes.map((r, i) => {
-          const locked = biz.level < r.requiresLevel;
-          if (locked) return `<span class="chip chip-locked">🔒 ${r.name} (Lv ${r.requiresLevel})</span>`;
+        const active = s.tier || 0;
+        const cfg = def.mechanic;
+        const chips = cfg.tiers.map((t, i) => {
+          const locked = biz.level < t.requiresLevel;
+          if (locked) return `<span class="chip chip-locked">🔒 ${t.name} (Lv ${t.requiresLevel})</span>`;
           return `<button class="chip ${i === active ? 'chip-active' : ''}"
-            data-biz="${def.id}" data-mech-action="route" data-arg="${i}">${r.name} ×${r.mult}</button>`;
+            data-biz="${def.id}" data-mech-action="tier" data-arg="${i}">${t.name} ×${t.mult}</button>`;
         }).join('');
+        const tier = this.activeTier(def, s);
+        const wobbleNote = tier.volatile
+          ? ` <span class="muted">· volatile: ×${this.fuelIndex(def).toFixed(2)} fuel index right now</span>` : '';
         return `
-          <div class="mech-head">🗺️ Route: <b>${def.mechanic.routes[active].name}</b>
-            <span class="muted">· fuel index ×${fuel.toFixed(2)}</span></div>
-          <div class="mech-note">Fuel gets cheap when oil is cheap — watch the market.</div>
+          <div class="mech-head">${cfg.icon} ${cfg.label}: <b>${tier.name}</b>${wobbleNote}</div>
+          <div class="mech-note">Higher tiers unlock as the business grows.</div>
           <div class="chip-row">${chips}</div>`;
       },
       action(def, s, act, arg) {
-        if (act !== 'route') return false;
+        if (act !== 'tier') return false;
         const i = parseInt(arg, 10);
-        const route = def.mechanic.routes[i];
-        if (!route || getBiz(def.id).level < route.requiresLevel) return false;
-        s.route = i;
+        const tier = def.mechanic.tiers[i];
+        if (!tier || getBiz(def.id).level < tier.requiresLevel) return false;
+        s.tier = i;
         return true;
       },
     },
 
-    /* OIL & GAS — income rides the live commodity price. */
-    commodity: {
-      mult() {
-        return oilPrice();
+    /* EXPANSION — pay escalating cost to add a permanent income node
+     * (seller/route/gate/distribution centre/mine...). Safe, guaranteed. */
+    expansion: {
+      maxNodes(def) {
+        return 1 + Math.floor(getBiz(def.id).level / def.mechanic.perLevels);
       },
-      panel() {
-        const p = oilPrice();
-        const prev = oilPrice(30); // 30s ago, to show direction
-        const arrow = p >= prev ? '<span class="up">▲ rising</span>' : '<span class="down">▼ falling</span>';
+      nodeCost(def, s) {
+        const cfg = def.mechanic;
+        return def.baseCost * cfg.costX * Math.pow(cfg.costGrowth, s.nodes || 0);
+      },
+      mult(def, s) {
+        return 1 + def.mechanic.bonusPerNode * (s.nodes || 0);
+      },
+      panel(def, s) {
+        const cfg = def.mechanic;
+        const nodes = s.nodes || 0;
+        const max = this.maxNodes(def);
+        const cost = this.nodeCost(def, s);
+        const canOpen = nodes < max && state.balance >= cost;
         return `
-          <div class="mech-head">🛢️ Oil price: <b class="gold">×${p.toFixed(2)}</b> ${arrow}</div>
-          <div class="mech-note">Income multiplies by the market price. Ride the highs.</div>`;
+          <div class="mech-head">${cfg.icon} ${cfg.noun}s: <b class="gold">${nodes}/${max}</b>
+            <span class="muted">· income ×${this.mult(def, s).toFixed(2)}</span></div>
+          <div class="mech-note">Each ${cfg.noun.toLowerCase()} adds +${Math.round(cfg.bonusPerNode * 100)}% income forever. More slots as you level up.</div>
+          <div class="chip-row"><button class="btn btn-sm ${canOpen ? 'btn-gold' : ''}"
+            data-biz="${def.id}" data-mech-action="open" ${canOpen ? '' : 'disabled'}>
+            ${nodes >= max ? 'Level up for more slots' : `Open ${cfg.noun} · ${formatMoney(cost)}`}</button></div>`;
+      },
+      action(def, s, act) {
+        if (act !== 'open') return false;
+        if ((s.nodes || 0) >= this.maxNodes(def)) return false;
+        const cost = this.nodeCost(def, s);
+        if (state.balance < cost) return false;
+        state.balance -= cost;
+        s.nodes = (s.nodes || 0) + 1;
+        return true;
       },
     },
 
-    /* IT COMPANY — run one software project at a time for a lump payout. */
-    projects: {
+    /* RISKY EXPANSION — pay to explore for a permanent node; the cost is
+     * spent either way, but success (chance grows with level/staff) is what
+     * actually adds the node. A gamble version of `expansion`. */
+    riskyExpansion: {
+      maxNodes(def) {
+        return 1 + Math.floor(getBiz(def.id).level / def.mechanic.perLevels);
+      },
+      exploreCost(def, s) {
+        const cfg = def.mechanic;
+        return def.baseCost * cfg.exploreCostX * Math.pow(cfg.exploreCostGrowth, s.nodes || 0);
+      },
+      chance(def) {
+        const cfg = def.mechanic;
+        const biz = getBiz(def.id);
+        return clampChance(cfg.baseChance + biz.level * cfg.chancePerLevel + biz.staff * cfg.chancePerStaff, 0.1, cfg.maxChance);
+      },
+      mult(def, s) {
+        return 1 + def.mechanic.bonusPerNode * (s.nodes || 0);
+      },
+      panel(def, s) {
+        const cfg = def.mechanic;
+        const nodes = s.nodes || 0;
+        const max = this.maxNodes(def);
+        const cost = this.exploreCost(def, s);
+        const chance = this.chance(def);
+        const canExplore = nodes < max && state.balance >= cost;
+        return `
+          <div class="mech-head">${cfg.icon} ${cfg.noun}s: <b class="gold">${nodes}/${max}</b>
+            <span class="muted">· income ×${this.mult(def, s).toFixed(2)}</span></div>
+          <div class="mech-note">${s.lastResult || `Explore for a new ${cfg.noun.toLowerCase()}: ${Math.round(chance * 100)}% chance to strike — costs ${formatMoney(cost)} either way.`}</div>
+          <div class="chip-row"><button class="btn btn-sm ${canExplore ? 'btn-gold' : ''}"
+            data-biz="${def.id}" data-mech-action="explore" ${canExplore ? '' : 'disabled'}>
+            ${nodes >= max ? 'Level up for more slots' : `Explore · ${formatMoney(cost)} (${Math.round(chance * 100)}%)`}</button></div>`;
+      },
+      action(def, s, act) {
+        if (act !== 'explore') return false;
+        if ((s.nodes || 0) >= this.maxNodes(def)) return false;
+        const cost = this.exploreCost(def, s);
+        if (state.balance < cost) return false;
+        state.balance -= cost;
+        const cfg = def.mechanic;
+        if (Math.random() < this.chance(def)) {
+          s.nodes = (s.nodes || 0) + 1;
+          s.lastResult = `⛏️ Strike! New ${cfg.noun.toLowerCase()} online (+${Math.round(cfg.bonusPerNode * 100)}% income).`;
+        } else {
+          s.lastResult = `❌ Dry hole. Nothing found this time — level up and hire staff to improve the odds.`;
+        }
+        return true;
+      },
+    },
+
+    /* PROJECT RUN — pick one project at a time (chip), run a wall-clock
+     * timer, collect a guaranteed lump payout. Optional per-project level
+     * gate alongside the existing staff gate. */
+    projectRun: {
       mult() { return 1; },
       panel(def, s) {
         const biz = getBiz(def.id);
@@ -154,30 +190,33 @@ const Mechanics = (() => {
           if (done) {
             const payout = businessIncomePerSec(def) * s.proj.mins * 60 * s.proj.payoutMult;
             return `
-              <div class="mech-head">💻 ${s.proj.name} — <b class="up">shipped!</b></div>
+              <div class="mech-head">${def.icon} ${s.proj.name} — <b class="up">complete!</b></div>
               <div class="chip-row"><button class="btn btn-sm btn-gold" data-biz="${def.id}"
                 data-mech-action="collect">Collect ${formatMoney(payout)}</button></div>`;
           }
           const left = (s.proj.start + s.proj.mins * 60000 - WALL()) / 1000;
           return `
-            <div class="mech-head">💻 Building: <b>${s.proj.name}</b></div>
-            <div class="mech-note">Ships in ${formatDuration(left)}</div>`;
+            <div class="mech-head">${def.icon} In progress: <b>${s.proj.name}</b></div>
+            <div class="mech-note">Ready in ${formatDuration(left)}</div>`;
         }
         const chips = def.mechanic.projects.map((p) => {
           const short = biz.staff < p.staffNeeded;
+          const locked = biz.level < (p.requiresLevel || 0);
           const payout = businessIncomePerSec(def) * p.mins * 60 * p.payoutMult;
+          if (locked) return `<span class="chip chip-locked">🔒 ${p.name} (Lv ${p.requiresLevel})</span>`;
           return `<button class="chip" data-biz="${def.id}" data-mech-action="start" data-arg="${p.id}"
             ${short ? 'disabled' : ''}>${p.name} · ${p.mins}m · ${formatMoney(payout)}${short ? ` · needs ${p.staffNeeded} staff` : ''}</button>`;
         }).join('');
         return `
-          <div class="mech-head">💻 Software projects</div>
-          <div class="mech-note">Bigger projects need more staff and pay more per minute.</div>
+          <div class="mech-head">${def.icon} ${def.mechanic.label || 'Projects'}</div>
+          <div class="mech-note">Bigger projects need more staff and level, but pay more.</div>
           <div class="chip-row">${chips}</div>`;
       },
       action(def, s, act, arg) {
         if (act === 'start' && !s.proj) {
           const p = def.mechanic.projects.find((x) => x.id === arg);
-          if (!p || getBiz(def.id).staff < p.staffNeeded) return false;
+          const biz = getBiz(def.id);
+          if (!p || biz.staff < p.staffNeeded || biz.level < (p.requiresLevel || 0)) return false;
           s.proj = { name: p.name, mins: p.mins, payoutMult: p.payoutMult, start: WALL() };
           return true;
         }
@@ -191,160 +230,126 @@ const Mechanics = (() => {
       },
     },
 
-    /* CONSTRUCTION — buy materials, wait out the build, deliver for profit. */
-    construction: {
+    /* RISK PROJECT — like projectRun, but success isn't guaranteed: a roll
+     * at completion (chance grows with level/staff) decides full payout vs
+     * a partial consolation. Used for Space missions and Pharma trials. */
+    riskProject: {
       mult() { return 1; },
-      materialsCost(def) {
-        return Math.max(500, businessIncomePerSec(def) * def.mechanic.materialsSecs);
+      chance(def, p) {
+        const biz = getBiz(def.id);
+        return clampChance(p.baseChance + biz.level * 0.003 + biz.staff * 0.02, 0.15, 0.95);
       },
       panel(def, s) {
-        const cfg = def.mechanic;
-        if (s.job) {
-          const end = s.job.start + cfg.buildMin * 60000;
-          if (WALL() >= end) {
+        const biz = getBiz(def.id);
+        if (s.proj) {
+          const done = WALL() >= s.proj.start + s.proj.mins * 60000;
+          if (done) {
+            const payout = businessIncomePerSec(def) * s.proj.mins * 60 * s.proj.payoutMult;
+            const failPayout = payout * def.mechanic.failPayoutFrac;
             return `
-              <div class="mech-head">🏗️ Project <b class="up">complete!</b></div>
+              <div class="mech-head">${def.icon} ${s.proj.name} — <b class="up">outcome ready</b>
+                <span class="muted">· ${Math.round(s.proj.chance * 100)}% success chance</span></div>
+              <div class="mech-note">Success pays ${formatMoney(payout)} in full; a failed attempt still recovers ${formatMoney(failPayout)}.</div>
               <div class="chip-row"><button class="btn btn-sm btn-gold" data-biz="${def.id}"
-                data-mech-action="deliver">Deliver ${formatMoney(s.job.materials * cfg.payoutMult)}</button></div>`;
+                data-mech-action="collect">Resolve mission</button></div>`;
           }
+          const left = (s.proj.start + s.proj.mins * 60000 - WALL()) / 1000;
           return `
-            <div class="mech-head">🏗️ Building…</div>
-            <div class="mech-note">Delivers ${formatMoney(s.job.materials * cfg.payoutMult)} in ${formatDuration((end - WALL()) / 1000)}</div>`;
+            <div class="mech-head">${def.icon} Underway: <b>${s.proj.name}</b>
+              <span class="muted">· ${Math.round(s.proj.chance * 100)}% success chance</span></div>
+            <div class="mech-note">${s.lastResult || 'Result in'} ${formatDuration(left)}</div>`;
         }
-        const cost = this.materialsCost(def);
+        const chips = def.mechanic.projects.map((p) => {
+          const short = biz.staff < p.staffNeeded;
+          const locked = biz.level < (p.requiresLevel || 0);
+          const payout = businessIncomePerSec(def) * p.mins * 60 * p.payoutMult;
+          const chance = this.chance(def, p);
+          if (locked) return `<span class="chip chip-locked">🔒 ${p.name} (Lv ${p.requiresLevel})</span>`;
+          return `<button class="chip" data-biz="${def.id}" data-mech-action="start" data-arg="${p.id}"
+            ${short ? 'disabled' : ''}>${p.name} · ${p.mins}m · ${formatMoney(payout)} · ${Math.round(chance * 100)}%${short ? ` · needs ${p.staffNeeded} staff` : ''}</button>`;
+        }).join('');
         return `
-          <div class="mech-head">🏗️ Construction project</div>
-          <div class="mech-note">Buy materials, build ${cfg.buildMin} min, deliver for ×${cfg.payoutMult}.</div>
-          <div class="chip-row"><button class="btn btn-sm ${state.balance >= cost ? 'btn-gold' : ''}"
-            data-biz="${def.id}" data-mech-action="build" ${state.balance >= cost ? '' : 'disabled'}>
-            Materials ${formatMoney(cost)} → ${formatMoney(cost * cfg.payoutMult)}</button></div>`;
+          <div class="mech-head">${def.icon} ${def.mechanic.label || 'Missions'}</div>
+          <div class="mech-note">Bigger missions pay more but succeed less often — level up and staff up to improve the odds.</div>
+          <div class="chip-row">${chips}</div>`;
       },
-      action(def, s, act) {
-        const cfg = def.mechanic;
-        if (act === 'build' && !s.job) {
-          const cost = this.materialsCost(def);
-          if (state.balance < cost) return false;
-          state.balance -= cost;
-          s.job = { start: WALL(), materials: cost };
+      action(def, s, act, arg) {
+        if (act === 'start' && !s.proj) {
+          const p = def.mechanic.projects.find((x) => x.id === arg);
+          const biz = getBiz(def.id);
+          if (!p || biz.staff < p.staffNeeded || biz.level < (p.requiresLevel || 0)) return false;
+          s.proj = { name: p.name, mins: p.mins, payoutMult: p.payoutMult, start: WALL(), chance: this.chance(def, p) };
+          s.lastResult = null;
           return true;
         }
-        if (act === 'deliver' && s.job && WALL() >= s.job.start + cfg.buildMin * 60000) {
-          const payout = s.job.materials * cfg.payoutMult;
-          addEarnings(payout);
-          s.job = null;
+        if (act === 'collect' && s.proj && WALL() >= s.proj.start + s.proj.mins * 60000) {
+          const payout = businessIncomePerSec(def) * s.proj.mins * 60 * s.proj.payoutMult;
+          if (Math.random() < s.proj.chance) {
+            addEarnings(payout);
+            s.missionSuccesses = (s.missionSuccesses || 0) + 1;
+            s.lastResult = `✅ Success! +${formatMoney(payout)}.`;
+          } else {
+            const consolation = payout * def.mechanic.failPayoutFrac;
+            addEarnings(consolation);
+            s.lastResult = `⚠️ Setback — partial recovery +${formatMoney(consolation)}.`;
+          }
+          s.proj = null;
           return true;
         }
         return false;
       },
     },
 
-    /* CLOTHING — match the rotating fashion trend for x2, miss for x0.75. */
-    trends: {
+    /* HOSPITALITY — Hotels & Resorts: pick a room tier (guaranteed, like
+     * tierPick) PLUS host an event on cooldown for a guaranteed lump sum
+     * (like the old sports championship, without the win/loss roll). */
+    hospitality: {
+      activeTier(def, s) {
+        const tiers = def.mechanic.roomTiers;
+        return tiers[Math.min(s.tier || 0, tiers.length - 1)];
+      },
       mult(def, s) {
-        return (s.line || 0) === trendIndex(def) ? def.mechanic.matchMult : def.mechanic.missMult;
+        return this.activeTier(def, s).mult;
       },
       panel(def, s) {
-        const now = trendIndex(def);
-        const line = s.line || 0;
-        const match = line === now;
-        const chips = TREND_STYLES.map((name, i) =>
-          `<button class="chip ${i === line ? 'chip-active' : ''}"
-            data-biz="${def.id}" data-mech-action="line" data-arg="${i}">${name}</button>`).join('');
+        const biz = getBiz(def.id);
+        const cfg = def.mechanic;
+        const active = s.tier || 0;
+        const chips = cfg.roomTiers.map((t, i) => {
+          const locked = biz.level < t.requiresLevel;
+          if (locked) return `<span class="chip chip-locked">🔒 ${t.name} (Lv ${t.requiresLevel})</span>`;
+          return `<button class="chip ${i === active ? 'chip-active' : ''}"
+            data-biz="${def.id}" data-mech-action="tier" data-arg="${i}">${t.name} ×${t.mult}</button>`;
+        }).join('');
+        const cdLeft = ((s.lastEvent || 0) + cfg.eventCooldownSec * 1000 - WALL()) / 1000;
+        const ready = cdLeft <= 0;
+        const payout = businessIncomePerSec(def) * cfg.eventPayoutSecs;
         return `
-          <div class="mech-head">✨ Trend now: <b>${TREND_STYLES[now]}</b>
-            <span class="muted">· changes in ${formatDuration(trendSecsLeft(def))}</span></div>
-          <div class="mech-note">Your line: ${TREND_STYLES[line]} —
-            ${match ? '<span class="up">on trend ×' + def.mechanic.matchMult + '</span>'
-                    : '<span class="down">off trend ×' + def.mechanic.missMult + '</span>'}</div>
-          <div class="chip-row">${chips}</div>`;
+          <div class="mech-head">🏨 Rooms: <b>${this.activeTier(def, s).name}</b></div>
+          <div class="chip-row">${chips}</div>
+          <div class="mech-note">${s.lastResult || 'Host a wedding or conference for a one-off payout.'}</div>
+          <div class="chip-row"><button class="btn btn-sm ${ready ? 'btn-gold' : ''}"
+            data-biz="${def.id}" data-mech-action="event" ${ready ? '' : 'disabled'}>
+            ${ready ? `Host Event · ${formatMoney(payout)}` : 'Next booking in ' + formatDuration(cdLeft)}</button></div>`;
       },
       action(def, s, act, arg) {
-        if (act !== 'line') return false;
-        s.line = parseInt(arg, 10) % TREND_STYLES.length;
-        return true;
-      },
-    },
-
-    /* SPORTS CLUB — play matches, win fans, land championship sponsorships. */
-    sports: {
-      mult(def, s) {
-        const cfg = def.mechanic;
-        return Math.min(cfg.maxFanMult, 1 + (s.fans || 0) / cfg.fansDivisor);
-      },
-      winChance(def) {
-        const biz = getBiz(def.id);
-        return Math.min(0.75, 0.45 + biz.level * 0.004 + biz.staff * 0.01);
-      },
-      panel(def, s) {
-        const cfg = def.mechanic;
-        const cdLeft = ((s.lastMatch || 0) + cfg.cooldownSec * 1000 - WALL()) / 1000;
-        const ready = cdLeft <= 0;
-        const untilChamp = cfg.winsPerChampionship - ((s.wins || 0) % cfg.winsPerChampionship);
-        return `
-          <div class="mech-head">🏟️ Fans: <b class="gold">${formatNumber(s.fans || 0)}</b>
-            <span class="muted">· income ×${this.mult(def, s).toFixed(2)} · ${s.wins || 0}W</span></div>
-          <div class="mech-note">${s.lastResult || 'Win matches to grow the fanbase.'}
-            Championship in ${untilChamp} more win${untilChamp === 1 ? '' : 's'} → sponsorship payout.</div>
-          <div class="chip-row"><button class="btn btn-sm ${ready ? 'btn-gold' : ''}"
-            data-biz="${def.id}" data-mech-action="play" ${ready ? '' : 'disabled'}>
-            ${ready ? `Play Match (${Math.round(this.winChance(def) * 100)}% win)` : 'Next match in ' + formatDuration(cdLeft)}</button></div>`;
-      },
-      action(def, s, act) {
-        const cfg = def.mechanic;
-        if (act !== 'play') return false;
-        if (WALL() < (s.lastMatch || 0) + cfg.cooldownSec * 1000) return false;
-        s.lastMatch = WALL();
-        const biz = getBiz(def.id);
-        if (Math.random() < this.winChance(def)) {
-          s.wins = (s.wins || 0) + 1;
-          const gained = cfg.fansPerWin + biz.level;
-          s.fans = (s.fans || 0) + gained;
-          s.lastResult = `🏆 WIN! +${formatNumber(gained)} fans.`;
-          if (s.wins % cfg.winsPerChampionship === 0) {
-            const lump = businessIncomePerSec(def) * cfg.sponsorSecs;
-            addEarnings(lump);
-            s.lastResult = `🏆 CHAMPIONSHIP! Sponsorship deal: +${formatMoney(lump)}.`;
-          }
-        } else {
-          s.lastResult = '❌ Lost. Level up and hire staff to raise your win chance.';
+        if (act === 'tier') {
+          const i = parseInt(arg, 10);
+          const tier = def.mechanic.roomTiers[i];
+          if (!tier || getBiz(def.id).level < tier.requiresLevel) return false;
+          s.tier = i;
+          return true;
         }
-        return true;
-      },
-    },
-
-    /* AIRLINE — open escalatingly-priced routes; each adds permanent income. */
-    airline: {
-      maxRoutes(def) {
-        return 1 + Math.floor(getBiz(def.id).level / 10);
-      },
-      routeCost(def, s) {
-        const cfg = def.mechanic;
-        return def.baseCost * cfg.routeCostX * Math.pow(cfg.routeCostGrowth, s.routes || 0);
-      },
-      mult(def, s) {
-        return 1 + def.mechanic.routeBonus * (s.routes || 0);
-      },
-      panel(def, s) {
-        const routes = s.routes || 0;
-        const max = this.maxRoutes(def);
-        const cost = this.routeCost(def, s);
-        const canOpen = routes < max && state.balance >= cost;
-        return `
-          <div class="mech-head">✈️ Routes: <b class="gold">${routes}/${max}</b>
-            <span class="muted">· income ×${this.mult(def, s).toFixed(2)}</span></div>
-          <div class="mech-note">Each route adds +${Math.round(def.mechanic.routeBonus * 100)}% income forever. More slots every 10 levels.</div>
-          <div class="chip-row"><button class="btn btn-sm ${canOpen ? 'btn-gold' : ''}"
-            data-biz="${def.id}" data-mech-action="open" ${canOpen ? '' : 'disabled'}>
-            ${routes >= max ? 'Level up for more slots' : 'Open Route ' + formatMoney(cost)}</button></div>`;
-      },
-      action(def, s, act) {
-        if (act !== 'open') return false;
-        if ((s.routes || 0) >= this.maxRoutes(def)) return false;
-        const cost = this.routeCost(def, s);
-        if (state.balance < cost) return false;
-        state.balance -= cost;
-        s.routes = (s.routes || 0) + 1;
-        return true;
+        if (act === 'event') {
+          const cfg = def.mechanic;
+          if (WALL() < (s.lastEvent || 0) + cfg.eventCooldownSec * 1000) return false;
+          const payout = businessIncomePerSec(def) * cfg.eventPayoutSecs;
+          addEarnings(payout);
+          s.lastEvent = WALL();
+          s.lastResult = `🎉 Event hosted! +${formatMoney(payout)}.`;
+          return true;
+        }
+        return false;
       },
     },
   };
@@ -391,7 +396,5 @@ const Mechanics = (() => {
     return h && h.action ? !!h.action(def, mState(def.id), act, arg) : false;
   }
 
-  // oilPrice is exported so the Market (Phase 4 Crude Oil asset) can share
-  // the exact same price cycle the Oil & Gas / Transport businesses use.
-  return { incomeMultiplier, tick, applyOffline, panelHTML, action, oilPrice };
+  return { incomeMultiplier, tick, applyOffline, panelHTML, action };
 })();

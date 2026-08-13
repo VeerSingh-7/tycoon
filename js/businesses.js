@@ -258,18 +258,20 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /** Employees row: hire, salaries, capacity. */
+  /** Employees row: hire, salaries, capacity. Next-hire role is flavor text
+   * cycling through the business's staffRoles list (still one staff counter). */
   function staffHTML(def, biz) {
     const cap = maxStaff(def);
     const cost = hireCost(def);
     const salaries = businessSalariesPerSec(def);
     const canHire = biz.staff < cap && state.balance >= cost;
     const boostPct = Math.round((staffBoost(def) - 1) * 100);
+    const nextRole = def.staffRoles ? def.staffRoles[biz.staff % def.staffRoles.length] : null;
     return `
       <div class="staff-row">
         <div class="upgrade-info">
           <span class="upgrade-name">👥 Staff ${biz.staff}/${cap} <span class="up">+${boostPct}%</span></span>
-          <span class="upgrade-desc">Salaries ${formatRate(salaries)} · +1 slot per 5 levels</span>
+          <span class="upgrade-desc">Salaries ${formatRate(salaries)}${nextRole && biz.staff < cap ? ` · Next hire: ${nextRole}` : ''}</span>
         </div>
         ${biz.staff >= cap
           ? '<span class="pill pill-locked">Level up</span>'

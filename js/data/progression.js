@@ -57,7 +57,7 @@ const ACHIEVEMENT_DEFS = [
   { id: 'first_business', icon: '🏁', name: 'Open For Business', desc: 'Own your first business',      rep: 2,  reward: { cash: 500 },    check: () => usedSlots() >= 1 },
   { id: 'portfolio_5',    icon: '🗂️', name: 'Diversified',        desc: 'Run 5 businesses at once',     rep: 5,  reward: { mult: 1.05 },   check: () => usedSlots() >= 5 },
   { id: 'empire_8',       icon: '🏙️', name: 'Conglomerate',       desc: 'Run 8 businesses at once',     rep: 8,  reward: { mult: 1.05 },   check: () => usedSlots() >= 8 },
-  { id: 'all_11',         icon: '🌐', name: 'Monopoly Man',       desc: 'Run all 11 businesses',        rep: 15, reward: { mult: 1.10 },   check: () => usedSlots() >= 11 },
+  { id: 'all_11',         icon: '🌐', name: 'Monopoly Man',       desc: 'Fill all 11 business slots',   rep: 15, reward: { mult: 1.10 },   check: () => usedSlots() >= MAX_SLOTS_CAP },
 
   // Wealth milestones
   { id: 'earn_100k', icon: '💵', name: 'Six Figures',      desc: 'Earn $100K lifetime',          rep: 2,  reward: { cash: 5000 },   check: () => state.totalEarned >= 1e5 },
@@ -80,7 +80,7 @@ const ACHIEVEMENT_DEFS = [
   // Business depth
   { id: 'biz_50',   icon: '🏗️', name: 'Institution',  desc: 'Any business at level 50',     rep: 5,  reward: { cash: 100000 }, check: () => BUSINESS_DEFS.some((d) => getBiz(d.id).level >= 50) },
   { id: 'biz_100',  icon: '🏛️', name: 'Century Club', desc: 'Any business at level 100',    rep: 10, reward: { mult: 1.05 },   check: () => BUSINESS_DEFS.some((d) => getBiz(d.id).level >= 100) },
-  { id: 'champion', icon: '🏆', name: 'Champions',    desc: 'Win a sports championship',    rep: 6,  reward: { mult: 1.05 },   check: () => (getBiz('sports').mech.wins || 0) >= 5 },
+  { id: 'mission_success_5', icon: '🚀', name: 'Mission Control', desc: 'Resolve 5 successful Space Company missions', rep: 6, reward: { mult: 1.05 }, check: () => (getBiz('space').mech.missionSuccesses || 0) >= 5 },
 
   // Legacy
   { id: 'first_legacy', icon: '♻️', name: 'New Game+',      desc: 'Complete your first Legacy reset', rep: 10, reward: { mult: 1.10 }, check: () => state.prestiges >= 1 },

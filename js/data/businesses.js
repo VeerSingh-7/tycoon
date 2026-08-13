@@ -1,5 +1,5 @@
 /* =========================================================================
- * data/businesses.js — DATA-DRIVEN business definitions (all 11 businesses)
+ * data/businesses.js — DATA-DRIVEN business definitions
  * -------------------------------------------------------------------------
  * Adding a business = adding one object here. The engine, UI and mechanics
  * layer all read this generically.
@@ -13,214 +13,353 @@
  *   - unlockLevel:       PLAYER level required before this business can be started
  *
  * `mechanic.type` selects a handler in js/mechanics.js. Config lives here so
- * tuning never touches code.
+ * tuning never touches code. `staffRoles` is flavor only — the hire button
+ * cycles through it to show which role the next hire fills (the Business tab
+ * still uses one simple staff counter per business, not a named roster).
+ *
+ * All 14 businesses of the overhaul are here: Space, Hotels, Energy,
+ * Automotive, E-Commerce, Mining, Railway, Media & Entertainment, Game
+ * Studio, Pharmaceutical, Supermarket, Entertainment Venue, Airport,
+ * Logistics & Warehousing.
  * ========================================================================= */
 
 const BUSINESS_DEFS = [
-  /* ------------------------- STARTER TIER ------------------------- */
   {
-    id: 'retail',
-    name: 'Retail Store',
+    id: 'supermarket',
+    name: 'Supermarket Chain',
     icon: '🛍️',
-    blurb: 'Corner shop cashflow. Restock, sell, repeat.',
+    blurb: 'Stores, suppliers, and private labels — grocery at scale.',
     unlockLevel: 1,
     baseCost: 4900,
     costMultiplier: 1.15,
     baseIncome: 8,
-    mechanic: null, // starter businesses are pure passive (mechanics from tier 2 up)
+    // Negotiate supplier deals: better terms unlock as the chain grows.
+    mechanic: {
+      type: 'tierPick',
+      icon: '🛍️',
+      label: 'Supplier Deals',
+      tiers: [
+        { name: 'Local Suppliers',        mult: 1.0, requiresLevel: 1 },
+        { name: 'Regional Contracts',     mult: 1.4, requiresLevel: 15 },
+        { name: 'National Buying Power',  mult: 2.0, requiresLevel: 40 },
+      ],
+    },
+    staffRoles: ['Cashier', 'Stock Worker', 'Store Manager', 'Buyer', 'Warehouse Worker', 'Delivery Driver', 'Regional Manager'],
     upgrades: [
-      { id: 'retail_signage', name: 'Neon Signage',    desc: 'Foot traffic ×2 income',  requiresLevel: 10, cost: 245000,     multiplier: 2 },
-      { id: 'retail_loyalty', name: 'Loyalty Program', desc: 'Repeat buyers ×3 income', requiresLevel: 40, cost: 5880000,    multiplier: 3 },
-      { id: 'retail_chain',   name: 'Franchise Chain', desc: 'Go national ×5 income',   requiresLevel: 75, cost: 122500000,  multiplier: 5 },
+      { id: 'super_selfcheck', name: 'Self-Checkout', desc: 'Serve more shoppers ×2 income', requiresLevel: 10, cost: 245000,     multiplier: 2 },
+      { id: 'super_label',     name: 'Private Label',  desc: 'Higher margins ×3 income',    requiresLevel: 40, cost: 5880000,    multiplier: 3 },
+      { id: 'super_chain',     name: 'National Chain',  desc: 'Stores everywhere ×5 income', requiresLevel: 75, cost: 122500000,  multiplier: 5 },
     ],
   },
   {
-    id: 'taxi',
-    name: 'Taxi Company',
-    icon: '🚕',
-    blurb: 'A growing fleet. More cars, more fares.',
-    unlockLevel: 2,
-    baseCost: 10000,
-    costMultiplier: 1.15,
-    baseIncome: 14,
-    mechanic: null,
-    upgrades: [
-      { id: 'taxi_dispatch', name: 'Smart Dispatch', desc: 'Cut idle time ×2 income',   requiresLevel: 10, cost: 500000,     multiplier: 2 },
-      { id: 'taxi_app',      name: 'Ride-Hail App',  desc: 'Book anywhere ×3 income',   requiresLevel: 40, cost: 12000000,   multiplier: 3 },
-      { id: 'taxi_ev',       name: 'EV Fleet',       desc: 'Slash fuel costs ×5 income', requiresLevel: 75, cost: 250000000, multiplier: 5 },
-    ],
-  },
-  {
-    id: 'restaurant',
-    name: 'Restaurant',
-    icon: '🍽️',
-    blurb: 'Tables, covers, and a rising star rating.',
+    id: 'entvenue',
+    name: 'Entertainment Venue Company',
+    icon: '🎡',
+    blurb: 'Cinemas, bowling, arcades and theme parks — a night out.',
     unlockLevel: 3,
     baseCost: 20000,
     costMultiplier: 1.15,
     baseIncome: 24,
-    mechanic: null,
-    upgrades: [
-      { id: 'rest_menu',      name: 'Signature Menu',   desc: 'Higher margins ×2 income', requiresLevel: 10, cost: 1000000,   multiplier: 2 },
-      { id: 'rest_star',      name: 'Celebrity Chef',   desc: 'Michelin buzz ×3 income',  requiresLevel: 40, cost: 24000000,  multiplier: 3 },
-      { id: 'rest_franchise', name: 'Restaurant Group', desc: 'Multiple venues ×5 income', requiresLevel: 75, cost: 500000000, multiplier: 5 },
-    ],
-  },
-
-  /* ------------------------- MID TIER (Phase 2) ------------------------- */
-  {
-    id: 'clothing',
-    name: 'Clothing Business',
-    icon: '👗',
-    blurb: 'Fashion lines that live or die by the trend.',
-    unlockLevel: 4,
-    baseCost: 25000,
-    costMultiplier: 1.15,
-    baseIncome: 28,
-    // Fashion trends rotate; match the current trend for x2, miss for x0.75.
-    mechanic: { type: 'trends', matchMult: 2, missMult: 0.75, periodMin: 3 },
-    upgrades: [
-      { id: 'cloth_design', name: 'In-House Designers', desc: 'Own the runway ×2 income', requiresLevel: 10, cost: 1250000,   multiplier: 2 },
-      { id: 'cloth_brand',  name: 'Luxury Label',       desc: 'Brand premium ×3 income',  requiresLevel: 40, cost: 30000000,  multiplier: 3 },
-      { id: 'cloth_global', name: 'Global Fashion House', desc: 'Every capital ×5 income', requiresLevel: 75, cost: 625000000, multiplier: 5 },
-    ],
-  },
-  {
-    id: 'transport',
-    name: 'Transportation Co.',
-    icon: '🚚',
-    blurb: 'Freight routes. Fuel prices bite into margins.',
-    unlockLevel: 5,
-    baseCost: 35000,
-    costMultiplier: 1.15,
-    baseIncome: 35,
-    // Pick a route (longer = better multiplier, gated by business level);
-    // fuel factor moves inversely to the oil price.
     mechanic: {
-      type: 'routes',
-      routes: [
-        { name: 'Local',            mult: 1.0, requiresLevel: 1 },
-        { name: 'Regional',         mult: 1.4, requiresLevel: 15 },
-        { name: 'Intercontinental', mult: 2.0, requiresLevel: 40 },
+      type: 'tierPick',
+      icon: '🎡',
+      label: 'Venue Type',
+      tiers: [
+        { name: 'Arcade',            mult: 1.0, requiresLevel: 1 },
+        { name: 'Bowling & Cinema',  mult: 1.4, requiresLevel: 15 },
+        { name: 'Theme Park',        mult: 2.0, requiresLevel: 40 },
       ],
     },
+    staffRoles: ['Venue Manager', 'Event Manager', 'Technician', 'Security Worker', 'Ticket Staff', 'Maintenance Worker', 'Marketing Manager'],
     upgrades: [
-      { id: 'trans_hub',   name: 'Logistics Hub',   desc: 'Central depot ×2 income',   requiresLevel: 10, cost: 1750000,   multiplier: 2 },
-      { id: 'trans_rail',  name: 'Rail Contracts',  desc: 'Bulk freight ×3 income',    requiresLevel: 40, cost: 42000000,  multiplier: 3 },
-      { id: 'trans_ships', name: 'Container Ships', desc: 'Own the seas ×5 income',    requiresLevel: 75, cost: 875000000, multiplier: 5 },
+      { id: 'venue_vip',   name: 'VIP Lounges',    desc: 'Premium tickets ×2 income', requiresLevel: 10, cost: 1000000,   multiplier: 2 },
+      { id: 'venue_events', name: 'Live Events',    desc: 'Concerts & shows ×3 income', requiresLevel: 40, cost: 24000000,  multiplier: 3 },
+      { id: 'venue_chain', name: 'Venue Chain',     desc: 'Every city ×5 income',      requiresLevel: 75, cost: 500000000, multiplier: 5 },
     ],
   },
   {
-    id: 'construction',
-    name: 'Construction Co.',
-    icon: '🏗️',
-    blurb: 'Buy materials, build, deliver for a lump sum.',
-    unlockLevel: 6,
-    baseCost: 40000,
-    costMultiplier: 1.15,
-    baseIncome: 38,
-    // Buy materials -> build timer -> deliver for materials x payoutMult.
-    mechanic: { type: 'construction', buildMin: 8, materialsSecs: 150, payoutMult: 2.5 },
-    upgrades: [
-      { id: 'constr_crane', name: 'Tower Cranes',     desc: 'Bigger jobs ×2 income',    requiresLevel: 10, cost: 2000000,    multiplier: 2 },
-      { id: 'constr_pre',   name: 'Prefab Factory',   desc: 'Faster builds ×3 income',  requiresLevel: 40, cost: 48000000,   multiplier: 3 },
-      { id: 'constr_mega',  name: 'Megaprojects',     desc: 'Skylines ×5 income',       requiresLevel: 75, cost: 1000000000, multiplier: 5 },
-    ],
-  },
-  {
-    id: 'bank',
-    name: 'Bank',
-    icon: '🏦',
-    blurb: 'Deposits earn interest and grow your bank.',
-    unlockLevel: 7,
-    baseCost: 200000,
-    costMultiplier: 1.15,
-    baseIncome: 130,
-    // Deposit cash into the vault: it earns interest AND boosts bank income
-    // (up to x2 when the vault reaches vaultTargetX x baseCost).
-    mechanic: { type: 'interest', ratePerHour: 0.10, vaultTargetX: 20 },
-    upgrades: [
-      { id: 'bank_branch', name: 'Branch Network',   desc: 'High street ×2 income',   requiresLevel: 10, cost: 10000000,   multiplier: 2 },
-      { id: 'bank_invest', name: 'Investment Arm',   desc: 'Big clients ×3 income',   requiresLevel: 40, cost: 240000000,  multiplier: 3 },
-      { id: 'bank_global', name: 'Global Bank',      desc: 'World finance ×5 income', requiresLevel: 75, cost: 5000000000, multiplier: 5 },
-    ],
-  },
-  {
-    id: 'oil',
-    name: 'Oil & Gas',
-    icon: '🛢️',
-    blurb: 'Pumping crude. Income rides the oil price.',
+    id: 'logistics',
+    name: 'Logistics & Warehousing',
+    icon: '📦',
+    blurb: 'Warehouses, distribution centres, and fulfilment for others.',
     unlockLevel: 8,
-    baseCost: 1000000,
+    baseCost: 900000,
     costMultiplier: 1.15,
-    baseIncome: 500,
-    // Income multiplier == live oil price factor (deterministic market cycle).
-    mechanic: { type: 'commodity' },
+    baseIncome: 400,
+    // Open distribution centres: each one adds permanent income.
+    mechanic: { type: 'expansion', icon: '📦', noun: 'Distribution Center', bonusPerNode: 0.09, costX: 0.35, costGrowth: 1.55, perLevels: 9 },
+    staffRoles: ['Warehouse Worker', 'Logistics Manager', 'Supply Chain Manager', 'Forklift Operator', 'Inventory Analyst', 'Operations Manager', 'Delivery Coordinator'],
     upgrades: [
-      { id: 'oil_rigs',    name: 'Offshore Rigs',  desc: 'Deep water ×2 income',   requiresLevel: 10, cost: 50000000,    multiplier: 2 },
-      { id: 'oil_refine',  name: 'Refineries',     desc: 'Refined margin ×3 income', requiresLevel: 40, cost: 1200000000, multiplier: 3 },
-      { id: 'oil_cartel',  name: 'Energy Empire',  desc: 'Price maker ×5 income',  requiresLevel: 75, cost: 25000000000, multiplier: 5 },
+      { id: 'logi_auto',   name: 'Automated Sorting', desc: 'Robotic warehouses ×2 income', requiresLevel: 10, cost: 45000000,    multiplier: 2 },
+      { id: 'logi_fleet',  name: 'Owned Fleet',       desc: 'Cut carrier fees ×3 income',   requiresLevel: 40, cost: 1080000000,  multiplier: 3 },
+      { id: 'logi_global', name: 'Global Network',    desc: 'International reach ×5 income', requiresLevel: 75, cost: 22500000000, multiplier: 5 },
     ],
   },
   {
-    id: 'it',
-    name: 'IT Company',
-    icon: '💻',
-    blurb: 'Ship software projects for lump-sum payouts.',
-    unlockLevel: 9,
-    baseCost: 5000000,
+    id: 'pharma',
+    name: 'Pharmaceutical Company',
+    icon: '💊',
+    blurb: 'Research, test, and manufacture treatments. Trials can fail.',
+    unlockLevel: 12,
+    baseCost: 320000000,
     costMultiplier: 1.15,
-    baseIncome: 1900,
-    // Run one project at a time; bigger projects need more staff (devs/QA)
-    // and pay income/sec x duration x payout multiplier on delivery.
+    baseIncome: 95000,
+    // Run one R&D pipeline at a time; bigger treatments pay more but pass
+    // trials less often — a failed trial still recovers partial R&D value.
     mechanic: {
-      type: 'projects',
+      type: 'riskProject',
+      label: 'R&D Pipeline',
+      failPayoutFrac: 0.40,
       projects: [
-        { id: 'sprint',   name: 'App Sprint',   mins: 3,  payoutMult: 1.0, staffNeeded: 0 },
-        { id: 'product',  name: 'SaaS Product', mins: 15, payoutMult: 1.3, staffNeeded: 3 },
-        { id: 'platform', name: 'Platform',     mins: 60, payoutMult: 1.8, staffNeeded: 6 },
+        { id: 'generic',      name: 'Generic Drug',        mins: 6,  payoutMult: 1.1, staffNeeded: 0, requiresLevel: 1,  baseChance: 0.65 },
+        { id: 'branded',      name: 'Branded Treatment',   mins: 25, payoutMult: 1.6, staffNeeded: 3, requiresLevel: 15, baseChance: 0.50 },
+        { id: 'breakthrough', name: 'Breakthrough Therapy', mins: 90, payoutMult: 2.4, staffNeeded: 6, requiresLevel: 40, baseChance: 0.35 },
       ],
     },
+    staffRoles: ['Pharmacologist', 'Chemist', 'Biologist', 'Research Scientist', 'Laboratory Technician', 'Manufacturing Manager', 'Regulatory Specialist'],
     upgrades: [
-      { id: 'it_cloud', name: 'Cloud Division', desc: 'Recurring revenue ×2 income', requiresLevel: 10, cost: 250000000,    multiplier: 2 },
-      { id: 'it_ai',    name: 'AI Lab',         desc: 'Frontier tech ×3 income',     requiresLevel: 40, cost: 6000000000,   multiplier: 3 },
-      { id: 'it_uni',   name: 'Tech Unicorn',   desc: 'IPO glory ×5 income',         requiresLevel: 75, cost: 125000000000, multiplier: 5 },
+      { id: 'pharma_lab',    name: 'Research Wing',    desc: 'Faster trials ×2 income',    requiresLevel: 10, cost: 16000000000,   multiplier: 2 },
+      { id: 'pharma_patent', name: 'Patent Portfolio', desc: 'Protected margins ×3 income', requiresLevel: 40, cost: 384000000000,  multiplier: 3 },
+      { id: 'pharma_global', name: 'Global Distribution', desc: 'Every pharmacy ×5 income', requiresLevel: 75, cost: 8000000000000, multiplier: 5 },
     ],
   },
   {
-    id: 'sports',
-    name: 'Sports Club',
-    icon: '🏟️',
-    blurb: 'Win matches, grow the fanbase, sign sponsors.',
-    unlockLevel: 10,
-    baseCost: 50000000,
-    costMultiplier: 1.15,
-    baseIncome: 14000,
-    // Play matches (cooldown): wins add fans (income multiplier); every 5th
-    // win is a championship that pays a sponsorship lump sum.
-    mechanic: { type: 'sports', cooldownSec: 90, fansPerWin: 10, fansDivisor: 150, maxFanMult: 4, sponsorSecs: 120, winsPerChampionship: 5 },
-    upgrades: [
-      { id: 'sport_academy', name: 'Youth Academy',   desc: 'Homegrown stars ×2 income', requiresLevel: 10, cost: 2500000000,    multiplier: 2 },
-      { id: 'sport_stadium', name: 'Super Stadium',   desc: 'Sold out ×3 income',        requiresLevel: 40, cost: 60000000000,   multiplier: 3 },
-      { id: 'sport_league',  name: 'Own the League',  desc: 'Media rights ×5 income',    requiresLevel: 75, cost: 1250000000000, multiplier: 5 },
-    ],
-  },
-  {
-    id: 'airline',
-    name: 'Airline',
+    id: 'airport',
+    name: 'Airport Company',
     icon: '✈️',
-    blurb: 'Open global routes. The ultimate status business.',
-    unlockLevel: 11,
-    baseCost: 1000000000,
+    blurb: 'Runways, terminals, and gates leased out to airlines.',
+    unlockLevel: 13,
+    baseCost: 1300000000,
     costMultiplier: 1.15,
-    baseIncome: 200000,
-    // Open routes for escalating costs; each adds +15% income permanently.
-    // Route slots grow with business level.
-    mechanic: { type: 'airline', routeBonus: 0.15, routeCostX: 0.4, routeCostGrowth: 2 },
+    baseIncome: 320000,
+    // Open gates: each one adds permanent income (lease revenue).
+    mechanic: { type: 'expansion', icon: '✈️', noun: 'Gate', bonusPerNode: 0.12, costX: 0.3, costGrowth: 1.7, perLevels: 10 },
+    staffRoles: ['Airport Manager', 'Air Traffic Controller', 'Security Officer', 'Engineer', 'Ground Crew', 'Customer Service Worker', 'Operations Manager'],
     upgrades: [
-      { id: 'air_biz',    name: 'Business Class',   desc: 'Premium cabins ×2 income', requiresLevel: 10, cost: 50000000000,    multiplier: 2 },
-      { id: 'air_hub',    name: 'Alliance Hub',     desc: 'Code sharing ×3 income',   requiresLevel: 40, cost: 1200000000000,  multiplier: 3 },
-      { id: 'air_flag',   name: 'Flag Carrier',     desc: 'National icon ×5 income',  requiresLevel: 75, cost: 25000000000000, multiplier: 5 },
+      { id: 'air_terminal', name: 'New Terminal',    desc: 'More passengers ×2 income', requiresLevel: 10, cost: 65000000000,    multiplier: 2 },
+      { id: 'air_cargo',    name: 'Cargo Hub',       desc: 'Freight revenue ×3 income', requiresLevel: 40, cost: 1560000000000,  multiplier: 3 },
+      { id: 'air_hub_intl', name: 'International Hub', desc: 'Global connections ×5 income', requiresLevel: 75, cost: 32500000000000, multiplier: 5 },
+    ],
+  },
+  {
+    id: 'ecommerce',
+    name: 'E-Commerce Company',
+    icon: '🛒',
+    blurb: 'Run an online marketplace — sellers, warehouses, delivery.',
+    unlockLevel: 2,
+    baseCost: 10000,
+    costMultiplier: 1.15,
+    baseIncome: 14,
+    // Recruit sellers onto the platform: each one adds permanent income.
+    mechanic: { type: 'expansion', icon: '🛍️', noun: 'Seller', bonusPerNode: 0.08, costX: 0.4, costGrowth: 1.5, perLevels: 8 },
+    staffRoles: ['Software Engineer', 'Warehouse Worker', 'Logistics Manager', 'Customer Support', 'Product Manager', 'Marketing Manager', 'Data Analyst'],
+    upgrades: [
+      { id: 'ecom_app',    name: 'Mobile App',        desc: 'Shop anywhere ×2 income',   requiresLevel: 10, cost: 500000,     multiplier: 2 },
+      { id: 'ecom_prime',  name: 'Fast Delivery Tier', desc: 'Subscriptions ×3 income',  requiresLevel: 40, cost: 12000000,   multiplier: 3 },
+      { id: 'ecom_global', name: 'Global Marketplace', desc: 'Every country ×5 income',  requiresLevel: 75, cost: 250000000,  multiplier: 5 },
+    ],
+  },
+  {
+    id: 'mining',
+    name: 'Mining Company',
+    icon: '⛏️',
+    blurb: 'Explore for deposits, then dig. Not every site strikes gold.',
+    unlockLevel: 4,
+    baseCost: 30000,
+    costMultiplier: 1.15,
+    baseIncome: 32,
+    // Explore for a new mine site — costs money either way, but a successful
+    // strike (odds improve with level/staff) adds permanent income.
+    mechanic: { type: 'riskyExpansion', icon: '⛏️', noun: 'Mine', bonusPerNode: 0.10, exploreCostX: 0.3, exploreCostGrowth: 1.4, perLevels: 8, baseChance: 0.5, chancePerLevel: 0.004, chancePerStaff: 0.02, maxChance: 0.85 },
+    staffRoles: ['Geologist', 'Mining Engineer', 'Machine Operator', 'Safety Officer', 'Surveyor', 'Site Manager', 'Environmental Specialist'],
+    upgrades: [
+      { id: 'mine_equip',  name: 'Heavy Equipment', desc: 'Dig deeper ×2 income',      requiresLevel: 10, cost: 1500000,    multiplier: 2 },
+      { id: 'mine_refine', name: 'Refining Plant',  desc: 'Process on-site ×3 income', requiresLevel: 40, cost: 36000000,   multiplier: 3 },
+      { id: 'mine_global', name: 'Global Operations', desc: 'Mines on every continent ×5 income', requiresLevel: 75, cost: 750000000, multiplier: 5 },
+    ],
+  },
+  {
+    id: 'railway',
+    name: 'Railway Company',
+    icon: '🚆',
+    blurb: 'Passenger and freight routes, station by station.',
+    unlockLevel: 7,
+    baseCost: 300000,
+    costMultiplier: 1.15,
+    baseIncome: 160,
+    // Build a route between stations: each one adds permanent income.
+    mechanic: { type: 'expansion', icon: '🚆', noun: 'Route', bonusPerNode: 0.10, costX: 0.35, costGrowth: 1.6, perLevels: 10 },
+    staffRoles: ['Train Driver', 'Conductor', 'Engineer', 'Station Manager', 'Track Worker', 'Maintenance Technician', 'Operations Manager'],
+    upgrades: [
+      { id: 'rail_electric', name: 'Electrification', desc: 'Faster trains ×2 income', requiresLevel: 10, cost: 15000000,   multiplier: 2 },
+      { id: 'rail_highspeed', name: 'High-Speed Line', desc: 'Premium tickets ×3 income', requiresLevel: 40, cost: 360000000, multiplier: 3 },
+      { id: 'rail_national', name: 'National Network', desc: 'Every major city ×5 income', requiresLevel: 75, cost: 7500000000, multiplier: 5 },
+    ],
+  },
+  {
+    id: 'media',
+    name: 'Media & Entertainment',
+    icon: '🎬',
+    blurb: 'Greenlight films, shows and music. Reviews decide the payout.',
+    unlockLevel: 10,
+    baseCost: 16000000,
+    costMultiplier: 1.15,
+    baseIncome: 6200,
+    // Produce one title at a time; bigger productions need more staff and
+    // level, and pay income/sec x duration x payout multiplier on release.
+    mechanic: {
+      type: 'projectRun',
+      label: 'Productions',
+      projects: [
+        { id: 'indie',       name: 'Indie Film',    mins: 5,  payoutMult: 1.0,  staffNeeded: 0, requiresLevel: 1 },
+        { id: 'series',      name: 'TV Series',     mins: 20, payoutMult: 1.35, staffNeeded: 3, requiresLevel: 15 },
+        { id: 'blockbuster', name: 'Blockbuster',   mins: 75, payoutMult: 1.9,  staffNeeded: 6, requiresLevel: 40 },
+      ],
+    },
+    staffRoles: ['Producer', 'Director', 'Writer', 'Editor', 'Actor', 'Music Producer', 'Marketing Manager', 'Talent Manager'],
+    upgrades: [
+      { id: 'media_studio',   name: 'Production Studio',   desc: 'In-house crews ×2 income', requiresLevel: 10, cost: 800000000,    multiplier: 2 },
+      { id: 'media_stream',   name: 'Streaming Platform',  desc: 'Direct to fans ×3 income', requiresLevel: 40, cost: 19200000000,  multiplier: 3 },
+      { id: 'media_studio_giant', name: 'Global Media Empire', desc: 'Own the box office ×5 income', requiresLevel: 75, cost: 400000000000, multiplier: 5 },
+    ],
+  },
+  {
+    id: 'gamestudio',
+    name: 'Game Studio',
+    icon: '🎮',
+    blurb: 'Build games across genres and platforms. Ship, review, repeat.',
+    unlockLevel: 11,
+    baseCost: 65000000,
+    costMultiplier: 1.15,
+    baseIncome: 23000,
+    mechanic: {
+      type: 'projectRun',
+      label: 'Game Development',
+      projects: [
+        { id: 'mobile', name: 'Mobile Game', mins: 4,  payoutMult: 1.0,  staffNeeded: 0, requiresLevel: 1 },
+        { id: 'indie',  name: 'Indie Title',  mins: 18, payoutMult: 1.3,  staffNeeded: 3, requiresLevel: 15 },
+        { id: 'aaa',    name: 'AAA Title',    mins: 70, payoutMult: 1.85, staffNeeded: 6, requiresLevel: 40 },
+      ],
+    },
+    staffRoles: ['Game Developer', 'Game Designer', 'Artist', 'Animator', 'Writer', 'Sound Designer', 'Producer', 'QA Tester'],
+    upgrades: [
+      { id: 'game_engine',  name: 'Custom Engine',    desc: 'Faster shipping ×2 income', requiresLevel: 10, cost: 3250000000,   multiplier: 2 },
+      { id: 'game_live',    name: 'Live-Service Ops', desc: 'Recurring players ×3 income', requiresLevel: 40, cost: 78000000000,  multiplier: 3 },
+      { id: 'game_franchise', name: 'Flagship Franchise', desc: 'Sequels sell themselves ×5 income', requiresLevel: 75, cost: 1625000000000, multiplier: 5 },
+    ],
+  },
+  {
+    id: 'automotive',
+    name: 'Automotive Company',
+    icon: '🚗',
+    blurb: 'Design, build, and sell cars through your own dealerships.',
+    unlockLevel: 5,
+    baseCost: 45000,
+    costMultiplier: 1.15,
+    baseIncome: 42,
+    // Develop one vehicle model at a time; bigger models need more staff
+    // and level, and pay income/sec x duration x payout multiplier on launch.
+    mechanic: {
+      type: 'projectRun',
+      label: 'Vehicle Development',
+      projects: [
+        { id: 'compact', name: 'Compact Car',       mins: 3,  payoutMult: 1.0, staffNeeded: 0, requiresLevel: 1 },
+        { id: 'suv',     name: 'SUV Lineup',         mins: 15, payoutMult: 1.3, staffNeeded: 3, requiresLevel: 15 },
+        { id: 'ev',      name: 'Electric Vehicle',   mins: 60, payoutMult: 1.8, staffNeeded: 6, requiresLevel: 40 },
+      ],
+    },
+    staffRoles: ['Automotive Engineer', 'Designer', 'Mechanic', 'Factory Worker', 'Production Manager', 'Software Engineer', 'Sales Manager'],
+    upgrades: [
+      { id: 'auto_robots',  name: 'Robotic Assembly', desc: 'Faster factories ×2 income', requiresLevel: 10, cost: 2250000,   multiplier: 2 },
+      { id: 'auto_battery', name: 'Battery R&D',      desc: 'EV breakthroughs ×3 income', requiresLevel: 40, cost: 54000000,  multiplier: 3 },
+      { id: 'auto_global',  name: 'Global Dealer Network', desc: 'Showrooms everywhere ×5 income', requiresLevel: 75, cost: 1125000000, multiplier: 5 },
+    ],
+  },
+  {
+    id: 'hotels',
+    name: 'Hotels & Resorts',
+    icon: '🏨',
+    blurb: 'Rooms, restaurants, and events — hospitality at scale.',
+    unlockLevel: 6,
+    baseCost: 65000,
+    costMultiplier: 1.15,
+    baseIncome: 58,
+    // Pick a room tier (guaranteed pricing/quality multiplier) and host
+    // events on cooldown for a guaranteed lump-sum booking payout.
+    mechanic: {
+      type: 'hospitality',
+      roomTiers: [
+        { name: 'Budget Rooms',   mult: 1.0, requiresLevel: 1 },
+        { name: 'Business Class', mult: 1.4, requiresLevel: 15 },
+        { name: 'Luxury Resort',  mult: 2.0, requiresLevel: 40 },
+      ],
+      eventCooldownSec: 150,
+      eventPayoutSecs: 200,
+    },
+    staffRoles: ['Hotel Manager', 'Receptionist', 'Chef', 'Housekeeper', 'Concierge', 'Maintenance Worker', 'Marketing Manager', 'Event Manager'],
+    upgrades: [
+      { id: 'hotel_spa',   name: 'Spa & Pool Deck', desc: 'Guests stay longer ×2 income', requiresLevel: 10, cost: 3250000,    multiplier: 2 },
+      { id: 'hotel_brand', name: 'Signature Brand', desc: 'Premium bookings ×3 income',   requiresLevel: 40, cost: 78000000,   multiplier: 3 },
+      { id: 'hotel_group', name: 'Global Resort Group', desc: 'Destinations worldwide ×5 income', requiresLevel: 75, cost: 1625000000, multiplier: 5 },
+    ],
+  },
+  {
+    id: 'energy',
+    name: 'Energy Company',
+    icon: '⚡',
+    blurb: 'Generate and sell power. Choose your source, manage the risk.',
+    unlockLevel: 9,
+    baseCost: 3500000,
+    costMultiplier: 1.15,
+    baseIncome: 1500,
+    // Pick a generation source. Gas is cheap to unlock but its own fuel
+    // index wobbles income up/down; renewables and nuclear are steadier
+    // and pay more once unlocked.
+    mechanic: {
+      type: 'tierPick',
+      icon: '⚡',
+      label: 'Generation Source',
+      tiers: [
+        { name: 'Natural Gas',  mult: 1.0,  requiresLevel: 1,  volatile: true },
+        { name: 'Wind Power',   mult: 1.35, requiresLevel: 15 },
+        { name: 'Solar Farms',  mult: 1.7,  requiresLevel: 40 },
+        { name: 'Nuclear Plant', mult: 2.3, requiresLevel: 75 },
+      ],
+    },
+    staffRoles: ['Electrical Engineer', 'Energy Scientist', 'Plant Manager', 'Technician', 'Maintenance Worker', 'Energy Trader', 'Safety Manager'],
+    upgrades: [
+      { id: 'energy_grid',    name: 'Smart Grid',       desc: 'Less waste ×2 income',       requiresLevel: 10, cost: 175000000,   multiplier: 2 },
+      { id: 'energy_storage', name: 'Battery Storage',  desc: 'Sell around the clock ×3 income', requiresLevel: 40, cost: 4200000000, multiplier: 3 },
+      { id: 'energy_national', name: 'National Grid Operator', desc: 'Power the country ×5 income', requiresLevel: 75, cost: 87500000000, multiplier: 5 },
+    ],
+  },
+  {
+    id: 'space',
+    name: 'Space Company',
+    icon: '🚀',
+    blurb: 'From launch contracts to Mars — build a space corporation.',
+    unlockLevel: 14,
+    baseCost: 6000000000,
+    costMultiplier: 1.15,
+    baseIncome: 1300000,
+    // Plan a mission (rocket/payload tier), let it fly, then resolve it:
+    // bigger missions pay more but succeed less often against the competition.
+    mechanic: {
+      type: 'riskProject',
+      label: 'Mission Planning',
+      failPayoutFrac: 0.35,
+      projects: [
+        { id: 'satlaunch', name: 'Satellite Launch',   mins: 8,   payoutMult: 1.2, staffNeeded: 0, requiresLevel: 1,  baseChance: 0.70 },
+        { id: 'cargo',     name: 'Cargo Resupply',     mins: 25,  payoutMult: 1.6, staffNeeded: 3, requiresLevel: 15, baseChance: 0.55 },
+        { id: 'lunar',     name: 'Lunar Mission',      mins: 60,  payoutMult: 2.2, staffNeeded: 6, requiresLevel: 40, baseChance: 0.40 },
+        { id: 'mars',      name: 'Mars Expedition',    mins: 120, payoutMult: 3.2, staffNeeded: 9, requiresLevel: 75, baseChance: 0.30 },
+      ],
+    },
+    staffRoles: ['Aerospace Engineer', 'Mission Controller', 'Astronaut', 'Space Scientist', 'Launch Technician', 'Mission Planner', 'Safety Officer'],
+    upgrades: [
+      { id: 'space_reuse',   name: 'Reusable Rockets',    desc: 'Cut launch costs ×2 income',  requiresLevel: 10, cost: 300000000000,    multiplier: 2 },
+      { id: 'space_station', name: 'Orbital Space Station', desc: 'Research & tourism ×3 income', requiresLevel: 40, cost: 7200000000000,  multiplier: 3 },
+      { id: 'space_colony',  name: 'Interplanetary Corporation', desc: 'Moon & Mars resources ×5 income', requiresLevel: 75, cost: 150000000000000, multiplier: 5 },
     ],
   },
 ];
