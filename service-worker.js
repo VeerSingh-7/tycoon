@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v75'; // v75: Manage Your Owned Companies — a dedicated page for every 100%-owned stock/coin
+const CACHE_NAME = 'tycoon-v76'; // v76: Hiring Agency guided entry point on Hiring & Talent
 
 const ASSETS = [
   'index.html',
