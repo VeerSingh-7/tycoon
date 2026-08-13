@@ -97,6 +97,13 @@ state = defaultState();
 state.balance = 1e18;
 Market.ensure();
 
+const container = stubEl('invRoot');
+Invest.mount(container);
+container._listeners.click({ target: fakeTarget('finances') });
+
+/* ===================== A0) No box at all when nothing is owned ===================== */
+check('Markets list shows NO Manage box when nothing is owned', !container.innerHTML.includes('Manage Your Owned Companies'));
+
 // One TECH-managed company (a stock) and one plain crypto coin — every stock
 // is TechCo-managed in this game, so the simple 4-lever path only ever
 // applies to crypto. Both bought out to exactly 100%.
@@ -110,21 +117,27 @@ Market.buy(PLAIN_ID, 1e18);
 check('auracle is 100% owned after buyout', Market.isOwned(TECH_ID));
 check('bitcorn is 100% owned after buyout', Market.isOwned(PLAIN_ID));
 
-const container = stubEl('invRoot');
-Invest.mount(container);
-container._listeners.click({ target: fakeTarget('finances') });
+container._listeners.click({ target: fakeTarget('finances') }); // re-render Markets now that we own things
 
 /* ===================== A) The box under Portfolio, on Markets ===================== */
-check('Markets list shows the Manage Your Owned Companies box', container.innerHTML.includes('Manage Your Owned Companies'));
+check('Markets list shows the Manage Your Owned Companies box once something is owned', container.innerHTML.includes('Manage Your Owned Companies'));
 check('the box reports the correct owned count (2)', /2 companies you run/.test(container.innerHTML));
 check('the box appears AFTER the Portfolio card in the markup', container.innerHTML.indexOf('Portfolio') < container.innerHTML.indexOf('Manage Your Owned Companies'));
+check('the crown emoji is gone from the box', !container.innerHTML.includes('👑'));
 
-/* ===================== B) Tapping the box opens the dedicated page ===================== */
+/* ===================== B) Tapping the box opens the dedicated page, split by Stocks/Crypto ===================== */
 container._listeners.click({ target: fakeTarget('manageOwned') });
 check('Manage Owned Companies page has its own header', container.innerHTML.includes('Manage Your Owned Companies') && container.innerHTML.includes('back-link'));
-check('the tech company shows its dashboard entry card', container.innerHTML.includes('Manage Company') && container.innerHTML.includes('tc-entry'));
-check('the crypto coin shows its 4-lever manage card', container.innerHTML.includes('manage-grid') && container.innerHTML.includes('Upgrade the network'));
-check('no undefined/NaN leaks into the Manage Owned page', !/undefined|NaN/.test(container.innerHTML));
+check('Manage Owned Companies page has a Stocks/Crypto segment toggle', container.innerHTML.includes('data-act="mgmtSeg"') && /Stocks/.test(container.innerHTML) && /Crypto/.test(container.innerHTML));
+check('default segment (Stocks) shows the tech company dashboard entry', container.innerHTML.includes('Manage Company') && container.innerHTML.includes('tc-entry'));
+check('default segment (Stocks) does NOT show the crypto coin', !container.innerHTML.includes('Upgrade the network'));
+check('no undefined/NaN leaks into the Manage Owned page (Stocks)', !/undefined|NaN/.test(container.innerHTML));
+
+container._listeners.click({ target: fakeTarget('mgmtSeg', 'crypto') });
+check('switching to Crypto shows the crypto coin manage card', container.innerHTML.includes('manage-grid') && container.innerHTML.includes('Upgrade the network'));
+check('switching to Crypto hides the tech company (a stock)', !container.innerHTML.includes('tc-entry'));
+check('no undefined/NaN leaks into the Manage Owned page (Crypto)', !/undefined|NaN/.test(container.innerHTML));
+container._listeners.click({ target: fakeTarget('mgmtSeg', 'stock') }); // leave it back on Stocks for the rest of the run
 
 /* ===================== C) Portfolio no longer has an inline Manage section ===================== */
 container._listeners.click({ target: fakeTarget('portfolio') });
@@ -156,15 +169,19 @@ container._listeners.click({ target: fakeTarget('back') });
 container._listeners.click({ target: fakeTarget('finances') });
 container._listeners.click({ target: fakeTarget('manageOwned') });
 
-// The plain stock's "growth" lever: routes through doManage -> Market.manage.
+// The crypto coin's "growth" lever, on the Crypto segment: routes through
+// doManage -> Market.manage.
+container._listeners.click({ target: fakeTarget('mgmtSeg', 'crypto') });
 const balBefore = state.balance;
 container._listeners.click({ target: fakeTarget('manage', PLAIN_ID, 'growth') });
 check('the growth lever from the Manage page actually spent cash (Market.manage ran for real)', state.balance < balBefore);
 
-// The tech company's "Manage Company" button: routes through TechCo.open().
-// The dashboard's own DOM wiring is already exhaustively covered by
-// techco.test.js — here we only need to confirm the click reaches it with
-// the right id, so swap in a spy instead of running the real render.
+// The tech company's "Manage Company" button, on the Stocks segment: routes
+// through TechCo.open(). The dashboard's own DOM wiring is already
+// exhaustively covered by techco.test.js — here we only need to confirm the
+// click reaches it with the right id, so swap in a spy instead of running
+// the real render.
+container._listeners.click({ target: fakeTarget('mgmtSeg', 'stock') });
 let openedWith = null;
 const realTechCoOpen = TechCo.open;
 TechCo.open = (id) => { openedWith = id; };

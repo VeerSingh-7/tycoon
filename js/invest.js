@@ -18,7 +18,7 @@
 
 const Invest = (() => {
   const view = {
-    mode: 'hub', seg: 'stock', pfSeg: 'stock', q: '',
+    mode: 'hub', seg: 'stock', pfSeg: 'stock', mgmtSeg: 'stock', q: '',
     assetId: null, tf: MARKET.DEFAULT_TF,
     returnTo: 'list', // where a detail's back button goes (list or portfolio)
     scrollY: 0,       // saved list/portfolio scroll to restore on back
@@ -221,6 +221,7 @@ const Invest = (() => {
     else if (a === 'portfolio') { view.mode = 'portfolio'; destroyChart(); render(); }
     else if (a === 'manageOwned') { view.mode = 'manageOwned'; destroyChart(); render(); setScroll(0); }
     else if (a === 'pfSeg') { view.pfSeg = id; render(); }
+    else if (a === 'mgmtSeg') { view.mgmtSeg = id; render(); }
     else if (a === 'browse') { view.mode = 'list'; view.seg = id; destroyChart(); render(); }
     else if (a === 'seg') { view.seg = id; render(); }
     else if (a === 'tf') { view.tf = id; if (chart) { chart.setData(Market.candles(view.assetId, view.tf)); chartTf = view.tf; chartSig = chartSigOf(view.assetId, view.tf); } markTf(); }
@@ -368,15 +369,17 @@ const Invest = (() => {
 
   /** Box under the Portfolio card: the one and only door into managing owned
    *  companies (see ownedTeaserHTML — the per-asset detail page no longer
-   *  carries the management controls, just a pointer back here). */
+   *  carries the management controls, just a pointer back here). Only shows
+   *  once at least one company/coin is actually 100% owned. */
   function ownedManagementCardHTML() {
     const count = ASSET_DEFS.filter((d) => Market.isOwned(d.id)).length;
+    if (!count) return '';
     return `
       <div class="card pf-card owned-mgmt-card" data-act="manageOwned" role="button" tabindex="0" aria-label="Manage your owned companies">
         <div class="card-row">
           <div>
-            <div class="card-title">👑 Manage Your Owned Companies</div>
-            <div class="card-sub">${count ? `${count} compan${count === 1 ? 'y' : 'ies'} you run` : 'Own 100% of a stock or coin to unlock this'}</div>
+            <div class="card-title">Manage Your Owned Companies</div>
+            <div class="card-sub">${count} compan${count === 1 ? 'y' : 'ies'} you run</div>
           </div>
           <span class="hub-arrow">›</span>
         </div>
@@ -491,6 +494,8 @@ const Invest = (() => {
     container.innerHTML = `
       <button class="back-link" data-act="finances">‹ Markets</button>
       <div class="section-head"><h2>Manage Your Owned Companies</h2></div>
+      <div class="seg-row">${PF_SEGS.map((s) =>
+        `<button class="seg ${view.mgmtSeg === s.id ? 'seg-active' : ''}" data-act="mgmtSeg" data-id="${s.id}">${s.label}</button>`).join('')}</div>
       <div id="ownedMgmtBody">${portfolioManageHTML()}</div>
     `;
   }
@@ -557,12 +562,17 @@ const Invest = (() => {
   // on the dedicated Manage Your Owned Companies page (renderManageOwned).
 
   function portfolioManageHTML() {
-    const owned = ASSET_DEFS.filter((d) => Market.isOwned(d.id));
+    const allOwned = ASSET_DEFS.filter((d) => Market.isOwned(d.id));
+    const owned = allOwned.filter((d) => d.group === view.mgmtSeg);
     if (!owned.length) {
+      const otherLabel = view.mgmtSeg === 'stock' ? 'Crypto' : 'Stocks';
+      const hasOther = allOwned.some((d) => d.group !== view.mgmtSeg);
       return `
         <div class="pf-empty">
-          <div class="pf-empty-title">Nothing to manage yet</div>
-          <div class="pf-empty-sub">Own 100% of a stock or coin to run it right here.</div>
+          <div class="pf-empty-title">Nothing to manage here yet</div>
+          <div class="pf-empty-sub">${hasOther
+            ? `You don't own any of these 100% — check ${otherLabel} instead.`
+            : `Own 100% of a ${view.mgmtSeg === 'stock' ? 'stock' : 'coin'} to run it right here.`}</div>
         </div>`;
     }
     return `<div class="pf-manage-list">${owned.map(pfManageCardHTML).join('')}</div>`;
@@ -798,7 +808,7 @@ const Invest = (() => {
   function ownedTeaserHTML(def) {
     return `
       <div class="card manage-card owned-teaser-card">
-        <div class="card-title">👑 ${def.name} <span class="owned-badge">100% yours</span></div>
+        <div class="card-title">${def.name} <span class="owned-badge">100% yours</span></div>
         <div class="card-sub">Run it from Manage Your Owned Companies — every lever and dashboard lives there now.</div>
         <button class="btn btn-gold btn-wide" data-act="manageOwned">Manage Your Owned Companies ›</button>
       </div>`;
