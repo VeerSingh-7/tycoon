@@ -212,6 +212,16 @@ const EMP_ROLES = {
     weights: { technical: 0, creativity: 1.1, efficiency: 0.9, leadership: 1.1, experience: 1, reliability: 1, teamwork: 1.1 },
     specialities: ['Media Relations', 'Crisis Communications', 'Corporate Communications', 'Influencer Relations'],
   },
+  market_researcher: {
+    label: 'Market Researcher', category: 'sales_marketing',
+    weights: { technical: 1.2, creativity: 0.6, efficiency: 1, leadership: 0, experience: 1, reliability: 1.2, teamwork: 0.8 },
+    specialities: ['Consumer Insights', 'Competitive Analysis', 'Survey Research', 'Data Analytics'],
+  },
+  marketing_assistant: {
+    label: 'Marketing Assistant', category: 'sales_marketing',
+    weights: { technical: 0, creativity: 1, efficiency: 1.1, leadership: 0.5, experience: 0.8, reliability: 1, teamwork: 1.2 },
+    specialities: ['Campaign Support', 'Social Media Management', 'Content Coordination', 'Event Coordination'],
+  },
 
   // ---------------------------------- Leadership ------------------------------
   ceo: {

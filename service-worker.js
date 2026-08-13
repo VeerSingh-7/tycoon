@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v68'; // v68: Hiring & Talent screen (js/hiring.js) + company-wide roster income/cost bonus
+const CACHE_NAME = 'tycoon-v70'; // v70: Marketing & Growth — Advanced mode, Influencer Deals, Sponsorships, Market Research
 
 const ASSETS = [
   'index.html',
@@ -27,6 +27,7 @@ const ASSETS = [
   'js/data/research.js',
   'js/data/signature.js',
   'js/data/employees.js',
+  'js/data/marketing.js',
   'js/state.js',
   'js/engine.js',
   'js/mechanics.js',
@@ -38,6 +39,7 @@ const ASSETS = [
   'js/businesses.js',
   'js/invest.js',
   'js/hiring.js',
+  'js/marketing.js',
   'js/assetstab.js',
   'js/ui.js',
   'js/profile.js',

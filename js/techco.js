@@ -189,6 +189,12 @@ const TechCo = (() => {
       const s = (typeof COMPANY_SIGNATURE !== 'undefined') ? COMPANY_SIGNATURE[id] : null;
       c.signature = { level: 0, stance: (s && s.kind === 'doctrine' && s.stances[1]) ? s.stances[1].id : null };
     }
+    // Marketing & Growth: campaigns (active + resolved history), decaying
+    // income boosts from resolved campaigns, and the influencer/sponsorship/
+    // research sub-features built on top of the same core loop.
+    if (!c.marketing) {
+      c.marketing = { campaigns: [], history: [], boosts: [], influencerDeals: [], sponsorships: [], researchInsights: {}, nextCid: 1 };
+    }
   }
 
   function co(id) { const c = ensureCompany(id); normalize(c, id); return c; }
@@ -622,6 +628,308 @@ const TechCo = (() => {
   function hiringQualityBonus(id) { return HIRE_QUALITY_MAX * empCategoryAvg(id, 'product_dev'); }
   /** Ambient Product-Dev build-speed multiplier (<1 = faster). */
   function hiringSpeedMult(id) { return 1 - HIRE_SPEED_MAX * empCategoryAvg(id, 'product_dev'); }
+
+  /* ============================ Marketing & Growth ==========================
+   * Advertising campaigns, layered additively on top of existing income/
+   * share/reputation formulas — never a replacement. Persistent state lives
+   * in co(id).marketing; audience/channel/objective/message data is pure data
+   * in data/marketing.js (same separation as data/employees.js). Marketing
+   * staff (Sales & Marketing category, incl. the new Market Researcher /
+   * Marketing Assistant roles) come from the SAME employeeRoster Hiring &
+   * Talent and the Product Studio Team step already read/write.
+   * ========================================================================== */
+
+  const MKT_CFG = {
+    BUDGET_MIN_MULT: 0.3,    // min campaign budget = 0.3x a company's daily base income
+    BUDGET_TYPICAL_MULT: 2,  // Quick Campaign slider default = 2x
+    BUDGET_MAX_MULT: 10,     // slider ceiling = 10x
+    INCOME_BOOST_CAP: 0.5,   // a single campaign's income boost never exceeds +50%
+    SHARE_EDGE_CAP: 3,       // a single campaign's competitive-edge contribution (pts)
+    BOOST_WINDOW_MULT: 3,    // how many multiples of the run time the income boost lingers for after resolution
+  };
+
+  const mktSector = (id) => { const d = ASSET_BY_ID[id]; return d ? d.sector : null; };
+
+  /** Min/typical/max campaign budget for this company, scaled off base income
+   *  (same principle as payroll/headhunt costs) — never a flat dollar figure. */
+  function mktBudgetRange(id) {
+    const b = baseIncome(id);
+    return { min: b * MKT_CFG.BUDGET_MIN_MULT, typical: b * MKT_CFG.BUDGET_TYPICAL_MULT, max: b * MKT_CFG.BUDGET_MAX_MULT };
+  }
+
+  /** Marketing staff bench: the roster's Sales & Marketing hires (any of the
+   *  8 roles), not busy on something else — the SAME employeeRoster Hiring &
+   *  Talent and the Team step already manage. */
+  function mktBenchFor(id) {
+    return co(id).employeeRoster.filter((e) => EMP_ROLES[e.roleId] && EMP_ROLES[e.roleId].category === 'sales_marketing' && !empIsBusy(id, e.id));
+  }
+  /** Best-fit available marketing employee — Quick Campaign's auto-pick. */
+  function mktBestBenchFor(id) {
+    const bench = mktBenchFor(id);
+    return bench.length ? bench.reduce((a, b) => (b.overall > a.overall ? b : a)) : null;
+  }
+  /** An assigned employee's contribution: 1.0 with nobody assigned (an
+   *  unstaffed campaign still runs, just at baseline), up to ~1.35 with a
+   *  strong hire. */
+  function mktStaffMult(id, empId) {
+    if (!empId) return 1;
+    const e = findEmployee(id, empId);
+    return e ? clamp(0.85 + (e.overall / 100) * 0.5, 0.85, 1.35) : 1;
+  }
+
+  /** Full effectiveness breakdown — the ONE formula both Quick and Advanced
+   *  campaigns resolve through. Each factor is an existing/parallel signal:
+   *  audience fit (does this match the company's real customers), message tag
+   *  match, channel-sector fit, assigned staff skill, and current reputation
+   *  (a low-reputation company's campaigns land worse — reputation feeding
+   *  BACK into performance, not just being moved by it). */
+  function mktEffectiveness(id, camp) {
+    const sector = mktSector(id);
+    const audFit = mktAudienceFit(sector, camp.audience);
+    const msgFit = camp.message ? mktMessageFit(camp.message, camp.audience) : 1;
+    let chanFit = 0, chanW = 0;
+    for (const chId in camp.channels) { chanFit += camp.channels[chId] * mktChannelSectorFit(chId, sector); chanW += camp.channels[chId]; }
+    chanFit = chanW > 0 ? chanFit / chanW : 1;
+    const staffMult = mktStaffMult(id, camp.empId);
+    const repMult = clamp(0.6 + co(id).reputation / 100 * 0.8, 0.6, 1.4);
+    // Bought Market Research for this audience nudges effectiveness up a
+    // little — the same researchInsights read the influencer-deal score uses.
+    const c = co(id);
+    const researchMult = (c.marketing.researchInsights && c.marketing.researchInsights[camp.audience]) ? 1.1 : 1;
+    return { audFit, msgFit, chanFit, staffMult, repMult, researchMult, total: audFit * msgFit * chanFit * staffMult * repMult * researchMult };
+  }
+
+  /** Start a campaign — Quick and Advanced share this one entry point.
+   *  opts: { objective, audience, budget, channels:{chId:frac}, message, empId }.
+   *  Quick Campaign fills channels via mktSuggestChannels() and empId via
+   *  mktBestBenchFor() before calling this, so both paths look identical here. */
+  function mktStartCampaign(id, opts) {
+    const c = co(id);
+    const obj = MKT_OBJECTIVES[opts.objective];
+    if (!obj) return { ok: false, msg: 'Unknown objective.' };
+    if (!MKT_AUDIENCES[opts.audience]) return { ok: false, msg: 'Unknown audience.' };
+    const budget = Math.max(0, opts.budget || 0);
+    const range = mktBudgetRange(id);
+    if (budget < range.min * 0.999) return { ok: false, msg: `Budget too small — need at least ${formatMoney(range.min)}.` };
+    if (c.cash < budget) return { ok: false, msg: `Need ${formatMoney(budget)} in company cash.` };
+    const channels = (opts.channels && Object.keys(opts.channels).length) ? opts.channels : mktSuggestChannels(mktSector(id), 3);
+    const empId = opts.empId || (mktBestBenchFor(id) || {}).id || null;
+    // Quick Campaign auto-derives spread from budget size; Advanced mode may
+    // pick an explicit tier instead (still budget-gated by its cost floor).
+    const spreadId = (opts.spread && MKT_SPREAD_TIERS[opts.spread])
+      ? opts.spread
+      : (budget >= range.max * 0.6 ? 'global' : budget >= range.typical * 1.2 ? 'national' : budget >= range.typical * 0.4 ? 'regional' : 'local');
+    const tier = MKT_SPREAD_TIERS[spreadId];
+    c.cash -= budget;
+    const camp = {
+      cid: c.marketing.nextCid++,
+      objective: opts.objective, audience: opts.audience, message: opts.message || null,
+      channels, empId, spread: spreadId, budget,
+      startMs: now(), endsAt: now() + tier.days * CFG.DAY_SECONDS * 1000,
+    };
+    c.marketing.campaigns.push(camp);
+    saveGame();
+    return { ok: true, campaign: camp };
+  }
+
+  /** Resolve a finished campaign: compute the analytics report, apply the
+   *  mechanical effects, file it into history. Mechanical effects reuse
+   *  EXISTING mechanisms — c.edge is the same "competitive edge" Compete
+   *  actions already use (decays the same way); reputation is the same
+   *  co(id).reputation field product launches already move; the income boost
+   *  is the one genuinely new bit of state (a decaying window, same SHAPE as
+   *  market.js's existing cutcosts boost). */
+  function mktResolveCampaign(id, camp) {
+    const c = co(id);
+    const eff = mktEffectiveness(id, camp);
+    const obj = MKT_OBJECTIVES[camp.objective];
+    const budgetMult = camp.budget / Math.max(1, baseIncome(id));
+    const tier = MKT_SPREAD_TIERS[camp.spread];
+
+    const incomeBoost = clamp(budgetMult * 0.05 * eff.total * obj.salesMult, 0, MKT_CFG.INCOME_BOOST_CAP);
+    const shareEdge = clamp(budgetMult * 0.6 * eff.total * obj.shareMult, 0, MKT_CFG.SHARE_EDGE_CAP);
+    const repDelta = obj.repDeltaBase * eff.total;
+    const boostDays = tier.days * MKT_CFG.BOOST_WINDOW_MULT; // how long the income boost actually lingers post-resolution
+
+    const reach = Math.round(camp.budget * 0.00004 * eff.total);
+    const newCustomers = Math.round(reach * 0.018 * eff.total);
+    const salesPct = Math.round(incomeBoost * 1000) / 10; // %, one decimal
+    const estGain = revenuePerDay(id) * incomeBoost * boostDays; // matches the ACTUAL boost window below
+    const roi = camp.budget > 0 ? (estGain - camp.budget) / camp.budget : 0;
+
+    c.edge = (c.edge || 0) + shareEdge;
+    c.reputation = clamp(c.reputation + repDelta, 0, 100);
+    c.marketing.boosts.push({ untilMs: now() + boostDays * CFG.DAY_SECONDS * 1000, mult: incomeBoost });
+
+    const report = {
+      cid: camp.cid, objective: camp.objective, audience: camp.audience, spread: camp.spread,
+      spent: camp.budget, reach, newCustomers, salesPct,
+      reputationDelta: Math.round(repDelta * 10) / 10, roi, effTotal: eff.total, resolvedAt: now(),
+    };
+    c.marketing.history.unshift(report);
+    if (c.marketing.history.length > 30) c.marketing.history.length = 30;
+    return report;
+  }
+
+  /** Sum of every still-active campaign income boost (pruned of expired
+   *  ones each read) — 1 (no change) once every boost has lapsed, so a
+   *  company that's never run a campaign is untouched. */
+  function marketingIncomeMult(id) {
+    const c = co(id);
+    if (!c.marketing.boosts.length) return 1;
+    const t = now();
+    c.marketing.boosts = c.marketing.boosts.filter((b) => b.untilMs > t);
+    let bonus = 0;
+    for (const b of c.marketing.boosts) bonus += b.mult;
+    return 1 + Math.min(bonus, MKT_CFG.INCOME_BOOST_CAP * 2); // a few can stack, still capped
+  }
+
+  /** Advance a company's in-progress campaigns — called from advance(id),
+   *  same wall-clock pattern as product builds. */
+  function mktAdvance(id) {
+    const c = co(id);
+    if (!c.marketing.campaigns.length) return;
+    const t = now();
+    const done = [];
+    c.marketing.campaigns = c.marketing.campaigns.filter((camp) => {
+      if (t >= camp.endsAt) { done.push(camp); return false; }
+      return true;
+    });
+    for (const camp of done) {
+      const report = mktResolveCampaign(id, camp);
+      toast(`📣 <b>Campaign complete</b><br>${companyName(id)}'s ${MKT_OBJECTIVES[camp.objective].label} campaign reached ${formatNumber(report.reach)} people.`);
+    }
+  }
+
+  /* ============================ Influencer Deals =============================
+   * A fictional roster (data/marketing.js) generated per company per cycle,
+   * same deterministic-seed approach as candidate pools — nothing persisted
+   * until signed. Outcome is NOT guaranteed: Extremely Well / Normally /
+   * Poorly, weighted by audience fit, assigned marketing staff skill, current
+   * reputation, and whether relevant Market Research was bought for that
+   * audience — smart setup measurably shifts the odds, it doesn't fix them.
+   * ========================================================================== */
+
+  function mktInfluencerPoolFor(id) { return mktInfluencerPool(id, empCycle(), 4); }
+
+  /** Same scaling SHAPE as a hiring signing bonus — "the same way salaries
+   *  were scaled" — baseIncome x PAYROLL_PER_HEAD x (fee / reference) x 10. */
+  function mktInfluencerCost(id, inf) {
+    return baseIncome(id) * STAFF_CFG.PAYROLL_PER_HEAD * (inf.fee / INFLUENCER_FEE_REFERENCE) * 10;
+  }
+  function mktInfluencerScore(id, audience, empId) {
+    const audFit = mktAudienceFit(mktSector(id), audience);
+    const staffMult = mktStaffMult(id, empId);
+    const repMult = clamp(0.6 + co(id).reputation / 100 * 0.8, 0.6, 1.4);
+    const researched = co(id).marketing.researchInsights && co(id).marketing.researchInsights[audience];
+    return audFit * staffMult * repMult + (researched ? 0.25 : 0);
+  }
+  /** Score -> outcome probabilities. At the baseline score (~1, no staff, no
+   *  research, average reputation, a decent-fit audience): 15% great / 50%
+   *  normal / 35% poor. A strong setup (great fit + skilled staff + research
+   *  + good reputation, score ~2) shifts to roughly 50/40/10. */
+  function mktInfluencerProbs(score) {
+    const great = clamp(0.15 + (score - 1) * 0.35, 0.05, 0.75);
+    const poor = clamp(0.35 - (score - 1) * 0.25, 0.05, 0.5);
+    return { great, poor, normal: clamp(1 - great - poor, 0, 1) };
+  }
+  const INF_OUTCOME_EFFECT = {
+    great:  { repDelta: 2,   incomeBoost: 0.08, reachMult: 1.5 },
+    normal: { repDelta: 0.5, incomeBoost: 0.03, reachMult: 1.0 },
+    poor:   { repDelta: -3,  incomeBoost: 0,    reachMult: 0.4 },
+  };
+  /** Sign a deal now — resolves immediately (like a hire), no multi-day
+   *  timer. opts: { audience, empId }. */
+  function mktSignInfluencer(id, inf, opts) {
+    opts = opts || {};
+    const c = co(id);
+    const cost = mktInfluencerCost(id, inf);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} for the deal fee.` };
+    c.cash -= cost;
+    const audience = opts.audience || inf.audienceTag;
+    const probs = mktInfluencerProbs(mktInfluencerScore(id, audience, opts.empId));
+    const roll = RNG();
+    const outcome = roll < probs.great ? 'great' : roll < probs.great + probs.normal ? 'normal' : 'poor';
+    const eff = INF_OUTCOME_EFFECT[outcome];
+    const reach = Math.round(inf.estReach * eff.reachMult);
+    c.reputation = clamp(c.reputation + eff.repDelta, 0, 100);
+    if (eff.incomeBoost > 0) c.marketing.boosts.push({ untilMs: now() + 3 * CFG.DAY_SECONDS * 1000, mult: eff.incomeBoost });
+    const deal = { name: inf.name, tierLabel: inf.tierLabel, audience, fee: cost, outcome, reach, resolvedAt: now() };
+    c.marketing.influencerDeals.unshift(deal);
+    if (c.marketing.influencerDeals.length > 20) c.marketing.influencerDeals.length = 20;
+    saveGame();
+    return { ok: true, deal };
+  }
+
+  /* ============================== Sponsorships ================================
+   * Original fictional properties only (data/marketing.js) — cost scales
+   * with company size; benefits are an immediate reputation/brand-awareness
+   * bump plus a long, modest passive income trickle, reusing the SAME
+   * decaying-boost mechanism campaigns already use (just a longer window,
+   * matching "a modest passive reach bonus over time").
+   * ========================================================================== */
+
+  function mktSponsorshipCost(id, tierId) {
+    const tier = SPONSORSHIP_TIERS[tierId];
+    return tier ? baseIncome(id) * tier.costMult : 0;
+  }
+  function mktStartSponsorship(id, propertyId, tierId) {
+    const c = co(id);
+    const property = SPONSORSHIP_PROPERTIES.find((p) => p.id === propertyId);
+    const tier = SPONSORSHIP_TIERS[tierId];
+    if (!property || !tier) return { ok: false, msg: 'Unknown sponsorship.' };
+    const cost = mktSponsorshipCost(id, tierId);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to sponsor this.` };
+    c.cash -= cost;
+    const fit = mktSponsorshipFit(property, mktSector(id));
+    const repGain = tier.repMax * fit * (0.6 + 0.4 * RNG());
+    c.reputation = clamp(c.reputation + repGain, 0, 100);
+    const boostDays = tier.costMult * 10; // long-running, ongoing commitment
+    const incomeBoost = clamp(0.01 * tier.reachMult * fit, 0, 0.15);
+    const untilMs = now() + boostDays * CFG.DAY_SECONDS * 1000;
+    c.marketing.boosts.push({ untilMs, mult: incomeBoost });
+    const deal = {
+      propertyId, propertyName: property.name, kind: property.kind, tier: tierId, cost,
+      repGain: Math.round(repGain * 10) / 10, startedAt: now(), untilMs,
+    };
+    c.marketing.sponsorships.unshift(deal);
+    if (c.marketing.sponsorships.length > 20) c.marketing.sponsorships.length = 20;
+    saveGame();
+    return { ok: true, sponsorship: deal };
+  }
+
+  /* ============================ Market Research ================================
+   * Pay a scaled cost, get a short plausible insight for one audience that
+   * nudges recommended channels/messages (via the researchMult read above and
+   * the Quick Campaign message auto-pick in marketing.js) — cached per
+   * audience in co(id).marketing.researchInsights until re-bought. A hired
+   * Market Researcher (the new employees.js role) halves the cost AND
+   * tightens/raises the confidence range, giving that role a real purpose.
+   * ========================================================================== */
+
+  function mktHasResearcher(id) { return co(id).employeeRoster.some((e) => e.roleId === 'market_researcher'); }
+  function mktResearchCost(id) { return baseIncome(id) * (mktHasResearcher(id) ? 0.4 : 0.8); }
+
+  function mktRunResearch(id, audience) {
+    const c = co(id);
+    if (!MKT_AUDIENCES[audience]) return { ok: false, msg: 'Unknown audience.' };
+    const cost = mktResearchCost(id);
+    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to run research.` };
+    c.cash -= cost;
+    const withResearcher = mktHasResearcher(id);
+    const prefs = MKT_AUDIENCE_TAGS[audience] || ['value', 'trust'];
+    const primaryTag = prefs[0], secondaryTag = prefs[1] || prefs[0];
+    // A hired Market Researcher reports a tighter, more confident range.
+    const pct = withResearcher ? 65 + Math.round(RNG() * 20) : 55 + Math.round(RNG() * 30);
+    const insight = {
+      audience, pct, primaryTag, secondaryTag,
+      text: `${pct}% of ${MKT_AUDIENCES[audience]} value ${primaryTag} over ${secondaryTag}.`,
+      accurate: withResearcher, boughtAt: now(),
+    };
+    c.marketing.researchInsights[audience] = insight;
+    saveGame();
+    return { ok: true, insight };
+  }
 
   /* ================= Research meta-game (categories, scientists) =========== */
   // Each company has a research tree (data/research.js) of categories with 5
@@ -1248,7 +1556,7 @@ const TechCo = (() => {
     // acquisitions stack on top; a price undercut or supply shortage bite briefly.
     const undercut = (c.undercutUntil && now() < c.undercutUntil) ? 0.9 : 1;
     const supply = (c.supplyUntil && now() < c.supplyUntil) ? 0.85 : 1;
-    return rev * shareIncomeMult(id) * leaderMult(id) * globalIncomeMult(id) * sigIncomeMult(id) * hiringIncomeMult(id) * (1 + (c.acqBonus || 0)) * undercut * supply;
+    return rev * shareIncomeMult(id) * leaderMult(id) * globalIncomeMult(id) * sigIncomeMult(id) * hiringIncomeMult(id) * marketingIncomeMult(id) * (1 + (c.acqBonus || 0)) * undercut * supply;
   }
   // Net profit = revenue − operating costs − payroll (group staff + any hired
   // named employees). Overspending makes this negative and burns company cash.
@@ -1312,6 +1620,9 @@ const TechCo = (() => {
     // 2) Resolve a finished research project (success/failure roll).
     resolveResearch(id);
 
+    // 2b) Resolve any finished marketing campaigns.
+    mktAdvance(id);
+
     // 3) Age products / accrue cash & profit over the in-game days elapsed.
     let days = (t - c.lastMs) / (CFG.DAY_SECONDS * 1000);
     c.lastMs = t;
@@ -1325,6 +1636,14 @@ const TechCo = (() => {
       // Customer satisfaction eases toward the Operations-staff target.
       c.satisfaction += (satTarget(id) - c.satisfaction) * clamp(days * 0.1, 0, 1);
       c.satisfaction = clamp(c.satisfaction, 0, 100);
+      // Company growth: a sustained profitable stretch nudges reputation up a
+      // little over time (a growing, successful company builds trust); a
+      // sustained loss nudges it down. Reuses the SAME net-profit figure
+      // already computed above for cash accrual — no new tracked state, and
+      // capped small/slow so it never dominates the explicit event-based
+      // reputation deltas (launches, campaigns) elsewhere.
+      const growthDir = net > 0 ? 1 : (net < 0 ? -1 : 0);
+      c.reputation = clamp(c.reputation + growthDir * clamp(days * 0.05, 0, 0.5), 0, 100);
       // Accumulate lifetime sales, then decay + retire products.
       const retired = [];
       for (const p of c.products) {
@@ -1361,12 +1680,19 @@ const TechCo = (() => {
     maybeRollEvent(id);
   }
 
+  /** Brand reputation feeds back INTO performance, not just out of it: a
+   *  well-regarded company's launches land a little better, a poorly-regarded
+   *  one's land a little worse — modest (±0.3 max) next to the other reception
+   *  bonuses (roughly 0-2), so it nudges rather than dominates. */
+  function repReceptionBonus(id) { return clamp((co(id).reputation - 50) / 50, -1, 1) * 0.3; }
+
   function completeBuild(id, b) {
     const c = co(id);
     // Staff, research, in-house manufacturing quality and strategy all shift the
-    // reception (physical products benefit from manufacturing control).
+    // reception (physical products benefit from manufacturing control); brand
+    // reputation itself now also shifts it (see repReceptionBonus above).
     const bonus = staffReceptionBonus(id) + researchReceptionBonus(id)
-      + (b.phys ? manufacturingQuality(id) : 0) + strategyReceptionDelta(id);
+      + (b.phys ? manufacturingQuality(id) : 0) + strategyReceptionDelta(id) + repReceptionBonus(id);
     let reception, p;
     if (b.deep) {
       // Studio product: quality (specs + budget + team) drives the reception roll.
@@ -1382,7 +1708,20 @@ const TechCo = (() => {
     // Reception nudges brand reputation + customer satisfaction; a higher product
     // TIER lifts the brand a little more (halo effect), a budget tier less.
     const tierBrand = (b.deep && TECH_TIERS[b.cfg.tier]) ? (TECH_TIERS[b.cfg.tier].brand || 0) : 0;
-    c.reputation = clamp(c.reputation + r.rep + tierBrand, 0, 100);
+    // Pricing relative to tier: a premium-priced tier (priceMult > 1) that
+    // flops or lands modest stings extra — charging more and under-delivering
+    // costs more trust; a bargain-priced tier (priceMult < 1) that breaks out
+    // earns a little extra goodwill for over-delivering on value. Reuses the
+    // SAME tier + reception signals already driving tierBrand, above — pricing
+    // itself is always tier-derived (tierToPricing), so this is the real
+    // "charged X, delivered Y" signal rather than a separate mismatch field.
+    let priceValueDelta = 0;
+    if (b.deep) {
+      const pm = TECH_TIERS[b.cfg.tier] ? TECH_TIERS[b.cfg.tier].priceMult : 1;
+      if (pm > 1 && (reception === 'flop' || reception === 'modest')) priceValueDelta = -Math.round((pm - 1) * 1.5);
+      else if (pm < 1 && reception === 'breakout') priceValueDelta = Math.round((1 - pm) * 3);
+    }
+    c.reputation = clamp(c.reputation + r.rep + tierBrand + priceValueDelta, 0, 100);
     c.satisfaction = clamp(c.satisfaction + r.sat, 0, 100);
     toast(`${r.emoji} <b>${p.type}: ${r.label}!</b><br>${companyName(id)} launched a new product (${'★'.repeat(r.rating)}).`);
     saveGame();
@@ -2827,6 +3166,13 @@ const TechCo = (() => {
     // Hiring & Talent screen — general roster CRUD + company-wide ambient bonus:
     empRelease, empHireGeneral, empCategoryAvg, hiringIncomeMult, hiringCostCut,
     hiringQualityBonus, hiringSpeedMult, empFunds,
+    // Marketing & Growth — campaign engine (core loop):
+    MKT_CFG, mktSector, mktBudgetRange, mktBenchFor, mktBestBenchFor, mktStaffMult,
+    mktEffectiveness, mktStartCampaign, mktResolveCampaign, marketingIncomeMult, mktAdvance,
+    repReceptionBonus,
+    // Marketing & Growth — Influencer Deals, Sponsorships, Market Research:
+    mktInfluencerPoolFor, mktInfluencerCost, mktInfluencerScore, mktInfluencerProbs, mktSignInfluencer,
+    mktSponsorshipCost, mktStartSponsorship, mktHasResearcher, mktResearchCost, mktRunResearch,
     // Config/data access for tests + future phases:
     CFG, BUDGETS, QUALITIES, PRICINGS, RECEPTIONS, STAFF, STAFF_CFG,
     COMPETE, RANK_CATS, RIVAL_CFG, LEADER_INCOME_BONUS, MANU, STRATEGIES, REGIONS, EVENTS,

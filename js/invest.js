@@ -224,7 +224,7 @@ const Invest = (() => {
   function render() {
     if (!container) return;
     if (view.mode === 'hub') renderHub();
-    else if (view.mode === 'marketing') renderComing('Marketing &amp; Growth', 'Run campaigns, build your brand and reach new customers across your empire.');
+    else if (view.mode === 'marketing') renderMarketingScreen();
     else if (view.mode === 'hiring') renderHiringScreen();
     else if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'portfolio') renderPortfolio();
@@ -277,6 +277,15 @@ const Invest = (() => {
   function renderHiringScreen() {
     container.innerHTML = `<button class="back-link" data-act="hub">‹ Services</button><div id="hireRoot"></div>`;
     if (typeof Hiring !== 'undefined') Hiring.mount(document.getElementById('hireRoot'));
+  }
+
+  /** Marketing & Growth — a real, standalone company-wide screen
+   *  (js/marketing.js). It renders its own top-level back-link (data-act=hub,
+   *  still Invest's dispatcher) since its company selector IS the page root;
+   *  its own click handling uses data-mk, not data-act, so the two never collide. */
+  function renderMarketingScreen() {
+    container.innerHTML = `<div id="mktgRoot"></div>`;
+    if (typeof Marketing !== 'undefined') Marketing.mount(document.getElementById('mktgRoot'));
   }
 
   /** A tidy "coming soon" screen for the services still in the works. */

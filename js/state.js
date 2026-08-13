@@ -64,7 +64,15 @@ const SAVE_KEY = 'tycoon_save_v1';
 //      state.techco[id] is created lazily (as it already was for Tech
 //      companies) the first time a company is opened from the new screen; a
 //      company nobody's opened there is byte-identical to before.
-const SAVE_VERSION = 21;
+// v22: Marketing & Growth (Services → Invest) — adds state.techco[id].marketing
+//      (campaigns, resolved-campaign history, decaying income boosts, plus
+//      influencer/sponsorship/research sub-state), back-filled empty by
+//      TechCo.normalize() on load. Brand reputation is the SAME pre-existing
+//      co(id).reputation field — no new reputation field, just more triggers
+//      writing to it. Two new employee roles (Market Researcher, Marketing
+//      Assistant) join the existing Sales & Marketing taxonomy. Everything
+//      else — cash, products, existing income/quality formulas — untouched.
+const SAVE_VERSION = 22;
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -328,6 +336,12 @@ function migrate(loaded) {
   // employeeRoster/empSearch exactly as they already are; nothing to transform.
   if (loaded.version < 21) {
     loaded.version = 21;
+  }
+  // v21 -> v22: Marketing & Growth. co(id).marketing is seeded empty by
+  // TechCo.normalize() on open — no transform here. Reputation is the same
+  // pre-existing field, so nothing to migrate for it either.
+  if (loaded.version < 22) {
+    loaded.version = 22;
   }
   return loaded;
 }

@@ -1659,3 +1659,67 @@ html, body {
 .tc-prod-main { background: none; border: none; text-align: left; padding: 0; font-family: inherit; color: var(--text); cursor: pointer; flex: 1; min-width: 0; }
 .tc-health-lg { height: 9px; }
 .tc-update-wide { margin-top: 4px; }
+
+/* =========================================================================
+ * MARKETING & GROWTH — the game's normal theme (base --gold/--bg-elev
+ * tokens, themeable light/dark), not the Product Studio blueprint reskin.
+ * ========================================================================= */
+.mk-hint { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 4px 2px 14px; }
+.mk-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 22px 16px; }
+
+.mk-co-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.mk-co-card {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 10px; color: var(--text); font-family: inherit; box-shadow: 0 1px 3px var(--shadow);
+}
+.mk-co-card:not(.locked):active { transform: scale(0.98); }
+.mk-co-card.locked { opacity: 0.55; }
+.mk-co-name { font-weight: 700; font-size: 13px; line-height: 1.25; }
+
+.mk-rep-card { }
+.mk-rep-num { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.mk-rep-num span { font-size: 13px; color: var(--muted); font-weight: 600; }
+.mk-rep-bar { height: 8px; border-radius: 99px; background: var(--bg-elev-2); overflow: hidden; margin-top: 10px; }
+.mk-rep-fill { height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); border-radius: 99px; }
+.mk-boost-note { color: var(--green); margin-top: 8px; }
+
+.mk-history { display: flex; flex-direction: column; gap: 10px; }
+.mk-hist-row { width: 100%; text-align: left; font-family: inherit; cursor: pointer; }
+.mk-hist-right { text-align: right; font-size: 13px; font-weight: 700; }
+.mk-hist-right .card-sub { font-weight: 500; }
+
+.mk-budget-range { display: flex; justify-content: space-between; margin-top: 4px; }
+.mk-preview { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.mk-preview-budget { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+.mk-warn { color: var(--danger); }
+
+.mk-report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.mk-report-grid > div { }
+.mk-report-grid span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+.mk-report-grid b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.mk-decision { display: flex; gap: 8px; margin-top: 4px; }
+.mk-decision .btn { flex: 1; }
+
+.mk-advanced-toggle {
+  display: block; width: 100%; text-align: center; background: none; border: none;
+  color: var(--gold); font-size: 12.5px; font-weight: 700; padding: 10px 0; cursor: pointer;
+}
+.mk-field-label { font-size: 12px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+.mk-field-label:first-child { margin-top: 0; }
+.mk-chan-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 11px; }
+.mk-chan-chip small { font-weight: 500; opacity: 0.75; }
+.mk-text-input {
+  width: 100%; margin-top: 10px; background: var(--bg-elev-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--text); font-family: inherit;
+}
+
+.mk-nav-row { display: flex; gap: 8px; margin: 10px 0 20px; }
+.mk-nav-btn { flex: 1; font-size: 11.5px; padding: 10px 6px; white-space: nowrap; }
+
+.mk-inf-expanded { padding-top: 0; }
+.mk-inf-expanded .mk-hist-row { margin: 0 -16px 12px; width: calc(100% + 32px); border-radius: 0; border-left: none; border-right: none; border-top: none; box-shadow: none; }
+.mk-odds-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; text-align: center; }
+.mk-odds-row span { display: block; font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
+.mk-odds-row b { font-size: 15px; }
+.mk-insight { font-style: italic; margin: 6px 0 10px; }

@@ -32,6 +32,7 @@ const files = [
   'js/data/research.js',
   'js/data/signature.js',
   'js/data/employees.js',
+  'js/data/marketing.js',
   'js/state.js',
   'js/market.js',
   'js/techco.js',
@@ -698,7 +699,7 @@ check('wizardSummary still exposes cost/time/income/quality unchanged',
 // Product Studio Team-step integration (js/techco.js) as the proof of concept.
 
 check('role taxonomy covers all 6 categories', EMP_CATEGORIES.length === 6);
-check('40 roles are defined across the taxonomy', EMP_ROLE_IDS.length === 40);
+check('42 roles are defined across the taxonomy (40 + Market Researcher + Marketing Assistant)', EMP_ROLE_IDS.length === 42);
 check('every role has a full attribute-weight profile and a speciality list',
   EMP_ROLE_IDS.every((r) => EMP_ROLES[r].specialities.length >= 3 && EMP_ATTRS.every((a) => (EMP_ROLES[r].weights[a] || 0) >= 0)));
 
@@ -890,7 +891,7 @@ check('v20->v21 (BEFORE): real pre-existing save has ' + migHeadcountBefore + ' 
 // RESULT back as the live state and re-measure the same figures.
 const migClone = JSON.parse(JSON.stringify({ version: 20, balance: 42000, portfolio: {}, techco: { [migId]: state.techco[migId] } }));
 const migOut = migrate(migClone);
-check('v20 -> v21: version bumped to 21', migOut.version === 21);
+check('v20 -> v21: version bumped to the latest (>= 21)', migOut.version >= 21);
 check('v20 -> v21: balance untouched by the migration', migOut.balance === 42000);
 check('v20 -> v21: techco content structurally untouched by migrate() itself', JSON.stringify(migOut.techco[migId]) === JSON.stringify(state.techco[migId]));
 
@@ -901,6 +902,160 @@ const migNetAfter = TechCo.netProfitPerDay(migId);
 check('v20->v21 (AFTER): headcount byte-identical (' + migHeadcountBefore + ' -> ' + migHeadcountAfter + ')', migHeadcountAfter === migHeadcountBefore);
 check('v20->v21 (AFTER): payroll/day byte-identical ($' + migPayrollBefore.toFixed(2) + ' -> $' + migPayrollAfter.toFixed(2) + ')', migPayrollAfter === migPayrollBefore);
 check('v20->v21 (AFTER): net profit/day byte-identical ($' + migNetBefore.toFixed(2) + ' -> $' + migNetAfter.toFixed(2) + ')', migNetAfter === migNetBefore);
+
+/* ============== Marketing & Growth (v22) ================================= */
+
+/* A) Campaign effectiveness across 3 sectors: tech, banking, media. A
+ *    well-staffed, well-targeted Increase Sales campaign should have a
+ *    materially better outcome than the SAME campaign badly targeted with
+ *    no staff, on every sector — "smart setup measurably improves the odds." */
+function mk_runCampaign(id, objective, audience, budgetFrac, staffOverall) {
+  const co3 = TechCo._state(id);
+  co3.cash = TechCo.baseIncome(id) * 1e6;
+  if (staffOverall) {
+    const pool3 = TechCo.empPassivePoolFor(id, 'marketing_specialist');
+    const cand3 = Object.assign({}, pool3[0], { overall: staffOverall });
+    TechCo.empHireGeneral(id, 'marketing_specialist', cand3);
+  }
+  const range3 = TechCo.mktBudgetRange(id);
+  const budget3 = range3.min + (range3.max - range3.min) * budgetFrac;
+  const res3 = TechCo.mktStartCampaign(id, { objective, audience, budget: budget3 });
+  globalThis.NOW += (res3.campaign.endsAt - res3.campaign.startMs) + 1000;
+  TechCo.advance(id);
+  globalThis.NOW -= (res3.campaign.endsAt - res3.campaign.startMs) + 1000;
+  return co3.marketing.history[0];
+}
+const mk_sectors = [['mango', 'families'], [BANK, 'retail_customers'], ['zony', 'young_adults']];
+for (const [mk_id, mk_aud] of mk_sectors) {
+  const mk_good = mk_runCampaign(mk_id, 'increase_sales', mk_aud, 0.5, 90);
+  check(mk_id + ' (' + TechCo.mktSector(mk_id) + '): well-staffed + well-targeted Increase Sales reports a real reach/sales figure',
+    mk_good.reach > 0 && mk_good.salesPct > 0);
+  check(mk_id + ': ROI on a well-run Increase Sales campaign is reported (' + (mk_good.roi * 100).toFixed(1) + '%)', typeof mk_good.roi === 'number' && isFinite(mk_good.roi));
+}
+// Same company, same objective/budget — mismatched audience + no staff must
+// score measurably worse than well-targeted + well-staffed (mango, above).
+const mk_bad = mk_runCampaign('mango', 'increase_sales', 'militaries', 0.5, null);
+const mk_goodMango = TechCo._state('mango').marketing.history[1]; // the earlier well-run one, filed first (unshift)
+check('mango: a mismatched, unstaffed campaign scores worse than a well-targeted, well-staffed one (' +
+  mk_bad.salesPct + '% vs ' + mk_goodMango.salesPct + '%)', mk_bad.salesPct < mk_goodMango.salesPct);
+check('mango: mismatched/unstaffed ROI is worse than well-targeted/well-staffed (' +
+  (mk_bad.roi * 100).toFixed(1) + '% vs ' + (mk_goodMango.roi * 100).toFixed(1) + '%)', mk_bad.roi < mk_goodMango.roi);
+
+/* B) Reputation updates from (at least) 2 existing triggers: product-launch
+ *    reception (pre-existing) and a resolved marketing campaign (new). */
+const mk_repCo = 'ferraro';
+const mk_rc = TechCo._state(mk_repCo);
+mk_rc.cash = TechCo.baseIncome(mk_repCo) * 1e6;
+const mk_repBeforeLaunch = mk_rc.reputation;
+const mk_launch = TechCo.defaultLaunch(mk_repCo);
+const mk_buildRes = TechCo.startDeepBuild(mk_repCo, mk_launch.cfg);
+check('trigger 1 (product launch): startDeepBuild ok', mk_buildRes.ok === true);
+const mk_bld = mk_rc.builds[0];
+globalThis.NOW = mk_bld.endsAt + 2000;
+TechCo.advance(mk_repCo);
+check('trigger 1 (product launch reception): reputation moved from a completed launch (' +
+  mk_repBeforeLaunch.toFixed(1) + ' -> ' + mk_rc.reputation.toFixed(1) + ')', mk_rc.reputation !== mk_repBeforeLaunch);
+
+const mk_repBeforeCamp = mk_rc.reputation;
+const mk_campReport = mk_runCampaign(mk_repCo, 'brand_awareness', (MKT_SECTOR_AUDIENCES[TechCo.mktSector(mk_repCo)] || ['families'])[0], 0.5, 80);
+check('trigger 2 (campaign completion): reputation moved from a resolved campaign (' +
+  mk_repBeforeCamp.toFixed(1) + ' -> ' + mk_rc.reputation.toFixed(1) + ', report delta ' + mk_campReport.reputationDelta + ')',
+  mk_rc.reputation !== mk_repBeforeCamp);
+
+/* C) Budget scaling: small vs large company size, never flat dollars. */
+const mk_pairA = 'googol', mk_pairB = 'maisonlux';
+const mk_small = TechCo.baseIncome(mk_pairA) <= TechCo.baseIncome(mk_pairB) ? mk_pairA : mk_pairB;
+const mk_large = mk_small === mk_pairA ? mk_pairB : mk_pairA;
+const mk_smallRange = TechCo.mktBudgetRange(mk_small), mk_largeRange = TechCo.mktBudgetRange(mk_large);
+const mk_budgetRatio = mk_largeRange.typical / mk_smallRange.typical;
+const mk_incomeRatio = TechCo.baseIncome(mk_large) / TechCo.baseIncome(mk_small);
+check('budget scaling: typical campaign budget ratio (large/small = ' + mk_budgetRatio.toFixed(4) +
+  ') matches the baseIncome ratio (' + mk_incomeRatio.toFixed(4) + '), never a flat dollar figure', approx(mk_budgetRatio, mk_incomeRatio));
+check('budget scaling: small company min budget ($' + Math.round(mk_smallRange.min) + ') is a real, non-trivial number', mk_smallRange.min > 1000);
+check('budget scaling: large company typical budget ($' + Math.round(mk_largeRange.typical).toLocaleString() + ') dwarfs the small company\\'s (' +
+  '$' + Math.round(mk_smallRange.typical).toLocaleString() + ')', mk_largeRange.typical > mk_smallRange.typical * 10);
+
+/* D) Advanced mode: explicit spread override is honoured regardless of budget size. */
+const mk_advCo = 'maisonlux';
+const mk_ac = TechCo._state(mk_advCo);
+mk_ac.cash = TechCo.baseIncome(mk_advCo) * 1e6;
+const mk_advRange = TechCo.mktBudgetRange(mk_advCo);
+const mk_advRes = TechCo.mktStartCampaign(mk_advCo, {
+  objective: 'defend_share', audience: 'hnwi', budget: mk_advRange.min * 1.01, spread: 'global',
+  channels: { magazines: 0.6, events: 0.4 }, empId: null,
+});
+check('Advanced mode: an explicit spread tier is honoured even at the minimum budget', mk_advRes.ok === true && mk_advRes.campaign.spread === 'global');
+check('Advanced mode: manual channel allocation is used as given', JSON.stringify(mk_advRes.campaign.channels) === JSON.stringify({ magazines: 0.6, events: 0.4 }));
+
+/* E) Influencer Deals: cost scales like a signing bonus; a strong setup
+ *    shifts outcome odds toward "Extremely Well" vs a weak one. */
+const mk_infCo = 'lindygas';
+const mk_ic = TechCo._state(mk_infCo);
+mk_ic.cash = TechCo.baseIncome(mk_infCo) * 1e6;
+const mk_infPool = TechCo.mktInfluencerPoolFor(mk_infCo);
+check('influencer pool returns real, named candidates', mk_infPool.length > 0 && !!mk_infPool[0].name && mk_infPool[0].fee >= INFLUENCER_FEE_MIN && mk_infPool[0].fee <= INFLUENCER_FEE_MAX);
+const mk_infCost = TechCo.mktInfluencerCost(mk_infCo, mk_infPool[0]);
+check('influencer deal cost is baseIncome-scaled (not flat)', mk_infCost > 0 && mk_infCost !== mk_infPool[0].fee);
+const mk_weakScore = TechCo.mktInfluencerScore(mk_infCo, 'militaries', null);
+const mk_strongScore = TechCo.mktInfluencerScore(mk_infCo, (MKT_SECTOR_AUDIENCES[TechCo.mktSector(mk_infCo)] || [])[0], null);
+check('influencer odds: a well-matched audience scores higher than a mismatched one (' + mk_strongScore.toFixed(2) + ' vs ' + mk_weakScore.toFixed(2) + ')', mk_strongScore > mk_weakScore);
+const mk_signRes = TechCo.mktSignInfluencer(mk_infCo, mk_infPool[0], { audience: mk_infPool[0].audienceTag });
+check('signing an influencer deal succeeds and resolves immediately with an outcome', mk_signRes.ok === true && ['great', 'normal', 'poor'].indexOf(mk_signRes.deal.outcome) >= 0);
+
+/* F) Sponsorships: cost scales with company size; signing lifts reputation
+ *    and adds a passive income boost. */
+const mk_spCo = 'lindygas';
+const mk_spc = TechCo._state(mk_spCo);
+mk_spc.cash = TechCo.baseIncome(mk_spCo) * 1e6;
+const mk_spRepBefore = mk_spc.reputation;
+const mk_spMultBefore = TechCo.marketingIncomeMult(mk_spCo);
+const mk_spRes = TechCo.mktStartSponsorship(mk_spCo, 'ironpeak_fc', 'major');
+check('sponsorship signs ok and costs a real, baseIncome-scaled amount', mk_spRes.ok === true && mk_spRes.sponsorship.cost > 0);
+check('sponsorship raises reputation immediately (' + mk_spRepBefore.toFixed(1) + ' -> ' + mk_spc.reputation.toFixed(1) + ')', mk_spc.reputation > mk_spRepBefore);
+check('sponsorship adds a passive income boost (' + mk_spMultBefore.toFixed(3) + ' -> ' + TechCo.marketingIncomeMult(mk_spCo).toFixed(3) + ')', TechCo.marketingIncomeMult(mk_spCo) > mk_spMultBefore);
+
+/* G) Market Research: a hired Market Researcher halves the cost; insight is
+ *    cached per audience. */
+const mk_rsCo = 'lindygas';
+const mk_rsCostBefore = TechCo.mktResearchCost(mk_rsCo);
+const mk_rsPool = TechCo.empPassivePoolFor(mk_rsCo, 'market_researcher');
+TechCo.empHireGeneral(mk_rsCo, 'market_researcher', mk_rsPool[0]);
+const mk_rsCostAfter = TechCo.mktResearchCost(mk_rsCo);
+check('Market Researcher hire halves the research cost ($' + Math.round(mk_rsCostBefore) + ' -> $' + Math.round(mk_rsCostAfter) + ')', approx(mk_rsCostAfter, mk_rsCostBefore * 0.5));
+const mk_rsRes = TechCo.mktRunResearch(mk_rsCo, 'manufacturers');
+check('market research returns a plausible, audience-specific insight', mk_rsRes.ok === true && mk_rsRes.insight.text.indexOf('Manufacturers') >= 0 && mk_rsRes.insight.pct >= 55 && mk_rsRes.insight.pct <= 99);
+check('the insight is cached for that audience', TechCo._state(mk_rsCo).marketing.researchInsights.manufacturers.text === mk_rsRes.insight.text);
+
+/* H) Real-save migration check: v21 -> v22. A company with existing cash,
+ *    products, employeeRoster and reputation from BEFORE this feature
+ *    (no marketing sub-state at all) keeps everything byte-identical, and
+ *    gets an empty (never a broken/undefined) marketing structure. */
+const mk_migId = 'ferraro'; // reused from trigger test above — already has real state
+const mk_migLiveBefore = JSON.parse(JSON.stringify(state.techco[mk_migId]));
+delete mk_migLiveBefore.marketing; // simulate a v21 save: no marketing field existed yet
+const mk_migHeadcountBefore = (mk_migLiveBefore.employeeRoster || []).length;
+const mk_migCashBefore = mk_migLiveBefore.cash;
+const mk_migRepBefore = mk_migLiveBefore.reputation;
+const mk_migPayrollBefore = TechCo.rosterPayrollPerDay(mk_migId); // reads the LIVE (pre-delete) state, for reference
+
+const mk_migSave = JSON.parse(JSON.stringify({ version: 21, balance: 77000, portfolio: {}, techco: { [mk_migId]: mk_migLiveBefore } }));
+const mk_migOut = migrate(mk_migSave);
+check('v21 -> v22: version bumped to 22', mk_migOut.version === 22);
+check('v21 -> v22: balance untouched by the migration', mk_migOut.balance === 77000);
+check('v21 -> v22: migrate() itself does not touch techco content (no marketing field added yet)', mk_migOut.techco[mk_migId].marketing === undefined);
+
+state.techco[mk_migId] = mk_migOut.techco[mk_migId]; // "load" the migrated (marketing-less) save
+const mk_migAfterState = TechCo._state(mk_migId); // co(id) -> normalize() backfills marketing here
+check('v21->v22 (AFTER): marketing sub-state backfilled empty, not broken', Array.isArray(mk_migAfterState.marketing.campaigns) &&
+  Array.isArray(mk_migAfterState.marketing.history) && Array.isArray(mk_migAfterState.marketing.influencerDeals) &&
+  Array.isArray(mk_migAfterState.marketing.sponsorships) && typeof mk_migAfterState.marketing.researchInsights === 'object');
+check('v21->v22 (AFTER): headcount byte-identical (' + mk_migHeadcountBefore + ' -> ' + mk_migAfterState.employeeRoster.length + ')',
+  mk_migAfterState.employeeRoster.length === mk_migHeadcountBefore);
+check('v21->v22 (AFTER): cash byte-identical ($' + mk_migCashBefore.toFixed(2) + ' -> $' + mk_migAfterState.cash.toFixed(2) + ')', mk_migAfterState.cash === mk_migCashBefore);
+check('v21->v22 (AFTER): reputation byte-identical (' + mk_migRepBefore.toFixed(2) + ' -> ' + mk_migAfterState.reputation.toFixed(2) + ')', mk_migAfterState.reputation === mk_migRepBefore);
+check('v21->v22 (AFTER): payroll/day byte-identical ($' + mk_migPayrollBefore.toFixed(2) + ' -> $' + TechCo.rosterPayrollPerDay(mk_migId).toFixed(2) + ')',
+  TechCo.rosterPayrollPerDay(mk_migId) === mk_migPayrollBefore);
+check('v21->v22 (AFTER): net profit/day is unaffected by an empty marketing state (marketingIncomeMult = 1)', TechCo.marketingIncomeMult(mk_migId) === 1);
 
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;
