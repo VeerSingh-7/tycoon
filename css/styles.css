@@ -1637,6 +1637,24 @@ html, body {
 .tc-emp-cand .btn { width: 100%; }
 .tc-emp-hunt { width: 100%; margin: 4px 0 8px; }
 
+/* Hiring & Talent — standalone screen (Services → Invest). Reuses the
+   blueprint .tc-wizard-page theme + the .tc-emp-* cards defined above. */
+.hire-co-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.hire-co-card {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
+  background: var(--bp-panel-2); border: 1px solid var(--bp-line); border-radius: 12px;
+  padding: 14px 10px; color: var(--bp-text); font-family: inherit;
+}
+.hire-co-card:not(.locked):active { transform: scale(0.98); }
+.hire-co-card.locked { opacity: 0.55; }
+.hire-co-name { font-family: var(--bp-font-head); font-size: 12.5px; font-weight: 600; letter-spacing: 0.2px; line-height: 1.25; }
+.hire-co-card .tc-emp-cand-sub { margin-top: 0; text-align: center; }
+.hire-stats-card { margin-bottom: 4px; }
+.hire-metrics-top { border-top: none; margin-top: 0; padding-top: 0; margin-bottom: 12px; }
+.hire-cat-row { flex-wrap: wrap; margin-bottom: 4px; }
+.hire-cat-row .tc-chip { flex: 1 1 30%; }
+.hire-busy-hint { margin: 4px 0 0; }
+
 /* Product row main becomes a tappable button. */
 .tc-prod-main { background: none; border: none; text-align: left; padding: 0; font-family: inherit; color: var(--text); cursor: pointer; flex: 1; min-width: 0; }
 .tc-health-lg { height: 9px; }

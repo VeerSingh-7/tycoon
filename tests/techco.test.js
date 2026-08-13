@@ -801,6 +801,107 @@ const huntPool = TechCo.empHeadhuntPoolFor(EMPCO, 'ai_engineer', { minOverall: 9
 check('a headhunted pool is smaller than the passive pool', huntPool.length < TechCo.empPassivePoolFor(EMPCO, 'ai_engineer').length);
 check('a headhunt filter is enforced as a floor', huntPool.every((c) => c.overall >= 90));
 
+/* ============== Hiring & Talent — standalone screen (v21) ================ */
+
+/* A) 100%-ownership gate — the exact condition the screen's company
+ *    selector branches on (same rule as Product Studio / Portfolio Manage). */
+const gateId = 'lockjaw';
+check('gate: a company nobody owns is NOT hireable', Market.isOwned(gateId) === false);
+state.balance = 1e18; // enough cash to buy out 100% for this check
+Market.buy(gateId, 1e17);
+check('gate: buying out 100% flips it to hireable', Market.isOwned(gateId) === true);
+
+/* B) Roster read/write consistency: the standalone screen's general hire
+ *    (empHireGeneral) and the Product Studio Team step read/write the SAME
+ *    co(id).employeeRoster — not a second copy of the data. */
+const RCO = 'wallmarket';
+const rc = TechCo.ensureCompany(RCO);
+const rosterStart = rc.employeeRoster.length;
+const genPool = TechCo.empPassivePoolFor(RCO, 'accountant'); // a Business role, never assignable in the Team step
+const genRes = TechCo.empHireGeneral(RCO, 'accountant', genPool[0]);
+check('standalone-screen general hire succeeds', genRes.ok === true);
+check('it lands in the SAME employeeRoster the Team step reads', rc.employeeRoster.length === rosterStart + 1);
+const genId = rc.employeeRoster[rc.employeeRoster.length - 1].id;
+check('findEmployee (a Team-step read helper) sees the standalone-hired employee', !!TechCo.findEmployee(RCO, genId));
+const relRes = TechCo.empRelease(RCO, genId);
+check('release removes them from the roster', relRes.ok === true && rc.employeeRoster.length === rosterStart);
+check('releasing an unknown id fails cleanly', TechCo.empRelease(RCO, 'not-a-real-id').ok === false);
+check('cannot release an employee currently assigned to an in-progress build', TechCo.empRelease(EMPCO, hiredId).ok === false);
+
+/* C) Company-wide ambient income/cost/quality bonus, verified on 3 companies
+ *    from different sectors: Tech (mango), Banking (morganpratt), Auto (tezla). */
+function mkCand(roleId, overall) {
+  const role = EMP_ROLES[roleId];
+  return { roleId, category: role.category, name: 'Test Testerson', speciality: role.specialities[0],
+    overall, attrs: {}, satisfaction: 100, salaryYear: 120000, signingBonus: 20000 };
+}
+for (const sectorCo of [ID, BANK, 'tezla']) {
+  const sc = TechCo.ensureCompany(sectorCo);
+  sc.cash = TechCo.baseIncome(sectorCo) * 1e6; // guarantee affordability regardless of prior tests' spending
+  check(sectorCo + ': starts with no ambient bonus (empty roster in the new categories)',
+    TechCo.hiringIncomeMult(sectorCo) === 1 && TechCo.hiringCostCut(sectorCo) === 0 &&
+    TechCo.hiringQualityBonus(sectorCo) === 0 && TechCo.hiringSpeedMult(sectorCo) === 1);
+
+  const scLaunch = TechCo.defaultLaunch(sectorCo);
+  const qualBefore = TechCo.computeQuality(sectorCo, scLaunch.cfg).quality;
+  const timeBefore = TechCo.deepBuildTime(sectorCo, scLaunch.cfg);
+  const revBefore = TechCo.revenuePerDay(sectorCo);
+  const opexBefore = TechCo.opexRate(sectorCo);
+
+  TechCo.empHireGeneral(sectorCo, 'accountant', mkCand('accountant', 100));           // Business
+  TechCo.empHireGeneral(sectorCo, 'factory_manager', mkCand('factory_manager', 100)); // Operations
+  TechCo.empHireGeneral(sectorCo, 'salesperson', mkCand('salesperson', 100));         // Sales & Marketing
+  TechCo.empHireGeneral(sectorCo, 'ceo', mkCand('ceo', 100));                         // Leadership
+  TechCo.empHireGeneral(sectorCo, 'product_manager', mkCand('product_manager', 100)); // Product Development
+
+  check(sectorCo + ': revenue bonus matches the chosen +10% (sales) + 4% (leadership)', approx(TechCo.hiringIncomeMult(sectorCo), 1.14));
+  check(sectorCo + ': cost cut matches the chosen 10% (business) + 8% (ops) + 4% (leadership)', approx(TechCo.hiringCostCut(sectorCo), 0.22));
+  check(sectorCo + ': Product Dev ambient quality bonus matches the chosen +6 @ overall 100', approx(TechCo.hiringQualityBonus(sectorCo), 6));
+  check(sectorCo + ': Product Dev ambient speed bonus matches the chosen -12% time @ overall 100', approx(TechCo.hiringSpeedMult(sectorCo), 0.88));
+
+  check(sectorCo + ': revenue/day actually rises with the roster in place', TechCo.revenuePerDay(sectorCo) > revBefore);
+  check(sectorCo + ': opex rate actually falls with the roster in place', TechCo.opexRate(sectorCo) < opexBefore);
+  check(sectorCo + ': product quality actually rises with the roster in place (+6, matching the ambient bonus)', approx(TechCo.computeQuality(sectorCo, scLaunch.cfg).quality, qualBefore + 6));
+  check(sectorCo + ': build time actually falls (or holds at the floor) with the roster in place', TechCo.deepBuildTime(sectorCo, scLaunch.cfg) <= timeBefore);
+
+  const payAfter = TechCo.rosterPayrollPerDay(sectorCo);
+  check(sectorCo + ': the 5 new hires draw real baseIncome-scaled payroll (not flat cash)', approx(payAfter, TechCo.baseIncome(sectorCo) * TechCo.STAFF_CFG.PAYROLL_PER_HEAD * 5));
+}
+
+/* D) Real-save migration check: v20 -> v21. A company that already hired staff
+ *    under the pre-existing v20 Team step keeps headcount/payroll/net-income
+ *    byte-identical after the version bump. */
+const migId = 'lindygas';
+const migc = TechCo.ensureCompany(migId);
+migc.cash = TechCo.baseIncome(migId) * 50;
+const migPool1 = TechCo.empPassivePoolFor(migId, 'hardware_engineer');
+TechCo.empHire(migId, 'hardware_engineer', migPool1[0]); // as if hired via the v20 Team step, before this session
+const migPool2 = TechCo.empPassivePoolFor(migId, 'data_scientist');
+TechCo.empHire(migId, 'data_scientist', migPool2[0]);
+
+const migHeadcountBefore = migc.employeeRoster.length;
+const migPayrollBefore = TechCo.rosterPayrollPerDay(migId);
+const migNetBefore = TechCo.netProfitPerDay(migId);
+check('v20->v21 (BEFORE): real pre-existing save has ' + migHeadcountBefore + ' hired employee(s), payroll $' +
+  migPayrollBefore.toFixed(2) + '/day, net profit $' + migNetBefore.toFixed(2) + '/day', migHeadcountBefore === 2);
+
+// Round-trip exactly like a real save: JSON-clone the live company state (as
+// localStorage would hold it), run it through migrate(), then load the
+// RESULT back as the live state and re-measure the same figures.
+const migClone = JSON.parse(JSON.stringify({ version: 20, balance: 42000, portfolio: {}, techco: { [migId]: state.techco[migId] } }));
+const migOut = migrate(migClone);
+check('v20 -> v21: version bumped to 21', migOut.version === 21);
+check('v20 -> v21: balance untouched by the migration', migOut.balance === 42000);
+check('v20 -> v21: techco content structurally untouched by migrate() itself', JSON.stringify(migOut.techco[migId]) === JSON.stringify(state.techco[migId]));
+
+state.techco[migId] = migOut.techco[migId]; // "load" the migrated save
+const migHeadcountAfter = state.techco[migId].employeeRoster.length;
+const migPayrollAfter = TechCo.rosterPayrollPerDay(migId);
+const migNetAfter = TechCo.netProfitPerDay(migId);
+check('v20->v21 (AFTER): headcount byte-identical (' + migHeadcountBefore + ' -> ' + migHeadcountAfter + ')', migHeadcountAfter === migHeadcountBefore);
+check('v20->v21 (AFTER): payroll/day byte-identical ($' + migPayrollBefore.toFixed(2) + ' -> $' + migPayrollAfter.toFixed(2) + ')', migPayrollAfter === migPayrollBefore);
+check('v20->v21 (AFTER): net profit/day byte-identical ($' + migNetBefore.toFixed(2) + ' -> $' + migNetAfter.toFixed(2) + ')', migNetAfter === migNetBefore);
+
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;
 `;

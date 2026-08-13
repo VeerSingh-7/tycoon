@@ -57,7 +57,14 @@ const SAVE_KEY = 'tycoon_save_v1';
 //      (headhunt counters), back-filled by TechCo.normalize() on load. Every
 //      existing hire under the old eng/mkt/ops staff groups and Team-step
 //      levels is untouched; the new roster starts empty for everyone.
-const SAVE_VERSION = 20;
+// v21: Hiring & Talent screen (Services → Invest) — the SAME employeeRoster
+//      now has a standalone company-wide browser (all 40 roles, any 100%-
+//      owned company), plus a small ambient income/cost/quality bonus layered
+//      on top of each company's existing formulas. No new persisted fields —
+//      state.techco[id] is created lazily (as it already was for Tech
+//      companies) the first time a company is opened from the new screen; a
+//      company nobody's opened there is byte-identical to before.
+const SAVE_VERSION = 21;
 
 // Coins that were repriced in v12: id -> price factor (newPrice / oldPrice).
 // A holder's share count is divided by this so value stays identical.
@@ -316,6 +323,11 @@ function migrate(loaded) {
   // existing eng/mkt/ops hire and Team-step level is untouched.
   if (loaded.version < 20) {
     loaded.version = 20;
+  }
+  // v20 -> v21: Hiring & Talent screen. No new persisted shape — reuses
+  // employeeRoster/empSearch exactly as they already are; nothing to transform.
+  if (loaded.version < 21) {
+    loaded.version = 21;
   }
   return loaded;
 }

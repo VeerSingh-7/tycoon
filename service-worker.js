@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v67'; // v67: auto-reload when a new service worker takes control, so deploys actually reach already-open tabs/PWAs
+const CACHE_NAME = 'tycoon-v68'; // v68: Hiring & Talent screen (js/hiring.js) + company-wide roster income/cost bonus
 
 const ASSETS = [
   'index.html',
@@ -37,6 +37,7 @@ const ASSETS = [
   'js/tap.js',
   'js/businesses.js',
   'js/invest.js',
+  'js/hiring.js',
   'js/assetstab.js',
   'js/ui.js',
   'js/profile.js',

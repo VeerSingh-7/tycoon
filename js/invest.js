@@ -225,7 +225,7 @@ const Invest = (() => {
     if (!container) return;
     if (view.mode === 'hub') renderHub();
     else if (view.mode === 'marketing') renderComing('Marketing &amp; Growth', 'Run campaigns, build your brand and reach new customers across your empire.');
-    else if (view.mode === 'hiring') renderComing('Hiring &amp; Talent', 'Recruit and manage top talent to power every business you own.');
+    else if (view.mode === 'hiring') renderHiringScreen();
     else if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'portfolio') renderPortfolio();
     else renderList();
@@ -269,6 +269,14 @@ const Invest = (() => {
       ${hubCard('marketing', 'Marketing &amp; Growth', 'Run campaigns to build your brand and reach')}
       ${hubCard('hiring', 'Hiring &amp; Talent', 'Recruit and manage top talent for your empire')}
     `;
+  }
+
+  /** Hiring & Talent — a real, standalone company-wide screen (js/hiring.js).
+   *  Invest only owns the back-link; Hiring mounts into #hireRoot and runs
+   *  its own click handling (data-h, not data-act) so the two never collide. */
+  function renderHiringScreen() {
+    container.innerHTML = `<button class="back-link" data-act="hub">‹ Services</button><div id="hireRoot"></div>`;
+    if (typeof Hiring !== 'undefined') Hiring.mount(document.getElementById('hireRoot'));
   }
 
   /** A tidy "coming soon" screen for the services still in the works. */

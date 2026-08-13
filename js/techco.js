@@ -279,7 +279,7 @@ const TechCo = (() => {
     const teamScore = twMax ? clamp(tw / twMax, 0, 1.15) : 0;
     // Research breakthroughs, the company Signature and named engineers you've
     // actually hired (Recruitment system) each add a flat quality bonus on top.
-    const quality = clamp(100 * (0.45 * specScore + 0.25 * bud + 0.30 * teamScore) + researchQualityBonus(id) + sigQualityBonus(id) + empQualityBonus(id, cfg), 3, 100);
+    const quality = clamp(100 * (0.45 * specScore + 0.25 * bud + 0.30 * teamScore) + researchQualityBonus(id) + sigQualityBonus(id) + empQualityBonus(id, cfg) + hiringQualityBonus(id), 3, 100);
     return { quality, specScore, budgetScore: bud, teamScore };
   }
 
@@ -295,7 +295,7 @@ const TechCo = (() => {
     const tier = TECH_TIERS[cfg.tier] || TECH_TIERS.standard;
     const base = 140 + tier.costMult * 6;
     const pm = (TECH_TEAM_LEVELS[cfg.team.pm] || TECH_TEAM_LEVELS.none).v; // PM speeds delivery
-    return Math.max(45, Math.round(base * clamp(buildSpeedMult(id) * empSpeedMult(id, cfg) * (1 - pm * 0.15), 0.4, 1)));
+    return Math.max(45, Math.round(base * clamp(buildSpeedMult(id) * empSpeedMult(id, cfg) * hiringSpeedMult(id) * (1 - pm * 0.15), 0.4, 1)));
   }
   const tierToPricing = (tier) => ((tier === 'economy' || tier === 'budget') ? 'budget' : tier === 'standard' ? 'balanced' : 'premium');
 
@@ -463,10 +463,13 @@ const TechCo = (() => {
     const strictness = 1 + (filters.minOverall ? Math.max(0, filters.minOverall - 50) / 50 : 0);
     return baseIncome(id) * 6 * strictness * (1 + n * 0.6);
   }
+  /** Company cash pays for hiring — same pool Product Studio already spends. */
+  function empFunds(id) { return co(id).cash; }
+  function empSpend(id, amount) { co(id).cash -= amount; }
   function empRunHeadhunt(id, roleId, filters) {
     const c = co(id), cost = empSearchCost(id, roleId, filters);
-    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to run a search.` };
-    c.cash -= cost;
+    if (empFunds(id) < cost) return { ok: false, msg: `Need ${formatMoney(cost)} to run a search.` };
+    empSpend(id, cost);
     c.empSearch[roleId] = (c.empSearch[roleId] || 0) + 1;
     saveGame();
     return { ok: true };
@@ -493,8 +496,8 @@ const TechCo = (() => {
   function empHire(id, roleId, candidate) {
     if (!candidate) return { ok: false, msg: 'That candidate is no longer available.' };
     const c = co(id), cost = employeeHireCost(id, candidate);
-    if (c.cash < cost) return { ok: false, msg: `Need ${formatMoney(cost)} for the signing bonus.` };
-    c.cash -= cost;
+    if (empFunds(id) < cost) return { ok: false, msg: `Need ${formatMoney(cost)} for the signing bonus.` };
+    empSpend(id, cost);
     const employee = Object.assign({}, candidate, { id: 'emp' + (c.nextEmpId++), hiredAt: now() });
     delete employee.seed;
     c.employeeRoster.push(employee);
@@ -536,6 +539,89 @@ const TechCo = (() => {
     if (!filled) return 1;
     return clamp(1 - (total / filled / 99) * 0.18, 0.75, 1);
   }
+
+  /* release ---------------------------------------------------------------- */
+  /** Let an employee go. Blocked while they're assigned to an in-progress
+   *  build (finish or unassign first) so a live build never loses a seat out
+   *  from under it. Frees their payroll immediately. */
+  function empRelease(id, empId) {
+    const c = co(id);
+    if (empIsBusy(id, empId)) return { ok: false, msg: 'Currently assigned to an active build — unassign or finish it first.' };
+    const before = c.employeeRoster.length;
+    c.employeeRoster = c.employeeRoster.filter((e) => e.id !== empId);
+    if (c.employeeRoster.length === before) return { ok: false, msg: 'Employee not found.' };
+    saveGame();
+    return { ok: true };
+  }
+
+  /** Hire ANY candidate (all 40 roles) straight onto the roster — the general
+   *  form empHire() only ever used from the Team-step's 5 R&T roles. Same
+   *  cost/persistence; no build-seat assignment happens here. */
+  function empHireGeneral(id, roleId, candidate) { return empHire(id, roleId, candidate); }
+
+  /* ============ Hiring & Talent — company-wide ambient roster effects =======
+   * A company's FULL roster (any of the 40 roles, hired from the standalone
+   * Hiring & Talent screen OR the Product Studio Team step — same array)
+   * contributes a small passive modifier layered on top of existing income/
+   * cost/quality formulas, scaled off the roster's AVERAGE Overall per
+   * category (never headcount, so a bigger roster can't runaway-scale a
+   * single company) and never a replacement for any existing calculation.
+   * (Audit finding: every one of the 48 stock companies is TechCo-managed —
+   * see data/bizdefs.js, which auto-generates a profile for the 43 that
+   * aren't hand-crafted — so there's no separate "non-Tech" company case to
+   * design for here; only crypto, which has no roles/roster at all, sits
+   * outside this system.)
+   *
+   *   Business            → cost-efficiency, up to -10% @ avg Overall 100
+   *   Operations          → cost-efficiency, up to -8%
+   *   Sales & Marketing   → revenue, up to +10%
+   *   Leadership          → both, half-strength each (+4% income, -4% cost)
+   *   Product Development → ambient quality/build-speed bonus feeding Product
+   *                          Studio, company-wide (not tied to a specific
+   *                          build's assigned seats)
+   *   Research & Technology → unchanged: the existing Team-step per-build
+   *                          system only (no ambient contribution here, so a
+   *                          hire isn't double counted)
+   */
+  const HIRE_CAT_EFFECT = {
+    business:        { income: 0,    cost: 0.10 },
+    operations:      { income: 0,    cost: 0.08 },
+    sales_marketing: { income: 0.10, cost: 0    },
+    leadership:      { income: 0.04, cost: 0.04 },
+  };
+  const HIRE_QUALITY_MAX = 6;    // ambient Product-Dev quality points @ avg Overall 100
+  const HIRE_SPEED_MAX = 0.12;   // ambient Product-Dev build-speed swing @ avg Overall 100
+
+  /** Average Overall (0..1) of roster members in one category; 0 if nobody's
+   *  hired into it — every existing company with an empty/legacy roster sees
+   *  no change at all. */
+  function empCategoryAvg(id, catId) {
+    const roster = co(id).employeeRoster;
+    let sum = 0, n = 0;
+    for (const e of roster) {
+      const role = EMP_ROLES[e.roleId];
+      if (role && role.category === catId) { sum += e.overall; n++; }
+    }
+    return n ? (sum / n) / 100 : 0;
+  }
+
+  /** Multiplier onto revenue (>=1). */
+  function hiringIncomeMult(id) {
+    let bonus = 0;
+    for (const catId in HIRE_CAT_EFFECT) bonus += HIRE_CAT_EFFECT[catId].income * empCategoryAvg(id, catId);
+    return 1 + bonus;
+  }
+  /** Fraction to SUBTRACT from an opex-style cost rate (>=0, additive with
+   *  other cost-cut sources the same way research/ops/signature already are). */
+  function hiringCostCut(id) {
+    let cut = 0;
+    for (const catId in HIRE_CAT_EFFECT) cut += HIRE_CAT_EFFECT[catId].cost * empCategoryAvg(id, catId);
+    return cut;
+  }
+  /** Ambient Product-Dev quality points, company-wide. */
+  function hiringQualityBonus(id) { return HIRE_QUALITY_MAX * empCategoryAvg(id, 'product_dev'); }
+  /** Ambient Product-Dev build-speed multiplier (<1 = faster). */
+  function hiringSpeedMult(id) { return 1 - HIRE_SPEED_MAX * empCategoryAvg(id, 'product_dev'); }
 
   /* ================= Research meta-game (categories, scientists) =========== */
   // Each company has a research tree (data/research.js) of categories with 5
@@ -635,7 +721,7 @@ const TechCo = (() => {
   // Operating-cost rate after Operations staff + research cost-cuts.
   function opexRate(id) {
     const opsCut = clamp(groupEff(id, 'ops') * 0.012, 0, 0.28);
-    return clamp(CFG.OPEX - opsCut - researchCostCut(id) - sigCostCut(id) + strategyOpexDelta(id) + globalOpexAdd(id), 0.15, 0.70);
+    return clamp(CFG.OPEX - opsCut - researchCostCut(id) - sigCostCut(id) - hiringCostCut(id) + strategyOpexDelta(id) + globalOpexAdd(id), 0.15, 0.70);
   }
   // Live catalog = base products + everything unlocked by research.
   function catalogFor(id) { return def(id).catalog.concat(co(id).unlocked); }
@@ -1162,7 +1248,7 @@ const TechCo = (() => {
     // acquisitions stack on top; a price undercut or supply shortage bite briefly.
     const undercut = (c.undercutUntil && now() < c.undercutUntil) ? 0.9 : 1;
     const supply = (c.supplyUntil && now() < c.supplyUntil) ? 0.85 : 1;
-    return rev * shareIncomeMult(id) * leaderMult(id) * globalIncomeMult(id) * sigIncomeMult(id) * (1 + (c.acqBonus || 0)) * undercut * supply;
+    return rev * shareIncomeMult(id) * leaderMult(id) * globalIncomeMult(id) * sigIncomeMult(id) * hiringIncomeMult(id) * (1 + (c.acqBonus || 0)) * undercut * supply;
   }
   // Net profit = revenue − operating costs − payroll (group staff + any hired
   // named employees). Overspending makes this negative and burns company cash.
@@ -2738,6 +2824,9 @@ const TechCo = (() => {
     empPassivePoolFor, empHeadhuntPoolFor, empSearchCost, empRunHeadhunt,
     employeePayrollPerDay, employeeHireCost, rosterPayrollPerDay, empHire,
     empQualityBonus, empSpeedMult, studioTeam,
+    // Hiring & Talent screen — general roster CRUD + company-wide ambient bonus:
+    empRelease, empHireGeneral, empCategoryAvg, hiringIncomeMult, hiringCostCut,
+    hiringQualityBonus, hiringSpeedMult, empFunds,
     // Config/data access for tests + future phases:
     CFG, BUDGETS, QUALITIES, PRICINGS, RECEPTIONS, STAFF, STAFF_CFG,
     COMPETE, RANK_CATS, RIVAL_CFG, LEADER_INCOME_BONUS, MANU, STRATEGIES, REGIONS, EVENTS,
