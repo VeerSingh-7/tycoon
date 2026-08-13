@@ -342,7 +342,7 @@ check('mission_success_5 achievement added, reads space mission counter', !!ACHI
   const beforeBalance = oldSave.balance;
   const migrated = migrate(JSON.parse(JSON.stringify(oldSave)));
 
-  check('migration bumps version to 23', migrated.version === 23);
+  check('migration bumps version to latest (24, cascades past the v23 step tested here)', migrated.version === SAVE_VERSION);
   check('migration deletes all 11 removed business records', ['retail','taxi','restaurant','clothing','transport','construction','bank','oil','it','sports','airline'].every((id) => migrated.businesses[id] === undefined));
   check('migration refunds the full buyout amount (before=' + beforeBalance + ' expected+=' + Math.round(expectedTotal) + ' got=' + migrated.balance + ')',
     approx(migrated.balance, beforeBalance + expectedTotal, 0.001));
@@ -386,7 +386,7 @@ check('mission_success_5 achievement added, reads space mission counter', !!ACHI
   check('sanity: full-catalog expected refund is a real finite number', Number.isFinite(expectedAll) && expectedAll > 0);
 
   const migratedAll = migrate(JSON.parse(JSON.stringify(allOwned)));
-  check('full-catalog migration: version bumped to 23', migratedAll.version === 23);
+  check('full-catalog migration: version bumped to latest (24, cascades past the v23 step tested here)', migratedAll.version === SAVE_VERSION);
   check('full-catalog migration: all 11 records deleted', allIds.every((id) => migratedAll.businesses[id] === undefined));
   check('full-catalog migration: refund is finite, no NaN/undefined (before=' + allOwned.balance + ' got=' + migratedAll.balance + ')', Number.isFinite(migratedAll.balance));
   check('full-catalog migration: refund matches the hand-computed total exactly',

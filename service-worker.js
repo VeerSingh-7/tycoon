@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v73'; // v73: Business tab overhaul — 11 old businesses replaced by 14 new ones
+const CACHE_NAME = 'tycoon-v74'; // v74: real estate retired from the Business tab (placeholder on Invest); dedicated per-business page
 
 const ASSETS = [
   'index.html',
@@ -37,6 +37,7 @@ const ASSETS = [
   'js/assets.js',
   'js/tap.js',
   'js/businesses.js',
+  'js/bizdash.js',
   'js/invest.js',
   'js/hiring.js',
   'js/marketing.js',

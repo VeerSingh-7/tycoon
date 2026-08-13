@@ -83,7 +83,15 @@ const SAVE_KEY = 'tycoon_save_v1';
 //      paid-for routes). See REMOVED_BIZ_V23 below for the exact formulas.
 //      Their save records are then deleted — no orphaned fields. Players with
 //      none of the 11 see zero disruption; the new 14 default in normally.
-const SAVE_VERSION = 23;
+// v24: Real estate retired from the Business tab (a "Coming Soon" placeholder
+//      now lives on the Invest tab instead). Any owned property is FULLY
+//      refunded at its tracked cost basis (state.assets.estate[id].cost —
+//      exactly what the player paid, not market value, so no gain/loss is
+//      manufactured either way) and state.assets.estate + state.assets.epoch
+//      are then deleted. state.assets.luxury (the separate Luxury tab
+//      collection) is completely untouched. Players who never bought
+//      property see zero disruption.
+const SAVE_VERSION = 24;
 
 // Buyout data for v22 -> v23 migration (see below). Copied from the removed
 // businesses' definitions so the refund math matches exactly what players
@@ -197,7 +205,7 @@ function defaultState() {
     market: null,          // full market state; created lazily by Market.ensure()
 
     /* Phase 5 — real estate & luxury */
-    assets: null,          // { epoch, estate:{}, luxury:{} }; lazy via Assets.ensure()
+    assets: null,          // { luxury:{} }; lazy via Assets.ensure()
 
     /* Tech-sector company management (Phase 1) */
     techco: null,          // id -> per-company state; lazy via TechCo.ensureCompany()
@@ -443,6 +451,28 @@ function migrate(loaded) {
       }
     }
     loaded.version = 23;
+  }
+  // v23 -> v24: Real estate retired from the Business tab. Refund every owned
+  // property unit at its exact tracked cost basis (no gain/loss manufactured
+  // either way), then drop the estate/epoch fields. Luxury is untouched.
+  if (loaded.version < 24) {
+    if (loaded.assets && loaded.assets.estate) {
+      let totalRefund = 0, unitCount = 0;
+      for (const id of Object.keys(loaded.assets.estate)) {
+        const rec = loaded.assets.estate[id];
+        if (rec && rec.count > 0) {
+          totalRefund += rec.cost || 0;
+          unitCount += rec.count;
+        }
+      }
+      if (totalRefund > 0) {
+        loaded.balance = (loaded.balance || 0) + totalRefund;
+        loaded.realEstateRefundNotice = { units: unitCount, cash: totalRefund };
+      }
+      delete loaded.assets.estate;
+      delete loaded.assets.epoch;
+    }
+    loaded.version = 24;
   }
   return loaded;
 }

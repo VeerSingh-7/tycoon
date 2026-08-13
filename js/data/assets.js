@@ -1,39 +1,17 @@
 /* =========================================================================
- * data/assets.js — Phase 5 DATA: real estate + luxury collection
+ * data/assets.js — Phase 5 DATA: luxury collection
  * -------------------------------------------------------------------------
- * IMAGES: every item (estate + luxury) looks for `img/assets/<id>.png`.
- * Drop a file with the matching name into img/assets/ and the card picks it
- * up automatically — until then a coloured placeholder with the icon shows.
- *
- * REAL ESTATE: own multiples of each property. Each unit pays rent/sec and
- * the MARKET VALUE of the property type appreciates apprPerDay compounding
- * (so buying early is cheaper, and selling later realizes the gain).
- * ROI shown as rent payback time; sells pay market value minus a 3% fee.
+ * IMAGES: every item looks for `img/assets/<id>.png`. Drop a file with the
+ * matching name into img/assets/ and the card picks it up automatically —
+ * until then a coloured placeholder with the icon shows.
  *
  * LUXURY: one-off collectibles grouped into sets; completing a set grants a
  * permanent global income multiplier (product feeds globalIncomeMultiplier).
+ *
+ * (Real estate previously lived here — it's been retired from the Business
+ * tab; see js/state.js SAVE_VERSION 24 for the buyout migration. A "Coming
+ * Soon" placeholder for a future Invest-tab version lives in js/invest.js.)
  * ========================================================================= */
-
-const ASSETS_CFG = {
-  ESTATE_SELL_FEE: 0.03,  // 3% agent fee when selling a property
-};
-
-/* ---------------------------- Real estate ------------------------------- */
-// Payback time (price / rent) intentionally lengthens up the tiers while
-// appreciation improves — cheap tiers are income, top tiers are stores of value.
-
-const ESTATE_DEFS = [
-  { id: 'apartment',  name: 'City Apartment',      icon: '🏢', tier: 1,
-    price: 75000,     rentPerSec: 30,    apprPerDay: 0.02 },
-  { id: 'villa',      name: 'Beach Villa',         icon: '🏖️', tier: 2,
-    price: 400000,    rentPerSec: 130,   apprPerDay: 0.025 },
-  { id: 'mansion',    name: 'Hillside Mansion',    icon: '🏰', tier: 3,
-    price: 2500000,   rentPerSec: 650,   apprPerDay: 0.03 },
-  { id: 'commercial', name: 'Commercial Tower',    icon: '🏬', tier: 4,
-    price: 15000000,  rentPerSec: 3200,  apprPerDay: 0.035 },
-  { id: 'estate',     name: 'Country Estate',      icon: '🏞️', tier: 5,
-    price: 100000000, rentPerSec: 17000, apprPerDay: 0.04 },
-];
 
 /* ------------------------------ Luxury ---------------------------------- */
 // Sets: complete every item in a set → permanent income bonus. `hue` colours
@@ -89,6 +67,5 @@ const LUXURY_DEFS = [
   { id: 'crown_jewel',   name: 'The Crown Jewel',  set: 'jewellery', price: 5000000000 },
 ];
 
-const ESTATE_BY_ID = ESTATE_DEFS.reduce((m, d) => { m[d.id] = d; return m; }, {});
 const LUXURY_BY_ID = LUXURY_DEFS.reduce((m, d) => { m[d.id] = d; return m; }, {});
 const LUXURY_SET_BY_ID = LUXURY_SETS.reduce((m, d) => { m[d.id] = d; return m; }, {});

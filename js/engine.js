@@ -134,11 +134,10 @@ function totalBusinessIncomePerSec() {
   return total;
 }
 
-/** ALL passive income/sec: businesses + real-estate rent (Phase 5). */
+/** ALL passive income/sec. (Real estate rent was retired from the Business
+ * tab — see js/state.js SAVE_VERSION 24 — so this is businesses only now.) */
 function totalPassiveIncomePerSec() {
-  let total = totalBusinessIncomePerSec();
-  if (typeof Assets !== 'undefined') total += Assets.rentPerSec();
-  return total;
+  return totalBusinessIncomePerSec();
 }
 
 /* ------------------------------------------------------------------ *

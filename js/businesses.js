@@ -12,7 +12,6 @@
 
 const Businesses = (() => {
   let container;
-  const view = { tab: 'biz' }; // 'biz' | 'estate' — survives re-renders
 
   function mount(el) {
     container = el;
@@ -28,13 +27,11 @@ const Businesses = (() => {
     const d = btn.dataset;
     let changed = false;
 
-    if (d.biztab) { view.tab = d.biztab; render(); return; }
+    if (d.manage) { if (typeof BizDash !== 'undefined') BizDash.open(d.manage); return; }
     else if (d.buy) changed = buyBusinessLevel(d.buy);
     else if (d.upgrade) changed = buyBusinessUpgrade(d.biz, d.upgrade);
     else if (d.hire) changed = hireStaff(d.hire);
     else if (d.mgmt !== undefined) changed = buyManagementUpgrade();
-    else if (d.buyestate) changed = Assets.buyEstate(d.buyestate);
-    else if (d.sellestate) changed = Assets.sellEstate(d.sellestate);
     else if (d.sell) {
       const def = BUSINESS_BY_ID[d.sell];
       const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
@@ -54,14 +51,9 @@ const Businesses = (() => {
 
   /* ------------------------------ Render ------------------------------ */
 
-  const tabToggleHTML = () => {
-    const seg = (id, label) => `<button class="seg ${view.tab === id ? 'seg-active' : ''}" data-biztab="${id}">${label}</button>`;
-    return `<div class="seg-row">${seg('biz', 'Businesses')}${seg('estate', 'Real Estate')}</div>`;
-  };
-
   function render() {
     if (!container) return;
-    container.innerHTML = view.tab === 'estate' ? estateTabHTML() : bizTabHTML();
+    container.innerHTML = bizTabHTML();
   }
 
   function bizTabHTML() {
@@ -71,7 +63,6 @@ const Businesses = (() => {
         <h2>Businesses</h2>
         <div class="section-stat">${formatRate(totalBusinessIncomePerSec())}</div>
       </div>
-      ${tabToggleHTML()}
       ${headerHTML(level)}
       ${managementHTML()}
       <div class="biz-list">
@@ -79,67 +70,6 @@ const Businesses = (() => {
     for (const def of BUSINESS_DEFS) html += businessCardHTML(def, level);
     html += '</div>';
     return html;
-  }
-
-  /* --------------------------- Real estate ---------------------------- */
-  // Property is operated like a business: buy units for rent + appreciation.
-  // Rent still feeds passive income (engine.totalPassiveIncomePerSec) exactly
-  // as before — only the UI moved here from the Invest tab. Cards use the same
-  // biz-card layout as the businesses so it feels native.
-
-  function estateTabHTML() {
-    Assets.ensure();
-    const sum = Assets.estateSummary();
-    let html = `
-      <div class="section-head">
-        <h2>Real Estate</h2>
-        <div class="section-stat">${formatRate(Assets.rentPerSec())}</div>
-      </div>
-      ${tabToggleHTML()}
-      <div class="card meta-card">
-        <div class="card-row">
-          <div>
-            <div class="card-title">🏠 Property Portfolio</div>
-            <div class="card-sub">${sum.units} unit${sum.units === 1 ? '' : 's'} owned · worth ${formatMoney(sum.value)}</div>
-          </div>
-          <div class="xp-num">${formatMoney(sum.cost)} <span class="muted">invested</span></div>
-        </div>
-      </div>
-      <div class="biz-list">`;
-    for (const def of ESTATE_DEFS) html += estateCardHTML(def);
-    html += '</div>';
-    return html;
-  }
-
-  /** One property tier, laid out exactly like a business card. */
-  function estateCardHTML(def) {
-    const rec = (state.assets.estate && state.assets.estate[def.id]) || { count: 0, cost: 0 };
-    const owned = rec.count > 0;
-    const value = Assets.unitValue(def);                 // current price of one unit
-    const canBuy = state.balance >= value;
-    const paybackSec = value / def.rentPerSec;
-    const sellNet = value * (1 - ASSETS_CFG.ESTATE_SELL_FEE);
-    return `
-      <div class="card biz-card ${owned ? '' : 'not-owned'}">
-        <div class="biz-head">
-          <div class="biz-icon">${def.icon}</div>
-          <div class="biz-title-wrap">
-            <div class="biz-name">${def.name}</div>
-            <div class="biz-blurb">Tier ${def.tier} property · appreciates +${(def.apprPerDay * 100).toFixed(1)}%/day</div>
-          </div>
-          ${owned ? `<div class="biz-level">×${rec.count}</div>` : ''}
-        </div>
-
-        <div class="biz-stats">
-          <div><span class="muted">Rent per unit</span><b class="gold">${formatRate(def.rentPerSec)}</b></div>
-          <div><span class="muted">Unit price</span><b>${formatMoney(value)}</b></div>
-        </div>
-
-        <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buyestate="${def.id}" ${canBuy ? '' : 'disabled'}>
-          Buy a unit · ${formatMoney(value)}</button>
-        <div class="progress-caption">ROI payback ${formatDuration(paybackSec)}${owned ? ` · you own ${rec.count} (rent ${formatRate(rec.count * def.rentPerSec)})` : ''}</div>
-        ${owned ? `<button class="sell-link" data-sellestate="${def.id}">Sell one unit (${formatMoney(sellNet)} after fee)</button>` : ''}
-      </div>`;
   }
 
   /** Player level + XP progress + slot usage. */
@@ -224,7 +154,10 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /* Owned: the full management view. */
+  /* Owned: a compact summary — quick-buy stays here for the idle-clicking
+   * loop, everything else (staff/mechanic/upgrades/sell) lives on the
+   * dedicated page (js/bizdash.js), same split as the stock side's list row
+   * (buy shares inline) vs. its Manage Company dashboard. */
   function ownedCardHTML(def, biz) {
     const net = businessIncomePerSec(def);
     const nextCost = businessNextCost(def);
@@ -251,10 +184,7 @@ const Businesses = (() => {
           Buy Level ${biz.level + 1} · ${formatMoney(nextCost)}</button>
         <div class="progress-caption">💥 Output ×2 at Lv ${ms} (milestone)</div>
 
-        ${staffHTML(def, biz)}
-        ${Mechanics.panelHTML(def)}
-        <div class="upgrade-list">${upgradesHTML(def, biz)}</div>
-        <button class="sell-link" data-sell="${def.id}">Sell business (25% refund, frees slot)</button>
+        <button class="btn btn-wide biz-manage-btn" data-manage="${def.id}">Manage Business ›</button>
       </div>`;
   }
 
@@ -305,5 +235,7 @@ const Businesses = (() => {
     return html;
   }
 
-  return { mount, render };
+  // staffHTML/upgradesHTML are exported so the dedicated business page
+  // (js/bizdash.js) can reuse them exactly as-is — no re-derived logic.
+  return { mount, render, staffHTML, upgradesHTML };
 })();

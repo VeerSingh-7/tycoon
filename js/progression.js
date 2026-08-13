@@ -107,7 +107,7 @@ const Progression = (() => {
     return 1 + state.legacyPoints * PROG.LEGACY_MULT_PER_POINT;
   }
 
-  /** Applied by engine.js to all business net income (and estate rent). */
+  /** Applied by engine.js to all business net income. */
   function globalIncomeMultiplier() {
     // Luxury set bonuses (Phase 5) join the product when Assets is loaded.
     const lux = typeof Assets !== 'undefined' ? Assets.luxuryMultiplier() : 1;

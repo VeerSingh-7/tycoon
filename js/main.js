@@ -42,6 +42,19 @@
     saveGame();
   }
 
+  // 3d. One-time notice: real estate was retired from the Business tab
+  //     (state.js v24) and any owned property was refunded at cost.
+  if (state.realEstateRefundNotice && state.realEstateRefundNotice.units > 0) {
+    const n = state.realEstateRefundNotice;
+    UI.showToast(
+      `🏠 <b>Real estate refunded</b><br>` +
+      `${n.units} propert${n.units === 1 ? 'y' : 'ies'} refunded at cost (+${formatMoney(n.cash)}). It's moving to Invest — coming soon!`,
+      { ms: 9000 }
+    );
+    delete state.realEstateRefundNotice;
+    saveGame();
+  }
+
   // 4. Economy tick — 10x/sec, uses real elapsed time so it's frame-independent.
   setInterval(tick, 100);
 

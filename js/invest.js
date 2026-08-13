@@ -1,7 +1,8 @@
 /* =========================================================================
  * invest.js — Phase 4 (overhauled) UI: our own pro mobile trading screen
  * -------------------------------------------------------------------------
- * Stocks + crypto only (real estate lives on the Business tab). Screens:
+ * Stocks + crypto, plus a Real Estate placeholder (retired from the Business
+ * tab — see js/state.js SAVE_VERSION 24; not yet functional here). Screens:
  *   list       — Portfolio card (→ Holdings) + a Stocks / Crypto toggle, then
  *                a clean list of the selected group
  *   detail     — ticker/name header, big price + today & month %, inline chart
@@ -170,12 +171,15 @@ const Invest = (() => {
   }
 
   /* --------------------------- Segments ----------------------------- */
-  // One simple toggle: Stocks | Crypto. Holdings is reached by tapping the
-  // Portfolio card. (Real estate lives on the Business tab.)
+  // Stocks | Crypto | Real Estate. Holdings is reached by tapping the
+  // Portfolio card. Real estate was retired from the Business tab (see
+  // js/state.js SAVE_VERSION 24) and lives here as a placeholder for now —
+  // selecting it shows a "Coming Soon" screen instead of an asset list.
 
   const SEGS = [
     { id: 'stock',  label: 'Stocks' },
     { id: 'crypto', label: 'Crypto' },
+    { id: 'estate', label: 'Real Estate' },
   ];
 
   function matchSeg(def) {
@@ -396,6 +400,16 @@ const Invest = (() => {
   function renderBody() {
     const el = document.getElementById('mktBody');
     if (!el) return;
+    if (view.seg === 'estate') {
+      el.innerHTML = `
+        <div class="coming-soon">
+          <div class="cs-badge">COMING SOON</div>
+          <h2>🏠 Real Estate</h2>
+          <p>Own property, collect rent, and watch it appreciate over time.</p>
+          <p class="muted">This service is on the way.</p>
+        </div>`;
+      return;
+    }
     const q = view.q.trim().toLowerCase();
     const pool = q
       ? ASSET_DEFS.filter((d) => d.name.toLowerCase().includes(q) || d.ticker.toLowerCase().includes(q))

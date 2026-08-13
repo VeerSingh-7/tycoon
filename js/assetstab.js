@@ -1,9 +1,11 @@
 /* =========================================================================
  * assetstab.js — The Luxury tab: the collectible sets
  * -------------------------------------------------------------------------
- * Real estate moved to the Invest tab (it's an investment). This tab is now
- * just the luxury collection: one-off collectibles grouped into sets, where
- * completing a set grants a permanent global income multiplier.
+ * Real estate used to have a tab here too; it's been retired from the
+ * Business tab and now has a "Coming Soon" placeholder on the Invest tab
+ * instead (see js/state.js SAVE_VERSION 24). This tab is just the luxury
+ * collection: one-off collectibles grouped into sets, where completing a
+ * set grants a permanent global income multiplier.
  *
  * Every item card contains an <img> pointed at img/assets/<id>.png (hidden on
  * 404) over a coloured placeholder — drop an image file in and it appears,
