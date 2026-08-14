@@ -737,6 +737,16 @@ const TechCo = (() => {
    *  co(id).reputation field product launches already move; the income boost
    *  is the one genuinely new bit of state (a decaying window, same SHAPE as
    *  market.js's existing cutcosts boost). */
+  /** Reach/new-customers math — the exact numbers mktResolveCampaign reports
+   *  after a campaign finishes, factored out so a guided flow (the Marketing
+   *  Agency) can preview them BEFORE committing to a spend, using the same
+   *  formula instead of a second copy of it. */
+  function mktEstimateReach(budget, effTotal) {
+    const reach = Math.round(budget * 0.00004 * effTotal);
+    const newCustomers = Math.round(reach * 0.018 * effTotal);
+    return { reach, newCustomers };
+  }
+
   function mktResolveCampaign(id, camp) {
     const c = co(id);
     const eff = mktEffectiveness(id, camp);
@@ -749,8 +759,7 @@ const TechCo = (() => {
     const repDelta = obj.repDeltaBase * eff.total;
     const boostDays = tier.days * MKT_CFG.BOOST_WINDOW_MULT; // how long the income boost actually lingers post-resolution
 
-    const reach = Math.round(camp.budget * 0.00004 * eff.total);
-    const newCustomers = Math.round(reach * 0.018 * eff.total);
+    const { reach, newCustomers } = mktEstimateReach(camp.budget, eff.total);
     const salesPct = Math.round(incomeBoost * 1000) / 10; // %, one decimal
     const estGain = revenuePerDay(id) * incomeBoost * boostDays; // matches the ACTUAL boost window below
     const roi = camp.budget > 0 ? (estGain - camp.budget) / camp.budget : 0;
@@ -3166,7 +3175,7 @@ const TechCo = (() => {
     hiringQualityBonus, hiringSpeedMult, empFunds,
     // Marketing & Growth — campaign engine (core loop):
     MKT_CFG, mktSector, mktBudgetRange, mktBenchFor, mktBestBenchFor, mktStaffMult, mktReputationMult,
-    mktEffectiveness, mktStartCampaign, mktResolveCampaign, marketingIncomeMult, mktAdvance,
+    mktEffectiveness, mktStartCampaign, mktResolveCampaign, mktEstimateReach, marketingIncomeMult, mktAdvance,
     repReceptionBonus,
     // Marketing & Growth — Influencer Deals, Sponsorships, Market Research:
     mktInfluencerPoolFor, mktInfluencerCost, mktInfluencerScore, mktInfluencerProbs, mktSignInfluencer,

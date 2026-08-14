@@ -1853,3 +1853,72 @@ html, body {
 .mk-odds-row span { display: block; font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
 .mk-odds-row b { font-size: 15px; }
 .mk-insight { font-style: italic; margin: 6px 0 10px; }
+
+/* Marketing Agency — a guided on-ramp into Quick Campaign (js/marketing.js).
+   Same base --gold/--bg-elev theme as the rest of Marketing & Growth, not
+   the Product Studio blueprint reskin. */
+.mk-agency-cta {
+  display: flex; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 16px;
+}
+.mk-agency-cta-text { flex: 1; min-width: 0; }
+.mk-agency-icon {
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--gold-glow); color: var(--gold-deep); border: 1px solid var(--gold);
+}
+.mk-agency-icon-svg { width: 22px; height: 22px; }
+
+.mk-agency-panel {
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px;
+  padding: 13px 14px; margin-bottom: 14px; box-shadow: 0 1px 3px var(--shadow);
+}
+.mk-agency-top { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.mk-agency-name { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: var(--gold-deep); }
+.mk-agency-name .muted { font-size: 10px; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.mk-agency-msg {
+  font-size: 13px; line-height: 1.55; color: var(--text); background: var(--bg-elev-2);
+  border-left: 2px solid var(--gold); border-radius: 0 8px 8px 0; padding: 8px 10px;
+}
+.mk-agency-cancel-link {
+  display: block; width: 100%; text-align: center; background: none; border: none;
+  color: var(--muted); font-size: 12px; padding: 12px 0 4px; cursor: pointer; text-decoration: underline;
+}
+
+/* Step 1: business search */
+.mk-agency-search-input {
+  width: 100%; margin-bottom: 12px; background: var(--bg-elev-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 11px 12px; font-size: 14px; color: var(--text); font-family: inherit;
+}
+.mk-agency-biz-list { display: flex; flex-direction: column; gap: 8px; }
+.mk-agency-biz-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 12px; color: var(--text); font-family: inherit;
+}
+.mk-agency-biz-row:active { transform: scale(0.98); }
+.mk-agency-biz-main { flex: 1; min-width: 0; }
+.mk-agency-biz-main b { font-size: 13.5px; font-weight: 700; }
+.mk-agency-biz-main .card-sub { margin-top: 2px; }
+
+/* Step 2: channel icon grid */
+.mk-chan-icon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 6px; }
+.mk-chan-icon-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 6px; color: var(--text); font-family: inherit;
+}
+.mk-chan-icon-btn.on { border-color: var(--gold); background: var(--gold-glow); color: var(--gold-deep); }
+.mk-chan-icon-svg { width: 24px; height: 24px; }
+.mk-chan-icon-label { font-size: 10.5px; font-weight: 600; line-height: 1.2; }
+
+/* Step 3: spread tier package cards */
+.mk-tier-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
+.mk-tier-card {
+  width: 100%; text-align: left; background: var(--bg-elev); border: 1px solid var(--line);
+  border-radius: 14px; padding: 13px 14px; color: var(--text); font-family: inherit;
+}
+.mk-tier-card:active { transform: scale(0.98); }
+.mk-tier-card.unaffordable { opacity: 0.55; }
+.mk-tier-name { font-size: 14px; font-weight: 800; }
+.mk-tier-price { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--gold-deep); margin: 3px 0 2px; }
+.mk-tier-reach { font-size: 12px; color: var(--muted); }

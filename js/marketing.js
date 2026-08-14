@@ -13,11 +13,21 @@
  * that wizard specifically.
  * ========================================================================= */
 
+// The in-fiction marketing agency: a conversational front-end on top of the
+// Quick Campaign flow below — same "in-world service provider" family as the
+// Hiring Agency (js/hiring.js's IGX / Irongate Talent Exchange), a sibling
+// desk under the same Irongate name. Distinct identifier names (MKT_ prefix)
+// since both files share one global script scope — a bare AGENCY_TAG here
+// would collide with hiring.js's.
+const MKT_AGENCY_TAG = 'IGB';
+const MKT_AGENCY_NAME = 'Irongate Growth Bureau';
+
 const Marketing = (() => {
   const view = {
     companyId: null, mode: 'list', quick: null, reportCid: null, advanced: false,
     infExpanded: null, infAudience: null, infEmpId: null,
     spExpanded: null, spTier: 'local',
+    agency: null, // { step: 'business'|'channel'|'tier', search, companyId, channel } — the guided flow
   };
   let root = null;
 
@@ -32,13 +42,28 @@ const Marketing = (() => {
     root.addEventListener('input', onInput);
     view.companyId = null; view.mode = 'list'; view.quick = null; view.reportCid = null; view.advanced = false;
     view.infExpanded = null; view.infAudience = null; view.infEmpId = null;
-    view.spExpanded = null; view.spTier = 'local';
+    view.spExpanded = null; view.spTier = 'local'; view.agency = null;
     render();
   }
 
   function render() {
     if (!root) return;
-    root.innerHTML = `<div class="mk-page">${view.companyId ? companyRoot(view.companyId) : selectorHTML()}</div>`;
+    const body = view.agency ? agencyFlowHTML() : (view.companyId ? companyRoot(view.companyId) : selectorHTML());
+    root.innerHTML = `<div class="mk-page">${body}</div>`;
+    wireAgencySearch();
+  }
+
+  /** The business-search input is patched in place on every keystroke (never
+   *  a full render()) so it never loses focus — same pattern as the Choose
+   *  Role sheet in js/hiring.js and the Product Studio name field. */
+  function wireAgencySearch() {
+    const input = root.querySelector('#mkAgencyBizSearch');
+    if (!input) return;
+    input.oninput = (e) => {
+      view.agency.search = e.target.value;
+      const results = root.querySelector('#mkAgencyBizResults');
+      if (results) results.innerHTML = agencyBizResultsHTML();
+    };
   }
 
   function companyRoot(id) {
@@ -86,6 +111,17 @@ const Marketing = (() => {
     // Market Research
     else if (a === 'navResearch') { view.mode = 'research'; render(); }
     else if (a === 'runResearch') { doRunResearch(id); }
+    // Marketing Agency — a guided on-ramp into Quick Campaign, see below.
+    else if (a === 'agencyStart') { view.agency = { step: 'business', search: '', companyId: null, channel: null }; render(); }
+    else if (a === 'agencyCancel') { view.agency = null; render(); }
+    else if (a === 'agencyBack') {
+      if (view.agency.step === 'tier') view.agency.step = 'channel';
+      else if (view.agency.step === 'channel') { view.agency.step = 'business'; view.agency.companyId = null; }
+      render();
+    }
+    else if (a === 'agencyPickCompany') { view.agency.companyId = id; view.agency.step = 'channel'; render(); }
+    else if (a === 'agencyPickChannel') { view.agency.channel = id; view.agency.step = 'tier'; render(); }
+    else if (a === 'agencyPickTier') { doAgencyHandoff(id); }
   }
 
   function onInput(e) {
@@ -105,6 +141,7 @@ const Marketing = (() => {
       <button class="back-link" data-act="hub">‹ Services</button>
       <div class="section-head"><h2>Marketing &amp; Growth</h2></div>
       <p class="mk-hint">Own 100% of a company to run campaigns for it — the same rule as Hiring &amp; Talent.</p>
+      ${owned.length ? agencyCtaHTML() : ''}
       ${owned.length
         ? `<div class="mk-co-grid">${owned.map((d) => mkCoCardHTML(d, true)).join('')}</div>`
         : `<div class="card mk-empty">Own 100% of a company to unlock its Marketing &amp; Growth desk.</div>`}
@@ -130,6 +167,207 @@ const Marketing = (() => {
         <div class="mk-co-name">${_esc(def.name)}</div>
         <div class="card-sub">${rep != null ? 'Reputation ' + Math.round(rep) + '/100' : 'Not yet opened'}</div>
       </button>`;
+  }
+
+  /* ------------------------------ Marketing Agency --------------------------- *
+   * A conversational, step-by-step on-ramp into Quick Campaign — every step
+   * calls straight into the exact same TechCo.mkt* API and data/marketing.js
+   * tables the Quick/Advanced forms already use. Nothing here is a second
+   * campaign system: the flow ends by handing off into the real Advanced
+   * form (quickFormHTML), pre-filled with what it already gathered, so the
+   * player's channel + spread choices are genuinely respected by the exact
+   * existing mktStartCampaign() call — not silently discarded.
+   *   Step 1: business  — searchable picker, same Market.isOwned gate.
+   *   Step 2: channel   — icon grid over the real MKT_CHANNELS list.
+   *   Step 3: tier      — Local/Regional/National/Global, priced from the
+   *                        real mktBudgetRange() thresholds mktStartCampaign
+   *                        itself already uses to tell tiers apart, with a
+   *                        reach preview from the real mktEffectiveness() +
+   *                        mktEstimateReach() formulas.
+   * "No thanks" cancels back to the Marketing & Growth home at any step. */
+
+  function agencyIconSVG() {
+    return `<svg viewBox="0 0 32 32" class="mk-agency-icon-svg" aria-hidden="true">
+      <circle cx="9" cy="24" r="2.2" fill="currentColor"/>
+      <path d="M13 20 A7.5 7.5 0 0 1 13 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M17 24 A11.5 11.5 0 0 1 17 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+    </svg>`;
+  }
+
+  function agencyFlowHTML() {
+    if (view.agency.step === 'channel') return agencyChannelHTML();
+    if (view.agency.step === 'tier') return agencyTierHTML();
+    return agencyBusinessHTML();
+  }
+
+  function agencyCtaHTML() {
+    return `
+      <div class="card mk-agency-cta" data-mk="agencyStart" role="button" tabindex="0" aria-label="Talk to ${MKT_AGENCY_TAG}">
+        <span class="mk-agency-icon">${agencyIconSVG()}</span>
+        <div class="mk-agency-cta-text">
+          <div class="card-title">Talk to ${MKT_AGENCY_TAG}</div>
+          <div class="card-sub">Let ${MKT_AGENCY_NAME} walk you through a channel and a spend.</div>
+        </div>
+        <span class="hub-arrow">›</span>
+      </div>`;
+  }
+
+  /** The greeting panel shown at the top of every agency step — the message
+   *  changes with what's already been gathered, but it's the SAME panel. */
+  function agencyGreetingHTML(def) {
+    let msg;
+    if (!def) msg = `${MKT_AGENCY_TAG} — which business would you like to promote today?`;
+    else if (view.agency.step === 'channel') msg = `${MKT_AGENCY_TAG} — looking to promote ${_esc(def.name)}? Which channel would you like to use?`;
+    else msg = `${MKT_AGENCY_TAG} — good pick. How far should this reach?`;
+    return `
+      <div class="mk-agency-panel">
+        <div class="mk-agency-top">
+          <span class="mk-agency-icon">${agencyIconSVG()}</span>
+          <div class="mk-agency-name">${MKT_AGENCY_TAG} <span class="muted">// ${MKT_AGENCY_NAME}</span></div>
+        </div>
+        <div class="mk-agency-msg">${msg}</div>
+      </div>`;
+  }
+
+  /* Step 1: business picker — every 100%-owned stock company, search-as-you-type. */
+
+  function agencyBusinessHTML() {
+    return `
+      <button class="back-link" data-mk="agencyCancel">‹ Marketing &amp; Growth</button>
+      ${agencyGreetingHTML(null)}
+      <input id="mkAgencyBizSearch" class="mk-agency-search-input" type="text"
+        placeholder="Search your companies…" value="${_esc(view.agency.search || '')}" autocomplete="off">
+      <div id="mkAgencyBizResults" class="mk-agency-biz-list">${agencyBizResultsHTML()}</div>
+    `;
+  }
+
+  function agencyBizResultsHTML() {
+    const q = (view.agency.search || '').trim().toLowerCase();
+    const owned = ASSET_DEFS.filter((d) => d.group === 'stock' && Market.isOwned(d.id));
+    if (!owned.length) return `<div class="card mk-empty">Own 100% of a company first — the same rule as everywhere else in Marketing &amp; Growth.</div>`;
+    const rows = owned.filter((d) => !q || d.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+    if (!rows.length) return `<div class="tc-hint">No companies match "${_esc(view.agency.search || '')}".</div>`;
+    return rows.map((d) => `
+      <button class="mk-agency-biz-row" data-mk="agencyPickCompany" data-id="${d.id}">
+        ${Logos.tile(d)}
+        <div class="mk-agency-biz-main"><b>${_esc(d.name)}</b><span class="card-sub">${_esc(SECTOR_DISPLAY[d.sector] || 'Company')}</span></div>
+        <span class="hub-arrow">›</span>
+      </button>`).join('');
+  }
+
+  /* Step 2: channel — icon grid over the real 15-channel list, grouped the
+   * same Digital/Traditional/Physical way Advanced mode already groups it. */
+
+  const MKT_CHAN_ICON = {
+    social_media: '<circle cx="6" cy="12" r="2.3"/><circle cx="17" cy="6" r="2.3"/><circle cx="17" cy="18" r="2.3"/><path d="M8.1 10.8 14.9 7.2 M8.1 13.2 14.9 16.8"/>',
+    search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.3 15.3 21 21"/>',
+    video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9 15 12 10 15 Z" fill="currentColor" stroke="none"/>',
+    influencers: '<circle cx="9" cy="8" r="3"/><path d="M4 20c0-3.6 2.5-6 5-6s5 2.4 5 6"/><path d="M18 5.3 19 7.3 21.2 7.6 19.6 9 20 11.2 18 10.1 16 11.2 16.4 9 14.8 7.6 17 7.3 Z"/>',
+    websites: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18"/><circle cx="6" cy="6" r=".7" fill="currentColor" stroke="none"/><circle cx="9" cy="6" r=".7" fill="currentColor" stroke="none"/>',
+    email: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 6.5 12 13 21 6.5"/>',
+    tv: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8 M12 16v4"/>',
+    radio: '<rect x="3" y="9" width="18" height="10" rx="2"/><path d="M8 9 6 3 M16 9 19 4"/><circle cx="8" cy="14" r="2"/><path d="M14 13h4 M14 16h4"/>',
+    newspapers: '<path d="M4 4h13v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2 Z"/><path d="M7 8h7 M7 11h7 M7 14h4"/>',
+    billboards: '<rect x="3" y="4" width="18" height="10" rx="1"/><path d="M8 20 9 14 M16 20 15 14"/>',
+    magazines: '<path d="M5 3h11l3 3v15H5 Z"/><path d="M16 3v3h3"/><path d="M8 10h7 M8 13h7 M8 16h4"/>',
+    store_promotions: '<path d="M11 3h7v7l-9 9-7-7 Z"/><circle cx="15" cy="7" r="1.4" fill="currentColor" stroke="none"/>',
+    events: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18 M8 3v4 M16 3v4"/>',
+    product_demos: '<path d="M12 3 21 8 21 16 12 21 3 16 3 8 Z"/><path d="M3 8 12 13 21 8 M12 13v8"/>',
+    trade_shows: '<path d="M6 3v18"/><path d="M6 4h12l-3 4 3 4H6"/>',
+  };
+  function channelIconSVG(chId) {
+    const p = MKT_CHAN_ICON[chId] || MKT_CHAN_ICON.events;
+    return `<svg class="mk-chan-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  }
+
+  function agencyChannelHTML() {
+    const def = ASSET_BY_ID[view.agency.companyId];
+    const cats = MKT_CHANNEL_CATEGORIES.map((cat) => {
+      const chans = MKT_CHANNEL_IDS.filter((cid) => MKT_CHANNELS[cid].category === cat.id);
+      const icons = chans.map((cid) => `
+        <button class="mk-chan-icon-btn ${view.agency.channel === cid ? 'on' : ''}" data-mk="agencyPickChannel" data-id="${cid}">
+          <span class="mk-chan-icon">${channelIconSVG(cid)}</span>
+          <span class="mk-chan-icon-label">${MKT_CHANNELS[cid].label}</span>
+        </button>`).join('');
+      return `<div class="mk-field-label">${cat.label}</div><div class="mk-chan-icon-grid">${icons}</div>`;
+    }).join('');
+    return `
+      <button class="back-link" data-mk="agencyBack">‹ Choose a different business</button>
+      ${agencyGreetingHTML(def)}
+      ${cats}
+      <button class="mk-agency-cancel-link" data-mk="agencyCancel">No thanks, not right now</button>
+    `;
+  }
+
+  /* Step 3: spread tier — package-style cards, priced from the REAL budget
+   * thresholds mktStartCampaign already uses to tell Local/Regional/National/
+   * Global apart, with a reach preview from the real effectiveness formula. */
+
+  /** The budget a tier card advertises — the exact same threshold values
+   *  mktStartCampaign's own auto-derive-spread-from-budget logic uses, so a
+   *  tap here reproduces the tier it's labelled with, no new numbers. */
+  function agencyTierBudget(id, tierId) {
+    const range = TechCo.mktBudgetRange(id);
+    if (tierId === 'local') return range.min;
+    if (tierId === 'regional') return range.typical * 0.4;
+    if (tierId === 'national') return range.typical * 1.2;
+    return range.max * 0.6; // global
+  }
+
+  /** The objective/audience/channel/staff the flow infers by this point —
+   *  same defaults Quick Campaign itself starts from (defaultQuick), plus
+   *  the one channel just chosen — used only to preview effectiveness/reach. */
+  function agencyInferredCamp(id) {
+    const q = defaultQuick(id);
+    return { audience: q.audience, message: null, channels: { [view.agency.channel]: 1 }, empId: (TechCo.mktBestBenchFor(id) || {}).id || null };
+  }
+
+  function agencyTierHTML() {
+    const id = view.agency.companyId;
+    const def = ASSET_BY_ID[id];
+    const eff = TechCo.mktEffectiveness(id, agencyInferredCamp(id)).total;
+    const funds = TechCo.empFunds(id);
+    const cards = MKT_SPREAD_IDS.map((tid) => {
+      const tier = MKT_SPREAD_TIERS[tid];
+      const budget = agencyTierBudget(id, tid);
+      const { reach } = TechCo.mktEstimateReach(budget, eff);
+      const afford = funds >= budget;
+      return `
+        <button class="mk-tier-card ${afford ? '' : 'unaffordable'}" data-mk="agencyPickTier" data-id="${tid}" ${afford ? '' : 'disabled'}>
+          <div class="mk-tier-name">${tier.label}</div>
+          <div class="mk-tier-price">${formatMoney(budget)}</div>
+          <div class="mk-tier-reach">~${formatNumber(reach)} reached · ${tier.days} day${tier.days === 1 ? '' : 's'}</div>
+          ${!afford ? `<div class="mk-warn">Not enough company cash</div>` : ''}
+        </button>`;
+    }).join('');
+    return `
+      <button class="back-link" data-mk="agencyBack">‹ Change channel</button>
+      ${agencyGreetingHTML(def)}
+      <div class="mk-tier-grid">${cards}</div>
+      <button class="mk-agency-cancel-link" data-mk="agencyCancel">No thanks, not right now</button>
+    `;
+  }
+
+  /** Hand off into the REAL Quick Campaign form (Advanced mode, so the
+   *  chosen spread + channel are actually respected by doLaunch() instead of
+   *  being auto-derived) — pre-filled with everything the flow gathered.
+   *  Objective/audience use Quick Campaign's own defaults and stay fully
+   *  editable on the form, same as "quickly confirmed" implies; nothing here
+   *  re-implements mktStartCampaign or its budget/effectiveness math. */
+  function doAgencyHandoff(tierId) {
+    const ag = view.agency, id = ag.companyId;
+    const range = TechCo.mktBudgetRange(id);
+    const budget = agencyTierBudget(id, tierId);
+    const q = defaultQuick(id);
+    q.budgetFrac = Math.max(0, Math.min(1, (budget - range.min) / Math.max(1, range.max - range.min)));
+    q.spread = tierId;
+    q.weights = { [ag.channel]: 2 }; // "Normal" weight, 100% of spend on the chosen channel
+    view.agency = null;
+    view.companyId = id;
+    view.advanced = true;
+    view.mode = 'quick';
+    view.quick = q;
+    render();
   }
 
   /* -------------------------------- Company list --------------------------- */

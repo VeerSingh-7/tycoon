@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v76'; // v76: Hiring Agency guided entry point on Hiring & Talent
+const CACHE_NAME = 'tycoon-v77'; // v77: Marketing Agency guided entry point on Marketing & Growth
 
 const ASSETS = [
   'index.html',
