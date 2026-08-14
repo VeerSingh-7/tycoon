@@ -102,9 +102,13 @@ check('sanity: the two test companies really do have different base incomes', Te
 const root = stubEl('mktRoot');
 Marketing.mount(root);
 
-/* ===================== A) Entry point + business picker ===================== */
-check('the "Talk to" CTA appears on the Marketing & Growth home once something is owned', root.innerHTML.includes('mk-agency-cta'));
-check('the agency tag (IGB) appears in the CTA', root.innerHTML.includes('IGB'));
+/* ===================== A) Blank for now — stock companies removed ===================== */
+// Marketing & Growth's stock-company selector was removed (state.js v25);
+// the home screen is now a placeholder, not the old "Talk to IGB" CTA. The
+// guided Agency flow underneath is left intact and correct — it's just no
+// longer reachable from that screen — so we still drive it directly below
+// to confirm nothing broke, the same way the deeper engine stays testable.
+check('the Marketing & Growth home is now a blank placeholder (no CTA)', !root.innerHTML.includes('mk-agency-cta') && root.innerHTML.includes("isn't available right now"));
 
 click(root, 'agencyStart');
 check('agency flow opens on the business step', root.innerHTML.includes('mkAgencyBizSearch'));
@@ -177,11 +181,11 @@ check('large company tier card does NOT show the small company price', !root.inn
 
 /* ===================== E) "No thanks" cancels back to Marketing & Growth home at any step ===================== */
 click(root, 'agencyCancel');
-check('cancelling from the tier step returns to the Marketing & Growth home', root.innerHTML.includes('mk-agency-cta') && !root.innerHTML.includes('mk-tier-grid'));
+check('cancelling from the tier step returns to the (now blank) Marketing & Growth home', root.innerHTML.includes("isn't available right now") && !root.innerHTML.includes('mk-tier-grid'));
 
 click(root, 'agencyStart');
 click(root, 'agencyCancel');
-check('cancelling from the business step also returns home', root.innerHTML.includes('mk-agency-cta'));
+check('cancelling from the business step also returns home', root.innerHTML.includes("isn't available right now"));
 
 /* ===================== F) The flow hands off into a REAL working campaign ===================== */
 click(root, 'agencyStart');

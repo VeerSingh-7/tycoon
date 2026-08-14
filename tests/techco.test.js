@@ -870,9 +870,11 @@ for (const sectorCo of [ID, BANK, 'tezla']) {
   check(sectorCo + ': the 5 new hires draw real baseIncome-scaled payroll (not flat cash)', approx(payAfter, TechCo.baseIncome(sectorCo) * TechCo.STAFF_CFG.PAYROLL_PER_HEAD * 5));
 }
 
-/* D) Real-save migration check: v20 -> v21. A company that already hired staff
- *    under the pre-existing v20 Team step keeps headcount/payroll/net-income
- *    byte-identical after the version bump. */
+/* D) Real-save migration check: v20 -> latest. A company that already hired
+ *    staff under the pre-existing v20 Team step keeps headcount/payroll
+ *    byte-identical through v21-v24 — until the v25 Hiring & Talent removal,
+ *    which now correctly refunds the roster (employeeHireCost, current
+ *    value) and clears it, since stock-side hiring no longer exists. */
 const migId = 'lindygas';
 const migc = TechCo.ensureCompany(migId);
 migc.cash = TechCo.baseIncome(migId) * 50;
@@ -884,25 +886,25 @@ TechCo.empHire(migId, 'data_scientist', migPool2[0]);
 const migHeadcountBefore = migc.employeeRoster.length;
 const migPayrollBefore = TechCo.rosterPayrollPerDay(migId);
 const migNetBefore = TechCo.netProfitPerDay(migId);
-check('v20->v21 (BEFORE): real pre-existing save has ' + migHeadcountBefore + ' hired employee(s), payroll $' +
+check('v20->latest (BEFORE): real pre-existing save has ' + migHeadcountBefore + ' hired employee(s), payroll $' +
   migPayrollBefore.toFixed(2) + '/day, net profit $' + migNetBefore.toFixed(2) + '/day', migHeadcountBefore === 2);
+const migExpectedRefund = migc.employeeRoster.reduce((sum, e) => sum + TechCo.employeeHireCost(migId, e), 0);
 
 // Round-trip exactly like a real save: JSON-clone the live company state (as
 // localStorage would hold it), run it through migrate(), then load the
 // RESULT back as the live state and re-measure the same figures.
 const migClone = JSON.parse(JSON.stringify({ version: 20, balance: 42000, portfolio: {}, techco: { [migId]: state.techco[migId] } }));
 const migOut = migrate(migClone);
-check('v20 -> v21: version bumped to the latest (>= 21)', migOut.version >= 21);
-check('v20 -> v21: balance untouched by the migration', migOut.balance === 42000);
-check('v20 -> v21: techco content structurally untouched by migrate() itself', JSON.stringify(migOut.techco[migId]) === JSON.stringify(state.techco[migId]));
+check('v20 -> latest: version bumped all the way to ' + SAVE_VERSION, migOut.version === SAVE_VERSION);
+check('v20 -> latest: balance credited with the v25 roster refund (before=42000 expected+=' + Math.round(migExpectedRefund) + ' got=' + migOut.balance + ')',
+  approx(migOut.balance, 42000 + migExpectedRefund));
+check('v20 -> latest: employeeRoster cleared by the v25 step', migOut.techco[migId].employeeRoster.length === 0);
 
 state.techco[migId] = migOut.techco[migId]; // "load" the migrated save
 const migHeadcountAfter = state.techco[migId].employeeRoster.length;
 const migPayrollAfter = TechCo.rosterPayrollPerDay(migId);
-const migNetAfter = TechCo.netProfitPerDay(migId);
-check('v20->v21 (AFTER): headcount byte-identical (' + migHeadcountBefore + ' -> ' + migHeadcountAfter + ')', migHeadcountAfter === migHeadcountBefore);
-check('v20->v21 (AFTER): payroll/day byte-identical ($' + migPayrollBefore.toFixed(2) + ' -> $' + migPayrollAfter.toFixed(2) + ')', migPayrollAfter === migPayrollBefore);
-check('v20->v21 (AFTER): net profit/day byte-identical ($' + migNetBefore.toFixed(2) + ' -> $' + migNetAfter.toFixed(2) + ')', migNetAfter === migNetBefore);
+check('v20->latest (AFTER): headcount correctly zeroed (' + migHeadcountBefore + ' -> ' + migHeadcountAfter + ')', migHeadcountAfter === 0);
+check('v20->latest (AFTER): payroll/day correctly zeroed ($' + migPayrollBefore.toFixed(2) + ' -> $' + migPayrollAfter.toFixed(2) + ')', migPayrollAfter === 0);
 
 /* ============== Marketing & Growth (v22) ================================= */
 
@@ -1027,36 +1029,43 @@ const mk_rsRes = TechCo.mktRunResearch(mk_rsCo, 'manufacturers');
 check('market research returns a plausible, audience-specific insight', mk_rsRes.ok === true && mk_rsRes.insight.text.indexOf('Manufacturers') >= 0 && mk_rsRes.insight.pct >= 55 && mk_rsRes.insight.pct <= 99);
 check('the insight is cached for that audience', TechCo._state(mk_rsCo).marketing.researchInsights.manufacturers.text === mk_rsRes.insight.text);
 
-/* H) Real-save migration check: v21 -> v22. A company with existing cash,
- *    products, employeeRoster and reputation from BEFORE this feature
- *    (no marketing sub-state at all) keeps everything byte-identical, and
- *    gets an empty (never a broken/undefined) marketing structure. */
-const mk_migId = 'ferraro'; // reused from trigger test above — already has real state
+/* H) Real-save migration check: v21 -> latest. A company with existing cash,
+ *    products, employeeRoster and reputation from BEFORE the Marketing &
+ *    Growth feature (no marketing sub-state at all) gets an empty (never a
+ *    broken/undefined) marketing structure at v22, keeps reputation/cash
+ *    untouched all the way through — but its roster IS refunded and cleared
+ *    once the cascade reaches v25 (stock-side hiring removed). Any already-
+ *    RESOLVED campaign in its history (not active/unresolved) is untouched. */
+const mk_migId = 'ferraro'; // reused from trigger test above — already has real state (incl. 1 marketing hire)
 const mk_migLiveBefore = JSON.parse(JSON.stringify(state.techco[mk_migId]));
 delete mk_migLiveBefore.marketing; // simulate a v21 save: no marketing field existed yet
 const mk_migHeadcountBefore = (mk_migLiveBefore.employeeRoster || []).length;
 const mk_migCashBefore = mk_migLiveBefore.cash;
 const mk_migRepBefore = mk_migLiveBefore.reputation;
-const mk_migPayrollBefore = TechCo.rosterPayrollPerDay(mk_migId); // reads the LIVE (pre-delete) state, for reference
+check('v21->latest (BEFORE): real pre-existing save has a hired employee to refund', mk_migHeadcountBefore >= 1);
+const mk_migExpectedRefund = (mk_migLiveBefore.employeeRoster || []).reduce((sum, e) => sum + TechCo.employeeHireCost(mk_migId, e), 0);
 
 const mk_migSave = JSON.parse(JSON.stringify({ version: 21, balance: 77000, portfolio: {}, techco: { [mk_migId]: mk_migLiveBefore } }));
 const mk_migOut = migrate(mk_migSave);
-check('v21 -> v22: version bumped to latest (23, cascades past the v22 step tested here)', mk_migOut.version === SAVE_VERSION);
-check('v21 -> v22: balance untouched by the migration', mk_migOut.balance === 77000);
-check('v21 -> v22: migrate() itself does not touch techco content (no marketing field added yet)', mk_migOut.techco[mk_migId].marketing === undefined);
+check('v21 -> latest: version bumped all the way to ' + SAVE_VERSION, mk_migOut.version === SAVE_VERSION);
+check('v21 -> latest: balance credited with the v25 roster refund (before=77000 expected+=' + Math.round(mk_migExpectedRefund) + ' got=' + mk_migOut.balance + ')',
+  approx(mk_migOut.balance, 77000 + mk_migExpectedRefund));
+check('v21 -> latest: employeeRoster cleared by the v25 step', mk_migOut.techco[mk_migId].employeeRoster.length === 0);
+// marketing itself is still undefined right here — v22 backfills it lazily via
+// TechCo.normalize() on next access, not inside migrate() (see the v22 comment
+// above); the v25 step correctly no-ops when c.marketing doesn't exist yet.
 
-state.techco[mk_migId] = mk_migOut.techco[mk_migId]; // "load" the migrated (marketing-less) save
+state.techco[mk_migId] = mk_migOut.techco[mk_migId]; // "load" the migrated save
 const mk_migAfterState = TechCo._state(mk_migId); // co(id) -> normalize() backfills marketing here
-check('v21->v22 (AFTER): marketing sub-state backfilled empty, not broken', Array.isArray(mk_migAfterState.marketing.campaigns) &&
+check('v21->latest (AFTER): marketing sub-state backfilled empty, not broken', Array.isArray(mk_migAfterState.marketing.campaigns) &&
   Array.isArray(mk_migAfterState.marketing.history) && Array.isArray(mk_migAfterState.marketing.influencerDeals) &&
   Array.isArray(mk_migAfterState.marketing.sponsorships) && typeof mk_migAfterState.marketing.researchInsights === 'object');
-check('v21->v22 (AFTER): headcount byte-identical (' + mk_migHeadcountBefore + ' -> ' + mk_migAfterState.employeeRoster.length + ')',
-  mk_migAfterState.employeeRoster.length === mk_migHeadcountBefore);
-check('v21->v22 (AFTER): cash byte-identical ($' + mk_migCashBefore.toFixed(2) + ' -> $' + mk_migAfterState.cash.toFixed(2) + ')', mk_migAfterState.cash === mk_migCashBefore);
-check('v21->v22 (AFTER): reputation byte-identical (' + mk_migRepBefore.toFixed(2) + ' -> ' + mk_migAfterState.reputation.toFixed(2) + ')', mk_migAfterState.reputation === mk_migRepBefore);
-check('v21->v22 (AFTER): payroll/day byte-identical ($' + mk_migPayrollBefore.toFixed(2) + ' -> $' + TechCo.rosterPayrollPerDay(mk_migId).toFixed(2) + ')',
-  TechCo.rosterPayrollPerDay(mk_migId) === mk_migPayrollBefore);
-check('v21->v22 (AFTER): net profit/day is unaffected by an empty marketing state (marketingIncomeMult = 1)', TechCo.marketingIncomeMult(mk_migId) === 1);
+check('v21->latest (AFTER): headcount correctly zeroed (' + mk_migHeadcountBefore + ' -> ' + mk_migAfterState.employeeRoster.length + ')',
+  mk_migAfterState.employeeRoster.length === 0);
+check('v21->latest (AFTER): reputation byte-identical, not clawed back (' + mk_migRepBefore.toFixed(2) + ' -> ' + mk_migAfterState.reputation.toFixed(2) + ')', mk_migAfterState.reputation === mk_migRepBefore);
+check('v21->latest (AFTER): payroll/day correctly zeroed ($' + TechCo.rosterPayrollPerDay(mk_migId).toFixed(2) + ')',
+  TechCo.rosterPayrollPerDay(mk_migId) === 0);
+check('v21->latest (AFTER): net profit/day is unaffected by an empty marketing state (marketingIncomeMult = 1)', TechCo.marketingIncomeMult(mk_migId) === 1);
 
 console.log('\\n' + (fail ? ('\\u2717 ' + fail + ' failing, ' + pass + ' passing') : ('\\u2713 all ' + pass + ' checks passed')));
 if (fail) process.exitCode = 1;

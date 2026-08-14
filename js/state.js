@@ -91,7 +91,21 @@ const SAVE_KEY = 'tycoon_save_v1';
 //      are then deleted. state.assets.luxury (the separate Luxury tab
 //      collection) is completely untouched. Players who never bought
 //      property see zero disruption.
-const SAVE_VERSION = 24;
+// v25: Hiring & Talent and Marketing & Growth are blank for now — hiring and
+//      campaigns for the 48 stock companies are removed (both screens will
+//      show a placeholder until they're re-pointed at a real data source).
+//      Any employeeRoster hire on a stock company is refunded at its current
+//      TechCo.employeeHireCost (no stored original price, so this is the
+//      fairest available number — always in the player's favour, never a
+//      loss) and the roster/search state is cleared. Any ACTIVE (unresolved)
+//      marketing campaign is refunded its full budget and cleared — the
+//      spend hadn't paid off yet, same principle as Construction's
+//      in-flight materials in the v23 Business tab migration. Completed
+//      campaign history, reputation and any already-granted income boosts
+//      are left untouched — that value was already realized, not clawed
+//      back. Players who never hired staff or ran a campaign on a stock
+//      company see zero disruption.
+const SAVE_VERSION = 25;
 
 // Buyout data for v22 -> v23 migration (see below). Copied from the removed
 // businesses' definitions so the refund math matches exactly what players
@@ -473,6 +487,41 @@ function migrate(loaded) {
       delete loaded.assets.epoch;
     }
     loaded.version = 24;
+  }
+  // v24 -> v25: Hiring & Talent and Marketing & Growth are blank for now —
+  // stock-company hiring/campaigns removed. Refund any real spend (roster
+  // hires at TechCo.employeeHireCost's current value — no original price
+  // was ever stored, so this is the fairest available number and always
+  // favours the player), then clear that state. Any ACTIVE (unresolved)
+  // campaign is refunded its full budget and cleared too — that spend
+  // hadn't paid off yet. Completed campaign history, reputation and any
+  // already-granted income boosts are left untouched (already realized).
+  if (loaded.version < 25) {
+    if (loaded.techco) {
+      let totalRefund = 0, companiesAffected = 0;
+      for (const id of Object.keys(loaded.techco)) {
+        const c = loaded.techco[id];
+        if (!c) continue;
+        let compRefund = 0;
+        if (c.employeeRoster && c.employeeRoster.length) {
+          if (typeof TechCo !== 'undefined') {
+            for (const e of c.employeeRoster) compRefund += TechCo.employeeHireCost(id, e);
+          }
+          c.employeeRoster = [];
+        }
+        if (c.empSearch) c.empSearch = {};
+        if (c.marketing && c.marketing.campaigns && c.marketing.campaigns.length) {
+          for (const camp of c.marketing.campaigns) compRefund += camp.budget || 0;
+          c.marketing.campaigns = [];
+        }
+        if (compRefund > 0) { totalRefund += compRefund; companiesAffected++; }
+      }
+      if (totalRefund > 0) {
+        loaded.balance = (loaded.balance || 0) + totalRefund;
+        loaded.hiringMarketingRefundNotice = { companies: companiesAffected, cash: totalRefund };
+      }
+    }
+    loaded.version = 25;
   }
   return loaded;
 }

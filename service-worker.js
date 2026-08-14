@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v78'; // v78: "Manage Company" removed for every stock/crypto — buy/sell + owned status only
+const CACHE_NAME = 'tycoon-v79'; // v79: Hiring & Talent / Marketing & Growth blank for stock companies (removed for now)
 
 const ASSETS = [
   'index.html',

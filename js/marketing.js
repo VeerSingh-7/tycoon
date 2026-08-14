@@ -1,16 +1,27 @@
 /* =========================================================================
  * marketing.js — Marketing & Growth (Services → Invest → Marketing & Growth)
  * -------------------------------------------------------------------------
- * Quick Campaign (default): objective + audience + a budget slider, one or
- * two taps to launch — the system auto-suggests a channel mix (by sector
- * fit) and auto-picks the best-fit available marketing employee. An
- * Advanced toggle on the same form adds manual per-channel weighting, an
- * explicit spread tier, a message picker (or custom line), and manual staff
- * assignment — same mktStartCampaign() engine call either way.
+ * BLANK FOR NOW (state.js SAVE_VERSION 25): campaigns for the 48 stock
+ * companies have been removed — the screen shows a placeholder instead of a
+ * company selector. Any player with an active (unresolved) campaign was
+ * refunded its full budget as part of that migration; completed campaign
+ * history, reputation and any already-granted income boosts are untouched
+ * (already-realized value, not clawed back).
+ *
+ * Everything BELOW the selector — Quick/Advanced Campaign, the Agency
+ * (IGB) guided flow, Influencer Deals, Sponsorships, Market Research — is
+ * left fully intact and correct, just unreachable, since there's no company
+ * card left to tap into it from. Kept rather than deleted so it's ready to
+ * be re-pointed at a real data source (e.g. the Business tab's 14
+ * businesses) later — the same "entry points only" choice already made for
+ * the stock-side "Manage Company" removal. Quick Campaign itself (objective
+ * + audience + a budget slider, one or two taps to launch, auto-suggested
+ * channel mix, auto-picked marketing employee) and Advanced mode (manual
+ * per-channel weighting, explicit spread tier, message picker, manual
+ * staff) still share the one mktStartCampaign() engine call, unchanged.
  *
  * Uses the game's normal theme (base --gold/--bg-elev tokens, themeable
- * light/dark) — NOT the Product Studio blueprint reskin, which is scoped to
- * that wizard specifically.
+ * light/dark) — NOT the Product Studio blueprint reskin.
  * ========================================================================= */
 
 // The in-fiction marketing agency: a conversational front-end on top of the
@@ -132,41 +143,17 @@ const Marketing = (() => {
   }
 
   /* ------------------------------ Selector -------------------------------- */
+  // Blank for now — see the file header. No company is ever reachable here,
+  // so nothing below this point in the file (Quick Campaign, the Agency
+  // flow, Influencer Deals, Sponsorships, Market Research) can currently be
+  // navigated to.
 
   function selectorHTML() {
-    const stocks = ASSET_DEFS.filter((d) => d.group === 'stock').slice().sort((a, b) => a.name.localeCompare(b.name));
-    const owned = stocks.filter((d) => Market.isOwned(d.id));
-    const locked = stocks.filter((d) => !Market.isOwned(d.id));
     return `
       <button class="back-link" data-act="hub">‹ Services</button>
       <div class="section-head"><h2>Marketing &amp; Growth</h2></div>
-      <p class="mk-hint">Own 100% of a company to run campaigns for it — the same rule as Hiring &amp; Talent.</p>
-      ${owned.length ? agencyCtaHTML() : ''}
-      ${owned.length
-        ? `<div class="mk-co-grid">${owned.map((d) => mkCoCardHTML(d, true)).join('')}</div>`
-        : `<div class="card mk-empty">Own 100% of a company to unlock its Marketing &amp; Growth desk.</div>`}
-      ${locked.length ? `<div class="section-head"><h2>Not Yet Owned</h2></div><div class="mk-co-grid">${locked.map((d) => mkCoCardHTML(d, false)).join('')}</div>` : ''}
+      <div class="card mk-empty">Marketing &amp; Growth isn't available right now — check back soon.</div>
     `;
-  }
-
-  function mkCoCardHTML(def, unlocked) {
-    if (!unlocked) {
-      const pct = Market.ownedFrac(def.id) * 100;
-      const pctText = pct <= 0 ? 'Not owned' : (pct >= 1 ? pct.toFixed(1) : pct.toFixed(2)) + '% owned';
-      return `
-        <div class="mk-co-card locked">
-          ${Logos.tile(def)}
-          <div class="mk-co-name">${_esc(def.name)}</div>
-          <div class="card-sub">${pctText}</div>
-        </div>`;
-    }
-    const rep = (state.techco && state.techco[def.id]) ? state.techco[def.id].reputation : null;
-    return `
-      <button class="mk-co-card" data-mk="pick" data-id="${def.id}">
-        ${Logos.tile(def)}
-        <div class="mk-co-name">${_esc(def.name)}</div>
-        <div class="card-sub">${rep != null ? 'Reputation ' + Math.round(rep) + '/100' : 'Not yet opened'}</div>
-      </button>`;
   }
 
   /* ------------------------------ Marketing Agency --------------------------- *

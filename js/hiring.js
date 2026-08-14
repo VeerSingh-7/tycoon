@@ -1,20 +1,20 @@
 /* =========================================================================
- * hiring.js — Hiring & Talent: the standalone, company-wide recruitment
- * screen (Services → Invest → Hiring & Talent).
+ * hiring.js — Hiring & Talent (Services → Invest → Hiring & Talent).
  * -------------------------------------------------------------------------
- * This is the second consumer of the Recruitment/Employee system foundation
- * (js/data/employees.js + the engine in js/techco.js) — the Product Studio
- * Team step was the first. Both read/write the SAME co(id).employeeRoster;
- * nothing here is a parallel system or a second copy of that data.
+ * BLANK FOR NOW (state.js SAVE_VERSION 25): hiring for the 48 stock
+ * companies has been removed — the screen shows a placeholder instead of a
+ * company selector. Any player who'd already hired staff on a stock company
+ * was refunded (TechCo.employeeHireCost, current value) and their roster
+ * cleared as part of that migration.
  *
- * Gate: only companies the player owns 100% (Market.isOwned) are hireable —
- * the same rule Product Studio and the Portfolio Manage section already use.
- * Scope: stock companies only (48 of them) — crypto coins have no staff.
- *
- * Mechanical effect: a company's roster contributes a small AMBIENT bonus,
- * scaled off each category's AVERAGE Overall (never headcount) — see the
- * "Hiring & Talent — company-wide ambient roster effects" block in
- * js/techco.js for the exact formula and the percentages chosen.
+ * Everything BELOW the selector (companyHTML, the Agency flow, candidate
+ * browsing/hiring/headhunt) is left fully intact and correct — it's just
+ * unreachable, since there's no company card left to tap into it from. Kept
+ * rather than deleted so it's ready to be re-pointed at a real data source
+ * (e.g. the Business tab's 14 businesses) later, the same "entry points
+ * only" choice already made for the stock-side "Manage Company" removal.
+ * It still reads/writes the SAME co(id).employeeRoster Product Studio's
+ * Team step uses — nothing here was ever a parallel system.
  * ========================================================================= */
 
 // The in-fiction hiring agency: a conversational front-end layered on the
@@ -105,40 +105,14 @@ const Hiring = (() => {
   }
 
   /* ------------------------------ Selector -------------------------------- */
+  // Blank for now — see the file header. No company is ever reachable here,
+  // so nothing below this point in the file can currently be navigated to.
 
   function selectorHTML() {
-    const stocks = ASSET_DEFS.filter((d) => d.group === 'stock').slice().sort((a, b) => a.name.localeCompare(b.name));
-    const owned = stocks.filter((d) => Market.isOwned(d.id));
-    const locked = stocks.filter((d) => !Market.isOwned(d.id));
     return `
       <div class="tc-wiz-topbar"><div class="tc-wiz-title"><b>Hiring &amp; Talent</b></div></div>
-      <p class="tc-hint">Own 100% of a company to build out its staff. Every hire's stats, salary and category shape a small ongoing bonus for that company — never a replacement for its existing income.</p>
-      ${owned.length
-        ? `<div class="tc-section-label">Your Companies</div><div class="hire-co-grid">${owned.map((d) => hireCoCardHTML(d, true)).join('')}</div>`
-        : `<div class="tc-hint">You don't own 100% of any company yet — buy one out on the Markets tab first.</div>`}
-      <div class="tc-section-label">Not Yet Owned</div>
-      <div class="hire-co-grid">${locked.map((d) => hireCoCardHTML(d, false)).join('')}</div>
+      <p class="tc-hint">Hiring &amp; Talent isn't available right now — check back soon.</p>
     `;
-  }
-
-  function hireCoCardHTML(def, unlocked) {
-    const roster = (state.techco && state.techco[def.id] && state.techco[def.id].employeeRoster) || [];
-    if (!unlocked) {
-      const pct = Market.ownedFrac(def.id) * 100;
-      const pctText = pct <= 0 ? 'Not owned' : (pct >= 1 ? pct.toFixed(1) : pct.toFixed(2)) + '% owned';
-      return `
-        <div class="hire-co-card locked">
-          ${Logos.tile(def)}
-          <div class="hire-co-name">${_esc(def.name)}</div>
-          <div class="tc-emp-cand-sub muted">${pctText}<br>Own 100% to hire staff here</div>
-        </div>`;
-    }
-    return `
-      <button class="hire-co-card" data-h="pick" data-id="${def.id}">
-        ${Logos.tile(def)}
-        <div class="hire-co-name">${_esc(def.name)}</div>
-        <div class="tc-emp-cand-sub">${roster.length} on staff</div>
-      </button>`;
   }
 
   /* -------------------------------- Company -------------------------------- */

@@ -55,6 +55,19 @@
     saveGame();
   }
 
+  // 3e. One-time notice: Hiring & Talent / Marketing & Growth for stock
+  //     companies was removed (state.js v25); any real spend was refunded.
+  if (state.hiringMarketingRefundNotice && state.hiringMarketingRefundNotice.cash > 0) {
+    const n = state.hiringMarketingRefundNotice;
+    UI.showToast(
+      `📋 <b>Hiring &amp; Marketing refunded</b><br>` +
+      `${n.companies} compan${n.companies === 1 ? 'y' : 'ies'} refunded (+${formatMoney(n.cash)}) — both screens are on hold for now.`,
+      { ms: 9000 }
+    );
+    delete state.hiringMarketingRefundNotice;
+    saveGame();
+  }
+
   // 4. Economy tick — 10x/sec, uses real elapsed time so it's frame-independent.
   setInterval(tick, 100);
 
