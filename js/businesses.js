@@ -156,8 +156,8 @@ const Businesses = (() => {
 
   /* Owned: a compact summary — quick-buy stays here for the idle-clicking
    * loop, everything else (staff/mechanic/upgrades/sell) lives on the
-   * dedicated page (js/bizdash.js), same split as the stock side's list row
-   * (buy shares inline) vs. its Manage Company dashboard. */
+   * dedicated page (js/bizdash.js) — mirrors how the stock side's list row
+   * keeps buy/sell inline while any deeper management lives elsewhere. */
   function ownedCardHTML(def, biz) {
     const net = businessIncomePerSec(def);
     const nextCost = businessNextCost(def);

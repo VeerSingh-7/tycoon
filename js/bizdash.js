@@ -1,9 +1,11 @@
 /* =========================================================================
  * bizdash.js — Business tab: dedicated per-business page
  * -------------------------------------------------------------------------
- * One shared, parameterized page for all 14 businesses — same principle as
- * the stock side's Manage Company dashboard (js/techco.js `open`/`rebuildDash`)
- * being one component for all 48 companies, not 48 bespoke ones.
+ * One shared, parameterized page for all 14 businesses — the same "one
+ * component, not N bespoke ones" principle the stock side's TechCo
+ * dashboard (js/techco.js `open`/`rebuildDash`) used for its 48 companies,
+ * back when it had a reachable entry point (since removed — buy/sell +
+ * passive owner income only now for stocks/crypto).
  *
  * This module does NOT redefine or re-derive any business's mechanics: the
  * Operations tab is just Mechanics.panelHTML(def) (already built), and the

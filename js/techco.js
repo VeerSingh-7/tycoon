@@ -1,12 +1,16 @@
 /* =========================================================================
  * techco.js — Tech-sector company management (Phase 1: Dashboard + Products)
  * -------------------------------------------------------------------------
- * When you own 100% of one of the five TECH companies (see data/techco.js) a
- * "Manage Company" button opens a fullscreen operations dashboard. Phase 1
- * delivers the dashboard shell (headline + detail stats, tabbed layout) and a
- * complete PRODUCT DEVELOPMENT loop: launch products from that company's own
- * catalog, choose Budget / Quality / Pricing, wait out a build timer, roll a
- * market reception, then watch the product earn — and decay — over time.
+ * TechCo.open(id) opens a fullscreen operations dashboard for a company you
+ * own 100% of. Phase 1 delivers the dashboard shell (headline + detail
+ * stats, tabbed layout) and a complete PRODUCT DEVELOPMENT loop: launch
+ * products from that company's own catalog, choose Budget / Quality /
+ * Pricing, wait out a build timer, roll a market reception, then watch the
+ * product earn — and decay — over time.
+ * (No UI in the game currently calls TechCo.open() — the "Manage Company"
+ * entry point was removed so 100% ownership is buy/sell + passive owner
+ * income only. The dashboard itself is untouched and still fully working —
+ * just unreachable — in case it's wired back up later.)
  *
  * GLOBAL RULE: every cost and reward scales off the company's BASE PASSIVE
  * INCOME (a function of its live market cap), never flat cash. Base income is

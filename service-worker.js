@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v77'; // v77: Marketing Agency guided entry point on Marketing & Growth
+const CACHE_NAME = 'tycoon-v78'; // v78: "Manage Company" removed for every stock/crypto — buy/sell + owned status only
 
 const ASSETS = [
   'index.html',
