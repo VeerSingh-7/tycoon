@@ -14,12 +14,18 @@
  *
  * The World Map card is a wide hero-image card (background-image slot via
  * WORLD_MAP_IMAGE_URL, currently unset — falls back to a solid fill + a
- * centered icon). Opening it shows an actual 1:1, full-bleed, pannable
- * world map (img/map/world-map.svg — real country borders, MIT-licensed,
- * see CREDITS.md), fetched once and cached in memory. Every country is
- * tappable (its name shows in a small floating label) — no per-business
- * location data exists yet, so tapping doesn't do anything deeper than
- * that for now.
+ * centered icon). Opening it shows an actual 1:1, full-bleed, pannable AND
+ * ZOOMABLE world map (img/map/world-map.svg — real country borders,
+ * MIT-licensed, see CREDITS.md), fetched once and cached in memory.
+ * Panning is just native scroll (the SVG renders wider than the viewport);
+ * zoom changes that CSS width directly (mapWidthVw) via pinch or the +/-
+ * buttons, with the touch/click point kept anchored under your
+ * finger/cursor (setMapWidth's scroll-offset math) instead of drifting.
+ * Tapping a country highlights it (.is-selected) and shows a small info
+ * box next to the tap point with its name + a few DETERMINISTIC-BUT-FAKE
+ * stats (countryInfoFor — seeded off the country code, so the same
+ * country always shows the same numbers) — there's no real per-country
+ * business data yet, this is intentionally just a placeholder for now.
  *
  * IMPORTANT: the map view's render() is idempotent (mapRenderState) —
  * ui.js re-renders the whole Business tab every ~500ms for the list's
@@ -29,8 +35,9 @@
  * bottom nav visibly flash through the momentarily-transparent overlay.
  * The map's own DOM is only touched when what it should show actually
  * changes (open/close, or the fetch finishing) — never on a plain timer
- * tick. Tapping a country patches the label element directly (no render()
- * at all), for the same reason.
+ * tick. Zooming, panning, selecting/deselecting a country and the info box
+ * are all direct DOM writes for the same reason — none of them call
+ * render() or touch the SVG's innerHTML.
  *
  * Events use DELEGATION on the container so the 2x/sec re-render (needed for
  * mechanic countdowns) never orphans listeners.
@@ -45,6 +52,15 @@ const Businesses = (() => {
   let worldMapSvg = null;    // fetched img/map/world-map.svg markup, cached once loaded
   let worldMapFetching = false;
   let countryNames = {};     // ISO code -> readable name, parsed from the fetched SVG's hidden label layer
+
+  const MAP_ZOOM_DEFAULT_VW = 350;
+  const MAP_ZOOM_MIN_VW = 150;
+  const MAP_ZOOM_MAX_VW = 1400;
+  let mapWidthVw = MAP_ZOOM_DEFAULT_VW; // current zoom level (the SVG's CSS width, in vw units)
+  let pinchStartDist = null;
+  let pinchStartWidthVw = null;
+  let selectedCountryEl = null;   // the <g> currently highlighted, or null
+  let selectedCountryCode = null; // its ISO code, or null
 
   // Set this to an image URL/path later to show a real photo behind the
   // World Map hero card. Left null for now — the card falls back to a
@@ -109,6 +125,9 @@ const Businesses = (() => {
   function mount(el) {
     container = el;
     container.addEventListener('click', onClick);
+    container.addEventListener('touchstart', onTouchStart, { passive: true });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+    container.addEventListener('touchend', onTouchEnd, { passive: true });
     listMode = 'all';
     mapOpen = false;
     mapRenderState = null;
@@ -119,15 +138,33 @@ const Businesses = (() => {
   /* ------------------------- Event delegation ------------------------- */
 
   function onClick(e) {
-    if (mapOpen && handleCountryClick(e)) return;
+    // The map screen owns every click while open: the close/zoom buttons
+    // first, then anything else is treated as a country/ocean tap.
+    if (mapOpen) {
+      const mapBtn = e.target.closest('button');
+      if (mapBtn && !mapBtn.disabled) {
+        const md = mapBtn.dataset;
+        if (md.bizNav === 'closeMap') { mapOpen = false; clearCountrySelection(); render(); return; }
+        if (md.mapZoom) { zoomStep(md.mapZoom === 'in' ? 1 : -1); return; }
+      }
+      handleCountryClick(e);
+      return;
+    }
 
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
     const d = btn.dataset;
     let changed = false;
 
-    if (d.bizNav === 'map') { mapOpen = true; fetchWorldMap(); render(); return; }
-    if (d.bizNav === 'closeMap') { mapOpen = false; render(); return; }
+    if (d.bizNav === 'map') {
+      mapOpen = true;
+      mapWidthVw = MAP_ZOOM_DEFAULT_VW;
+      selectedCountryEl = null;
+      selectedCountryCode = null;
+      fetchWorldMap();
+      render();
+      return;
+    }
     if (d.bizNav === 'all' || d.bizNav === 'mine') { listMode = d.bizNav; render(); return; }
     if (d.bizMenu !== undefined) { openMenuId = openMenuId === d.bizMenu ? null : d.bizMenu; render(); return; }
 
@@ -166,6 +203,14 @@ const Businesses = (() => {
       if (mapRenderState !== desired) {
         container.innerHTML = mapHTML();
         mapRenderState = desired;
+        // Sync the current zoom level onto the freshly-created SVG element —
+        // matters if the fetch resolved after the player had already zoomed
+        // the (non-interactive) loading placeholder, which can't happen
+        // today but costs nothing to keep correct.
+        if (desired === 'loaded') {
+          const svg = mapSvgEl();
+          if (svg) svg.style.width = mapWidthVw + 'vw';
+        }
       }
       return;
     }
@@ -201,21 +246,153 @@ const Businesses = (() => {
     return names;
   }
 
-  /** Resolve a click to the country <g> it landed in (multi-part countries
-   *  have suffixed sub-territory ids like "us-" for insets — the leading
-   *  2 letters always match the main id) and patch the label directly, no
-   *  render() involved. Returns true if the click was actually on a
-   *  recognized country, so callers can stop normal button handling. */
+  /* --------------------------- Map zoom/pan --------------------------- */
+  // Panning is native scroll (the SVG just renders wider than the viewport);
+  // zoom directly resizes it (mapWidthVw), keeping the pinch/click point
+  // anchored in place via a scroll-offset adjustment so the view doesn't
+  // drift toward a corner on every zoom step.
+
+  function mapScreenEl() { return typeof document !== 'undefined' ? document.querySelector('.biz-worldmap-screen') : null; }
+  function mapScrollEl() { return typeof document !== 'undefined' ? document.querySelector('.biz-worldmap-scroll') : null; }
+  function mapSvgEl() { const s = mapScrollEl(); return s && s.querySelector ? s.querySelector('svg') : null; }
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  /** Set the map's zoom to an ABSOLUTE width (in vw), keeping whatever's
+   *  under (anchorX, anchorY) — a click/pinch-midpoint in viewport
+   *  coordinates — visually anchored in place. No anchor = viewport center. */
+  function setMapWidth(targetVw, anchorX, anchorY) {
+    const newVw = clamp(targetVw, MAP_ZOOM_MIN_VW, MAP_ZOOM_MAX_VW);
+    const svg = mapSvgEl();
+    const scroll = mapScrollEl();
+    if (!svg || !scroll || newVw === mapWidthVw) { mapWidthVw = newVw; return; }
+
+    const oldRect = svg.getBoundingClientRect();
+    const scrollRect = scroll.getBoundingClientRect();
+    const ax = anchorX != null ? anchorX - scrollRect.left : scrollRect.width / 2;
+    const ay = anchorY != null ? anchorY - scrollRect.top : scrollRect.height / 2;
+    const fracX = oldRect.width ? (scroll.scrollLeft + ax) / oldRect.width : 0;
+    const fracY = oldRect.height ? (scroll.scrollTop + ay) / oldRect.height : 0;
+
+    mapWidthVw = newVw;
+    svg.style.width = mapWidthVw + 'vw';
+
+    const newRect = svg.getBoundingClientRect();
+    scroll.scrollLeft = fracX * newRect.width - ax;
+    scroll.scrollTop = fracY * newRect.height - ay;
+  }
+
+  function zoomStep(dir) {
+    setMapWidth(mapWidthVw * (dir > 0 ? 1.5 : 1 / 1.5));
+  }
+
+  function touchDist(a, b) {
+    const dx = a.clientX - b.clientX, dy = a.clientY - b.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function onTouchStart(e) {
+    if (!mapOpen || e.touches.length !== 2) return;
+    pinchStartDist = touchDist(e.touches[0], e.touches[1]);
+    pinchStartWidthVw = mapWidthVw;
+  }
+
+  function onTouchMove(e) {
+    if (!mapOpen || e.touches.length !== 2 || !pinchStartDist) return;
+    if (e.cancelable) e.preventDefault(); // don't let a 2-finger move also try to scroll
+    const dist = touchDist(e.touches[0], e.touches[1]);
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    setMapWidth(pinchStartWidthVw * (dist / pinchStartDist), midX, midY);
+  }
+
+  function onTouchEnd(e) {
+    if (e.touches.length < 2) { pinchStartDist = null; pinchStartWidthVw = null; }
+  }
+
+  /* ------------------------ Country selection ------------------------- */
+
+  function clearCountrySelection() {
+    if (selectedCountryEl && selectedCountryEl.classList) selectedCountryEl.classList.remove('is-selected');
+    selectedCountryEl = null;
+    selectedCountryCode = null;
+    const box = typeof document !== 'undefined' ? document.getElementById('bizWorldMapInfo') : null;
+    if (box && box.remove) box.remove();
+  }
+
+  /** Resolve a tap to the country <g> it landed in (multi-part countries
+   *  have suffixed sub-territory ids like "us-" for insets — the leading 2
+   *  letters always match the main id), toggle its highlight, and show/hide
+   *  the info box. Tapping ocean/background or the already-selected country
+   *  again clears the selection. Never calls render() — direct DOM writes
+   *  only, so tapping never re-touches the (expensive) map SVG. */
   function handleCountryClick(e) {
-    if (!worldMapSvg) return false;
+    if (!worldMapSvg) return;
     const g = e.target.closest && e.target.closest('g[id]');
-    if (!g || !g.id) return false;
-    const code = (g.id.match(/^[A-Za-z]{2}/) || [])[0];
+    const code = g && g.id && (g.id.match(/^[A-Za-z]{2}/) || [])[0];
     const name = code && countryNames[code.toUpperCase()];
-    if (!name) return false;
-    const label = document.getElementById('bizWorldMapLabel');
-    if (label) label.textContent = name;
-    return true;
+
+    if (!name) { clearCountrySelection(); return; }
+    if (selectedCountryEl === g) { clearCountrySelection(); return; }
+
+    if (selectedCountryEl && selectedCountryEl.classList) selectedCountryEl.classList.remove('is-selected');
+    if (g.classList) g.classList.add('is-selected');
+    selectedCountryEl = g;
+    selectedCountryCode = code.toUpperCase();
+    showCountryInfo(name, selectedCountryCode, e.clientX, e.clientY);
+  }
+
+  /** Deterministic-but-fake per-country stats, seeded off the country code
+   *  so the same country always shows the same numbers — there's no real
+   *  per-country business data yet, this is a placeholder for now. */
+  function seededRandom(seed) {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (Math.imul(h, 31) + seed.charCodeAt(i)) >>> 0;
+    return function next() {
+      h = (Math.imul(h, 1664525) + 1013904223) >>> 0;
+      return h / 4294967296;
+    };
+  }
+  const OPPORTUNITY_TIERS = ['Low', 'Medium', 'High'];
+  function countryInfoFor(code) {
+    const rand = seededRandom(code);
+    return {
+      population: formatNumber(Math.round(100000 + rand() * 1.4e9)),
+      gdp: formatMoney(5e8 + rand() * 2e13),
+      opportunity: OPPORTUNITY_TIERS[Math.floor(rand() * OPPORTUNITY_TIERS.length)],
+    };
+  }
+
+  function showCountryInfo(name, code, x, y) {
+    if (typeof document === 'undefined') return;
+    let box = document.getElementById('bizWorldMapInfo');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'bizWorldMapInfo';
+      box.className = 'biz-worldmap-info';
+      const screen = mapScreenEl();
+      if (screen && screen.appendChild) screen.appendChild(box);
+    }
+    const info = countryInfoFor(code);
+    box.innerHTML = `
+      <div class="biz-worldmap-info-name">${name}</div>
+      <div class="biz-worldmap-info-stat"><span>Population</span><b>${info.population}</b></div>
+      <div class="biz-worldmap-info-stat"><span>GDP</span><b>${info.gdp}</b></div>
+      <div class="biz-worldmap-info-stat"><span>Opportunity</span><b>${info.opportunity}</b></div>
+    `;
+    positionInfoBox(box, x, y);
+  }
+
+  function positionInfoBox(box, x, y) {
+    const vw = (typeof window !== 'undefined' && window.innerWidth) || 400;
+    const vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
+    const rect = box.getBoundingClientRect ? box.getBoundingClientRect() : { width: 200, height: 110 };
+    let left = (x != null ? x : vw / 2) + 14;
+    let top = (y != null ? y : vh / 2) - rect.height / 2;
+    if (left + rect.width > vw - 10) left = (x != null ? x : vw / 2) - rect.width - 14;
+    left = clamp(left, 10, Math.max(10, vw - rect.width - 10));
+    top = clamp(top, 10, Math.max(10, vh - rect.height - 10));
+    box.style.left = left + 'px';
+    box.style.top = top + 'px';
   }
 
   function bizTabHTML() {
@@ -285,7 +462,11 @@ const Businesses = (() => {
       <div class="biz-worldmap-screen">
         <button class="icon-btn biz-worldmap-close" data-biz-nav="closeMap" type="button" aria-label="Close">✕</button>
         ${body}
-        <div class="biz-worldmap-label" id="bizWorldMapLabel">${worldMapSvg ? 'Tap a country' : ''}</div>
+        ${worldMapSvg ? `
+          <div class="biz-worldmap-zoom">
+            <button class="biz-worldmap-zoom-btn" data-map-zoom="in" type="button" aria-label="Zoom in">+</button>
+            <button class="biz-worldmap-zoom-btn" data-map-zoom="out" type="button" aria-label="Zoom out">−</button>
+          </div>` : ''}
       </div>`;
   }
 

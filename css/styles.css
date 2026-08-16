@@ -644,9 +644,11 @@ html, body {
   position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 14px; z-index: 4;
 }
 
-/* Rendered far bigger than the viewport (350vw) and left to scroll/pan in
-   both directions — that's what makes even the smallest country a big
-   enough tap target, without distorting the map's real proportions. */
+/* Rendered wider than the viewport (js/businesses.js mapWidthVw, default
+   350vw) and left to scroll/pan in both directions — that, plus pinch or
+   the +/- buttons to go further, is what makes even the smallest country a
+   big enough tap target, without ever distorting the map's real
+   proportions (only width is ever set — height stays auto). */
 .biz-worldmap-scroll { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
 .biz-worldmap-scroll svg { width: 350vw; min-width: 1400px; height: auto; display: block; }
 .biz-worldmap-scroll svg path { fill: var(--bg-elev-2); stroke: var(--border); stroke-width: 0.6; }
@@ -655,6 +657,9 @@ html, body {
 .biz-worldmap-scroll svg #labels { display: none; }
 .biz-worldmap-scroll svg g[id] { cursor: pointer; }
 .biz-worldmap-scroll svg g[id]:active path { fill: var(--surface); }
+/* The tapped/selected country (js/businesses.js .is-selected) — a lighter
+   fill + a bold accent outline, not a solid color wash. */
+.biz-worldmap-scroll svg g.is-selected path { fill: var(--surface); stroke: var(--accent-bg); stroke-width: 1.4; }
 
 /* Lightweight placeholder (the old stylized continent illustration), shown
    centered and un-panned only while the real map is still being fetched
@@ -667,16 +672,33 @@ html, body {
   width: 60%; max-width: 280px; min-width: 0; height: auto; color: var(--muted);
 }
 
-/* Floating "tap a country" label — patched directly by js/businesses.js
-   (handleCountryClick), never re-rendered, so tapping never touches the
-   map's own (expensive) DOM. */
-.biz-worldmap-label {
-  position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 16px);
-  transform: translateX(-50%); z-index: 4;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
-  padding: 8px 18px; font-size: 14px; font-weight: 800; color: var(--text);
-  pointer-events: none; white-space: nowrap; max-width: 80vw; overflow: hidden; text-overflow: ellipsis;
+/* Floating +/- zoom controls (js/businesses.js zoomStep/setMapWidth). */
+.biz-worldmap-zoom {
+  position: absolute; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 14px); z-index: 4;
+  display: flex; flex-direction: column; gap: 6px;
 }
+.biz-worldmap-zoom-btn {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--bg-elev); color: var(--text); border: 1px solid var(--line);
+  font-size: 20px; font-weight: 800; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.biz-worldmap-zoom-btn:active { transform: scale(0.92); }
+
+/* Info box (js/businesses.js showCountryInfo) — created/positioned/removed
+   directly by JS next to wherever a country was tapped, never as part of
+   mapHTML()'s own re-rendered markup. Content is a placeholder (fake,
+   deterministic-per-country stats) until real per-country data exists. */
+.biz-worldmap-info {
+  position: fixed; z-index: 5; min-width: 168px; max-width: 220px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 12px 14px; box-shadow: 0 8px 24px var(--shadow);
+  pointer-events: none;
+}
+.biz-worldmap-info-name { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.biz-worldmap-info-stat { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 0; font-size: 12.5px; }
+.biz-worldmap-info-stat span { color: var(--muted); }
+.biz-worldmap-info-stat b { color: var(--text); font-variant-numeric: tabular-nums; }
 
 /* Achievements grid */
 .ach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

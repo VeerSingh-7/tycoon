@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v88'; // v88: interactive full-bleed world map, tap-to-name countries, fixed bottom-nav flash
+const CACHE_NAME = 'tycoon-v89'; // v89: world map pinch/button zoom, tap-to-highlight countries with an info box
 
 const ASSETS = [
   'index.html',
