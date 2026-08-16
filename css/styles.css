@@ -554,6 +554,17 @@ html, body {
 }
 .stat-cell b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
+/* Clickable stat-cell variant (Business tab's My Businesses / Businesses You
+   Can Own toggle) — inactive = --muted outline, active = --surface fill +
+   --accent-bg outline, matching the shared Tab bar component. */
+.biz-nav-grid { margin-top: 14px; }
+.biz-nav-cell {
+  width: 100%; text-align: left; font-family: inherit; cursor: pointer;
+  border: 1px solid var(--line);
+}
+.biz-nav-cell.on { background: var(--surface); border-color: var(--accent-bg); }
+.biz-nav-cell.on b { color: var(--text); }
+
 /* Achievements grid */
 .ach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ach-card {

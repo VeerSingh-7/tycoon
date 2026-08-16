@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v81'; // v81: Businesses tab — removed the level/rank card and the Management upgrade card
+const CACHE_NAME = 'tycoon-v82'; // v82: Businesses tab — World Map teaser card + My Businesses / Businesses You Can Own toggle
 
 const ASSETS = [
   'index.html',

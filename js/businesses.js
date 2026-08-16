@@ -1,10 +1,19 @@
 /* =========================================================================
- * businesses.js — Business tab: header, management, business cards
+ * businesses.js — Business tab: header, world map teaser, business cards
  * -------------------------------------------------------------------------
  * Fully data-driven from BUSINESS_DEFS. Cards come in three flavours:
  *   locked     — player level too low ("Unlocks at Level N")
  *   available  — can be started (needs money + a free business slot)
  *   owned      — level/income/staff/mechanic/upgrades/sell
+ *
+ * Two entry points sit above the list: "My Businesses" (owned only) and
+ * "Businesses You Can Own" (the full catalog, same three-flavour cards as
+ * before) — a UI-only filter (listMode), not persisted, reset on every
+ * mount() same as the rest of the app's per-screen view state.
+ *
+ * The World Map card is a placeholder teaser (same "Coming Soon" pattern as
+ * js/banking.js etc.) for a future feature showing where each business is
+ * located on a real map — no location data or map rendering exists yet.
  *
  * Events use DELEGATION on the container so the 2x/sec re-render (needed for
  * mechanic countdowns) never orphans listeners.
@@ -12,10 +21,21 @@
 
 const Businesses = (() => {
   let container;
+  let listMode = 'all'; // 'all' | 'mine' — which businesses the list below shows
+  let mapOpen = false;  // World Map "Coming Soon" overlay
+
+  const MAP_ICON = `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <circle cx="17" cy="20" r="12" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2.4"/>
+        <path d="M5 20 L29 20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M17 8 C22 13 22 27 17 32 C12 27 12 13 17 8 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M30 10 C34.5 10 38 13.5 38 18 C38 23.5 30 33 30 33 C30 33 22 23.5 22 18 C22 13.5 25.5 10 30 10 Z"
+          fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 
   function mount(el) {
     container = el;
     container.addEventListener('click', onClick);
+    listMode = 'all';
+    mapOpen = false;
     render();
   }
 
@@ -26,6 +46,10 @@ const Businesses = (() => {
     if (!btn || btn.disabled) return;
     const d = btn.dataset;
     let changed = false;
+
+    if (d.bizNav === 'map') { mapOpen = true; render(); return; }
+    if (d.bizNav === 'closeMap') { mapOpen = false; render(); return; }
+    if (d.bizNav === 'all' || d.bizNav === 'mine') { listMode = d.bizNav; render(); return; }
 
     if (d.manage) { if (typeof BizDash !== 'undefined') BizDash.open(d.manage); return; }
     else if (d.buy) changed = buyBusinessLevel(d.buy);
@@ -52,21 +76,69 @@ const Businesses = (() => {
 
   function render() {
     if (!container) return;
-    container.innerHTML = bizTabHTML();
+    container.innerHTML = mapOpen ? mapHTML() : bizTabHTML();
   }
 
   function bizTabHTML() {
     const level = playerLevel();
+    const owned = BUSINESS_DEFS.filter((def) => getBiz(def.id).level > 0);
+    const defs = listMode === 'mine' ? owned : BUSINESS_DEFS;
     let html = `
       <div class="section-head">
         <h2>Businesses</h2>
         <div class="section-stat">${formatRate(totalBusinessIncomePerSec())}</div>
       </div>
+
+      <button class="card hub-card" data-biz-nav="map" type="button" aria-label="Open World Map">
+        <span class="hub-logo">${MAP_ICON}</span>
+        <span class="hub-text">
+          <span class="hub-title">World Map</span>
+          <span class="hub-sub">See where your empire operates around the globe</span>
+        </span>
+        <span class="hub-arrow">›</span>
+      </button>
+
+      <div class="stat-grid biz-nav-grid">
+        <button class="stat-cell biz-nav-cell ${listMode === 'mine' ? 'on' : ''}" data-biz-nav="mine" type="button">
+          <span>My Businesses</span>
+          <b>${owned.length} owned</b>
+        </button>
+        <button class="stat-cell biz-nav-cell ${listMode === 'all' ? 'on' : ''}" data-biz-nav="all" type="button">
+          <span>Businesses You Can Own</span>
+          <b>${BUSINESS_DEFS.length} total</b>
+        </button>
+      </div>
+
       <div class="biz-list">
     `;
-    for (const def of BUSINESS_DEFS) html += businessCardHTML(def, level);
+    if (listMode === 'mine' && defs.length === 0) {
+      html += `<div class="bizd-empty">You don't own any businesses yet — tap "Businesses You Can Own" to get started.</div>`;
+    } else {
+      for (const def of defs) html += businessCardHTML(def, level);
+    }
     html += '</div>';
     return html;
+  }
+
+  /** World Map — placeholder teaser, same "Coming Soon" pattern as the
+   *  Services placeholders (js/banking.js etc). No location data yet. */
+  function mapHTML() {
+    return `
+      <div class="bizd-screen">
+        <div class="bizd-head">
+          <button class="icon-btn" data-biz-nav="closeMap" type="button" aria-label="Close">✕</button>
+          <div class="bizd-id">
+            <div class="bizd-co-name">World Map</div>
+            <div class="bizd-co-sub">Your business empire, worldwide</div>
+          </div>
+        </div>
+        <div class="coming-soon">
+          <div class="cs-badge">COMING SOON</div>
+          <h2>World Map</h2>
+          <p>A real map showing exactly where each of your businesses is located and operating around the world.</p>
+          <p class="muted">Keep growing — every business you start will show up here.</p>
+        </div>
+      </div>`;
   }
 
   function businessCardHTML(def, level) {
