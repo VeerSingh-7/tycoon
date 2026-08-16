@@ -303,6 +303,7 @@ html, body {
 .section-stat { color: var(--green); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------- Business cards */
+.biz-card { position: relative; }
 .biz-card.not-owned { opacity: 0.96; }
 .biz-head { display: flex; align-items: center; gap: 12px; }
 .biz-icon {
@@ -313,7 +314,31 @@ html, body {
 .biz-title-wrap { flex: 1; min-width: 0; }
 .biz-name { font-weight: 800; font-size: 16px; }
 .biz-blurb { font-size: 12px; color: var(--muted); }
-.biz-level { font-size: 12px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+.biz-level { font-size: 12px; font-weight: 700; color: var(--gold); white-space: nowrap; margin-right: 22px; }
+
+/* Owned-card ⋮ menu — a quick Sell shortcut in the corner (js/businesses.js
+   ownedCardHTML). Kept minimal: no fill/border on the dots button itself,
+   a small monochrome popover for the one menu item it currently has. */
+.biz-menu-btn {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  width: 26px; height: 26px; border-radius: 8px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: var(--muted); cursor: pointer;
+}
+.biz-menu-btn:active { transform: scale(0.9); }
+.biz-menu-dots-svg { width: 4px; height: 16px; display: block; }
+.biz-menu-pop {
+  position: absolute; top: 40px; right: 12px; z-index: 3;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 6px 18px var(--shadow); overflow: hidden; min-width: 168px;
+}
+.biz-menu-item {
+  display: block; width: 100%; text-align: left; padding: 10px 14px;
+  background: none; border: none; font-family: inherit; cursor: pointer;
+  font-size: 13.5px; font-weight: 700; color: var(--text);
+}
+.biz-menu-item:active { background: var(--bg-elev-2); }
+.biz-menu-item-sub { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: 2px; }
 
 .biz-stats {
   display: flex; gap: 10px; margin-top: 14px;
@@ -590,15 +615,16 @@ html, body {
    longer of the two and shouldn't visually compete with My Businesses. */
 .biz-nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 14px; }
 .biz-nav-panel {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  display: flex; flex-direction: column; gap: 2px;
   width: 100%; text-align: left; font-family: inherit; cursor: pointer;
-  border-radius: 13px; padding: 11px 12px 10px;
+  border-radius: 12px; padding: 9px 12px 8px;
   background: var(--bg-elev-2); border: 1px solid var(--line);
 }
-.biz-nav-icon svg { width: 16px; height: 16px; display: block; color: var(--muted); }
-.biz-nav-num { font-size: 20px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text); }
-.biz-nav-label { font-weight: 700; font-size: 11px; color: var(--muted); }
-.biz-nav-panel--own .biz-nav-label { font-size: 9.5px; letter-spacing: -0.1px; }
+.biz-nav-top { display: flex; align-items: center; gap: 6px; }
+.biz-nav-icon svg { width: 14px; height: 14px; display: block; color: var(--muted); }
+.biz-nav-num { font-size: 18px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text); }
+.biz-nav-label { font-weight: 700; font-size: 10.5px; color: var(--muted); }
+.biz-nav-panel--own .biz-nav-label { font-size: 9px; letter-spacing: -0.1px; }
 
 .biz-nav-panel.is-active { background: var(--surface); border-color: var(--accent-bg); }
 .biz-nav-panel.is-active .biz-nav-icon svg { color: var(--text); }

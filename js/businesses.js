@@ -25,6 +25,7 @@ const Businesses = (() => {
   let container;
   let listMode = 'all'; // 'all' | 'mine' — which businesses the list below shows
   let mapOpen = false;  // World Map "Coming Soon" overlay
+  let openMenuId = null; // id of the owned business whose ⋮ menu is open (Sell), or null
 
   // Set this to an image URL/path later to show a real photo behind the
   // World Map hero card. Left null for now — the card falls back to a
@@ -50,6 +51,12 @@ const Businesses = (() => {
         <rect x="14" y="3" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.8"/>
         <rect x="3" y="14" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.8"/>
         <rect x="14" y="14" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`;
+
+  // Vertical "⋮" kebab — opens the per-card Sell menu on an owned business.
+  const DOTS_ICON = `<svg viewBox="0 0 4 16" class="biz-menu-dots-svg" aria-hidden="true">
+        <circle cx="2" cy="2" r="1.6" fill="currentColor"/>
+        <circle cx="2" cy="8" r="1.6" fill="currentColor"/>
+        <circle cx="2" cy="14" r="1.6" fill="currentColor"/></svg>`;
 
   /** A stylized (not survey-accurate) world map silhouette for the World Map
    *  placeholder page — hand-drawn continent blobs on a lat/long grid, all
@@ -85,6 +92,7 @@ const Businesses = (() => {
     container.addEventListener('click', onClick);
     listMode = 'all';
     mapOpen = false;
+    openMenuId = null;
     render();
   }
 
@@ -99,6 +107,7 @@ const Businesses = (() => {
     if (d.bizNav === 'map') { mapOpen = true; render(); return; }
     if (d.bizNav === 'closeMap') { mapOpen = false; render(); return; }
     if (d.bizNav === 'all' || d.bizNav === 'mine') { listMode = d.bizNav; render(); return; }
+    if (d.bizMenu !== undefined) { openMenuId = openMenuId === d.bizMenu ? null : d.bizMenu; render(); return; }
 
     if (d.manage) { if (typeof BizDash !== 'undefined') BizDash.open(d.manage); return; }
     else if (d.buy) changed = buyBusinessLevel(d.buy);
@@ -107,9 +116,10 @@ const Businesses = (() => {
     else if (d.sell) {
       const def = BUSINESS_BY_ID[d.sell];
       const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
-      if (confirm(`Sell ${def.name} for ${formatMoney(refund)}? This frees a business slot but resets its progress.`)) {
-        changed = sellBusiness(d.sell);
-      }
+      const ok = confirm(`Sell ${def.name} for ${formatMoney(refund)}? This frees a business slot but resets its progress.`);
+      openMenuId = null;
+      if (ok) changed = sellBusiness(d.sell);
+      else render(); // close the menu even when the sale is cancelled
     } else if (d.mechAction) {
       changed = Mechanics.action(d.biz, d.mechAction, d.arg);
       if (changed) saveGame();
@@ -153,13 +163,17 @@ const Businesses = (() => {
 
       <div class="biz-nav-grid">
         <button class="biz-nav-panel biz-nav-panel--mine ${listMode === 'mine' ? 'is-active' : ''}" data-biz-nav="mine" type="button">
-          <span class="biz-nav-icon">${NAV_ICON_MINE}</span>
-          <span class="biz-nav-num">${owned.length}</span>
+          <span class="biz-nav-top">
+            <span class="biz-nav-icon">${NAV_ICON_MINE}</span>
+            <span class="biz-nav-num">${owned.length}</span>
+          </span>
           <span class="biz-nav-label">My Businesses</span>
         </button>
         <button class="biz-nav-panel biz-nav-panel--own ${listMode === 'all' ? 'is-active' : ''}" data-biz-nav="all" type="button">
-          <span class="biz-nav-icon">${NAV_ICON_OWN}</span>
-          <span class="biz-nav-num">${BUSINESS_DEFS.length}</span>
+          <span class="biz-nav-top">
+            <span class="biz-nav-icon">${NAV_ICON_OWN}</span>
+            <span class="biz-nav-num">${BUSINESS_DEFS.length}</span>
+          </span>
           <span class="biz-nav-label">Purchasable</span>
         </button>
       </div>
@@ -245,15 +259,28 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /* Owned: a compact summary — everything (staff/mechanic/upgrades/sell)
+  /* Owned: a compact summary — everything deeper (staff/mechanic/upgrades)
    * lives on the dedicated page (js/bizdash.js). Leveling is retired (no
    * more "Buy Level" purchase) — income is whatever it is at the level the
-   * business is already at, frozen, ahead of a future business-tab rebuild. */
+   * business is already at, frozen, ahead of a future business-tab rebuild.
+   * The ⋮ menu is a quick Sell shortcut right on the card, in addition to
+   * the same sell option already on the dedicated page's Overview tab —
+   * both call the same sellBusiness() at the same 25%-of-spend refund. */
   function ownedCardHTML(def, biz) {
     const net = businessIncomePerSec(def);
+    const menuOpen = openMenuId === def.id;
+    const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
 
     return `
       <div class="card biz-card">
+        <button class="biz-menu-btn" data-biz-menu="${def.id}" type="button" aria-label="${def.name} options">${DOTS_ICON}</button>
+        ${menuOpen ? `
+          <div class="biz-menu-pop">
+            <button class="biz-menu-item" data-sell="${def.id}" type="button">
+              Sell Business
+              <span class="biz-menu-item-sub">${formatMoney(refund)} refund (25%)</span>
+            </button>
+          </div>` : ''}
         <div class="biz-head">
           <div class="biz-icon">${def.icon}</div>
           <div class="biz-title-wrap">

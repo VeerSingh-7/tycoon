@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v85'; // v85: smaller stat panels, real click-to-highlight toggle, drop "Lv 1" from purchasable cards
+const CACHE_NAME = 'tycoon-v86'; // v86: thinner nav stat panels; owned business cards get a ⋮ Sell menu
 
 const ASSETS = [
   'index.html',
