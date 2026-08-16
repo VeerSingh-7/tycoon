@@ -630,9 +630,20 @@ html, body {
 .biz-nav-panel.is-active .biz-nav-icon svg { color: var(--text); }
 .biz-nav-panel.is-active .biz-nav-label { color: var(--text); }
 
-/* World Map placeholder page — a stylized continent illustration above the
-   "Coming Soon" copy (js/businesses.js WORLD_MAP_SVG). */
-.biz-world-map-svg {
+/* World Map page — a real 1:1 map (img/map/world-map.svg, fetched and
+   inlined by js/businesses.js, see CREDITS.md) with every country its own
+   bordered path. The source file bakes in its own gray/white fill+stroke
+   per path; since SVG presentation attributes always lose to any matching
+   CSS rule, these overrides apply without touching the file itself. */
+.biz-worldmap-wrap svg { width: 100%; height: auto; display: block; margin-top: 4px; }
+.biz-worldmap-wrap svg path { fill: var(--bg-elev-2); stroke: var(--border); stroke-width: 0.6; }
+.biz-worldmap-wrap svg #Ocean { fill: var(--bg); stroke: var(--bg); }
+.biz-worldmap-wrap svg #World { fill: var(--bg); }
+.biz-worldmap-wrap svg #labels { display: none; }
+
+/* Lightweight placeholder (the old stylized continent illustration) shown
+   only while the real map is still being fetched, first open per session. */
+.biz-worldmap-loading svg {
   width: 100%; height: auto; max-height: 220px; margin: 4px 0 18px;
   color: var(--muted);
 }

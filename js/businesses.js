@@ -14,8 +14,10 @@
  *
  * The World Map card is a wide hero-image card (background-image slot via
  * WORLD_MAP_IMAGE_URL, currently unset — falls back to a solid fill + a
- * centered icon) for a future feature showing where each business is
- * located on a real map — no location data or map rendering exists yet.
+ * centered icon). Opening it shows an actual 1:1 world map (img/map/world-
+ * map.svg — real country borders, MIT-licensed, see CREDITS.md), fetched
+ * once and cached in memory; no per-business location data exists yet, so
+ * it's a real map with no markers on it rather than a "coming soon" page.
  *
  * Events use DELEGATION on the container so the 2x/sec re-render (needed for
  * mechanic countdowns) never orphans listeners.
@@ -24,8 +26,10 @@
 const Businesses = (() => {
   let container;
   let listMode = 'all'; // 'all' | 'mine' — which businesses the list below shows
-  let mapOpen = false;  // World Map "Coming Soon" overlay
+  let mapOpen = false;  // World Map overlay
   let openMenuId = null; // id of the owned business whose ⋮ menu is open (Sell), or null
+  let worldMapSvg = null;    // fetched img/map/world-map.svg markup, cached once loaded
+  let worldMapFetching = false;
 
   // Set this to an image URL/path later to show a real photo behind the
   // World Map hero card. Left null for now — the card falls back to a
@@ -104,7 +108,7 @@ const Businesses = (() => {
     const d = btn.dataset;
     let changed = false;
 
-    if (d.bizNav === 'map') { mapOpen = true; render(); return; }
+    if (d.bizNav === 'map') { mapOpen = true; fetchWorldMap(); render(); return; }
     if (d.bizNav === 'closeMap') { mapOpen = false; render(); return; }
     if (d.bizNav === 'all' || d.bizNav === 'mine') { listMode = d.bizNav; render(); return; }
     if (d.bizMenu !== undefined) { openMenuId = openMenuId === d.bizMenu ? null : d.bizMenu; render(); return; }
@@ -136,6 +140,22 @@ const Businesses = (() => {
   function render() {
     if (!container) return;
     container.innerHTML = mapOpen ? mapHTML() : bizTabHTML();
+  }
+
+  /** Fetch the real world map once and cache it in memory; the browser's
+   *  own HTTP/service-worker cache makes every load after the first one
+   *  (across the whole session, even after closing/reopening) instant. */
+  function fetchWorldMap() {
+    if (worldMapSvg || worldMapFetching || typeof fetch === 'undefined') return;
+    worldMapFetching = true;
+    fetch('img/map/world-map.svg')
+      .then((res) => res.text())
+      .then((svg) => {
+        worldMapSvg = svg;
+        worldMapFetching = false;
+        if (mapOpen) render();
+      })
+      .catch(() => { worldMapFetching = false; });
   }
 
   function bizTabHTML() {
@@ -189,9 +209,14 @@ const Businesses = (() => {
     return html;
   }
 
-  /** World Map — placeholder teaser, same "Coming Soon" pattern as the
-   *  Services placeholders (js/banking.js etc). No location data yet. */
+  /** World Map — a real 1:1 world map (every country its own bordered
+   *  region), fetched from img/map/world-map.svg. Shows the stylized
+   *  continent teaser as a lightweight placeholder only while the real
+   *  map is still loading (first open of the session). */
   function mapHTML() {
+    const body = worldMapSvg
+      ? `<div class="biz-worldmap-wrap">${worldMapSvg}</div>`
+      : `<div class="biz-worldmap-wrap biz-worldmap-loading">${WORLD_MAP_SVG}</div>`;
     return `
       <div class="bizd-screen">
         <div class="bizd-head">
@@ -201,13 +226,7 @@ const Businesses = (() => {
             <div class="bizd-co-sub">Your business empire, worldwide</div>
           </div>
         </div>
-        ${WORLD_MAP_SVG}
-        <div class="coming-soon">
-          <div class="cs-badge">COMING SOON</div>
-          <h2>World Map</h2>
-          <p>A real map showing exactly where each of your businesses is located and operating around the world.</p>
-          <p class="muted">Keep growing — every business you start will show up here.</p>
-        </div>
+        ${body}
       </div>`;
   }
 

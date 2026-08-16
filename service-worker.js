@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v86'; // v86: thinner nav stat panels; owned business cards get a ⋮ Sell menu
+const CACHE_NAME = 'tycoon-v87'; // v87: real 1:1 world map with per-country borders, "Coming Soon" removed
 
 const ASSETS = [
   'index.html',
