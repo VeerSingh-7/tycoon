@@ -535,13 +535,6 @@ html, body {
 .mult-row span { color: var(--muted); }
 .mult-total { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 9px; font-size: 15px; }
 
-/* Legacy card */
-.legacy-card { border-color: var(--gold-deep); }
-.legacy-preview {
-  background: var(--bg-elev-2); border-radius: 12px;
-  padding: 8px 12px; margin-top: 12px;
-}
-
 /* Stats grid */
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .stat-cell {
@@ -554,16 +547,39 @@ html, body {
 }
 .stat-cell b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
+/* World Map hero card — a bigger hub-card variant so it reads as the obvious
+   top-of-page feature, not just another row. */
+.biz-map-card { padding: 26px 20px; margin-bottom: 4px; }
+.biz-map-card .hub-logo { width: 64px; height: 64px; border-radius: 18px; }
+.biz-map-card .hub-logo-svg { width: 40px; height: 40px; }
+.biz-map-card .hub-title { font-size: 23px; }
+.biz-map-card .hub-sub { font-size: 13px; }
+.biz-map-card .hub-arrow { font-size: 32px; }
+
 /* Clickable stat-cell variant (Business tab's My Businesses / Businesses You
    Can Own toggle) — inactive = --muted outline, active = --surface fill +
-   --accent-bg outline, matching the shared Tab bar component. */
+   --accent-bg outline, matching the shared Tab bar component. Deliberately
+   smaller than a normal .stat-cell so the World Map card above stays the
+   obvious feature and this reads as a compact filter, not a peer feature. */
 .biz-nav-grid { margin-top: 14px; }
 .biz-nav-cell {
   width: 100%; text-align: left; font-family: inherit; cursor: pointer;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line); padding: 8px 10px;
 }
+.biz-nav-cell span { font-size: 9px; }
+.biz-nav-cell b { font-size: 12.5px; }
 .biz-nav-cell.on { background: var(--surface); border-color: var(--accent-bg); }
 .biz-nav-cell.on b { color: var(--text); }
+/* "Businesses You Can Own" is the longer label of the pair — condensed
+   (tighter tracking, smaller) so it doesn't wrap inside the now-smaller box. */
+.biz-nav-condensed { letter-spacing: -0.2px; font-size: 8.5px; display: block; }
+
+/* World Map placeholder page — a stylized continent illustration above the
+   "Coming Soon" copy (js/businesses.js WORLD_MAP_SVG). */
+.biz-world-map-svg {
+  width: 100%; height: auto; max-height: 220px; margin: 4px 0 18px;
+  color: var(--muted);
+}
 
 /* Achievements grid */
 .ach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

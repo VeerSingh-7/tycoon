@@ -342,13 +342,14 @@ check('mission_success_5 achievement added, reads space mission counter', !!ACHI
   const beforeBalance = oldSave.balance;
   const migrated = migrate(JSON.parse(JSON.stringify(oldSave)));
 
-  check('migration bumps version to latest (24, cascades past the v23 step tested here)', migrated.version === SAVE_VERSION);
+  check('migration bumps version to latest (cascades past the v23 step tested here)', migrated.version === SAVE_VERSION);
   check('migration deletes all 11 removed business records', ['retail','taxi','restaurant','clothing','transport','construction','bank','oil','it','sports','airline'].every((id) => migrated.businesses[id] === undefined));
   check('migration refunds the full buyout amount (before=' + beforeBalance + ' expected+=' + Math.round(expectedTotal) + ' got=' + migrated.balance + ')',
     approx(migrated.balance, beforeBalance + expectedTotal, 0.001));
   check('migration queues a one-time buyout notice with count=4', migrated.businessBuyoutNotice && migrated.businessBuyoutNotice.count === 4);
   check('migration leaves unrelated state untouched (techco)', migrated.techco && migrated.techco.keepme === true);
-  check('migration leaves totalEarned/legacy/achievements untouched', migrated.totalEarned === 5000000 && migrated.legacyPoints === 1 && migrated.achievements.first_business === true);
+  check('migration leaves totalEarned/achievements untouched', migrated.totalEarned === 5000000 && migrated.achievements.first_business === true);
+  check('migration (v26) wipes legacyPoints/prestiges/runEarned entirely', migrated.legacyPoints === undefined && migrated.prestiges === undefined && migrated.runEarned === undefined);
 
   // A save with NONE of the removed businesses sees zero disruption.
   const cleanSave = { version: 22, balance: 999, businesses: { hotels: { level: 3, upgrades: {}, staff: 0, mech: {} } } };

@@ -383,7 +383,7 @@ const Market = (() => {
     if (h.shares <= 0 || h.shares * price(id) < 0.01) { h.shares = 0; h.cost = 0; }
     state.balance += proceeds;
     const gain = proceeds - costOut;
-    if (gain > 0) { state.totalEarned += gain; state.runEarned += gain; }
+    if (gain > 0) state.totalEarned += gain;
     saveGame();
     return true;
   }

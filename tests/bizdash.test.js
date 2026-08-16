@@ -132,10 +132,10 @@ for (const def of BUSINESS_DEFS) {
   }
 }
 
-// Overview tab must expose the buy-level lever (reused, not re-derived).
+// Overview tab: leveling is retired (no more buy-level lever), sell stays.
 (function () {
   const html = BizDash._renderTabHTML('space', 'overview');
-  check('overview tab includes the real buy-level button (data-buy)', html.includes('data-buy="space"'));
+  check('overview tab has NO buy-level button (leveling retired)', !html.includes('data-buy="space"'));
   check('overview tab includes the real sell link (data-sell)', html.includes('data-sell="space"'));
 })();
 

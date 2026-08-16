@@ -3,26 +3,15 @@
  * -------------------------------------------------------------------------
  * All progression content is data. Achievement `check` functions read the
  * live engine at runtime (they are evaluated, never stored in the save).
- * Numbers here extend GAME_PLAN.md §9 (see §9.9 Progression & Legacy).
+ * Numbers here extend GAME_PLAN.md §9. The Legacy (prestige) system that
+ * used to live here has been removed entirely.
  * ========================================================================= */
 
 /* ---------------------------- Tuning constants --------------------------- */
 
 const PROG = {
-  // Reputation: each point = +0.5% global income. Earned from achievements
-  // (per-achievement `rep`) and +10 per Legacy reset.
+  // Reputation: each point = +0.5% global income. Earned from achievements.
   REP_MULT_PER_POINT: 0.005,
-  REP_PER_PRESTIGE: 10,
-
-  // Legacy (prestige): points = floor(sqrt(runEarned / 1e7)).
-  // Each point = +10% global income, forever. First point at $10M run earnings.
-  LEGACY_DIVISOR: 1e7,
-  LEGACY_MULT_PER_POINT: 0.10,
-
-  // Post-prestige head start: base pocket money + cash per total legacy point.
-  // Combined with KEPT player level/slots, restarts are noticeably faster.
-  PRESTIGE_BASE_CASH: 4900,
-  PRESTIGE_CASH_PER_POINT: 2500,
 
   // Player-triggered booster.
   BOOSTER: { name: 'Hustle Mode', icon: '⚡', mult: 2, secs: 120, cooldownSecs: 1800 },
@@ -81,10 +70,6 @@ const ACHIEVEMENT_DEFS = [
   { id: 'biz_50',   icon: '🏗️', name: 'Institution',  desc: 'Any business at level 50',     rep: 5,  reward: { cash: 100000 }, check: () => BUSINESS_DEFS.some((d) => getBiz(d.id).level >= 50) },
   { id: 'biz_100',  icon: '🏛️', name: 'Century Club', desc: 'Any business at level 100',    rep: 10, reward: { mult: 1.05 },   check: () => BUSINESS_DEFS.some((d) => getBiz(d.id).level >= 100) },
   { id: 'mission_success_5', icon: '🚀', name: 'Mission Control', desc: 'Resolve 5 successful Space Company missions', rep: 6, reward: { mult: 1.05 }, check: () => (getBiz('space').mech.missionSuccesses || 0) >= 5 },
-
-  // Legacy
-  { id: 'first_legacy', icon: '♻️', name: 'New Game+',      desc: 'Complete your first Legacy reset', rep: 10, reward: { mult: 1.10 }, check: () => state.prestiges >= 1 },
-  { id: 'legacy_25',    icon: '💎', name: 'Dynasty',        desc: 'Collect 25 Legacy points',         rep: 15, reward: { mult: 1.10 }, check: () => state.legacyPoints >= 25 },
 ];
 
 /* ------------------------------ Random events ---------------------------- */

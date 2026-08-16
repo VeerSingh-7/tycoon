@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v82'; // v82: Businesses tab — World Map teaser card + My Businesses / Businesses You Can Own toggle
+const CACHE_NAME = 'tycoon-v83'; // v83: business leveling + Legacy/prestige system removed; World Map/nav box sizing pass
 
 const ASSETS = [
   'index.html',

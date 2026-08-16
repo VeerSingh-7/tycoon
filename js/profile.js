@@ -1,9 +1,12 @@
 /* =========================================================================
  * profile.js — Profile tab: title, level/XP, reputation, stats,
- *              Legacy (prestige) screen, achievements grid
+ *              achievements grid
  * -------------------------------------------------------------------------
  * Pure view layer over Progression + engine. Event delegation on the
  * container survives the periodic re-render (for live countdowns).
+ *
+ * The Legacy (prestige) system that used to have a card here has been
+ * removed entirely, at explicit request.
  * ========================================================================= */
 
 const Profile = (() => {
@@ -18,8 +21,7 @@ const Profile = (() => {
   function onClick(e) {
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
-    if (btn.dataset.prestige !== undefined) showPrestigeConfirm();
-    else if (btn.dataset.settings !== undefined) UI.switchTab('settings');
+    if (btn.dataset.settings !== undefined) UI.switchTab('settings');
   }
 
   /* ------------------------------ Render ------------------------------ */
@@ -32,7 +34,6 @@ const Profile = (() => {
         <span>⚙️ Settings</span><span class="chev">›</span>
       </button>
       ${multipliersHTML()}
-      ${legacyHTML()}
       ${statsHTML()}
       ${achievementsHTML()}
     `;
@@ -63,35 +64,11 @@ const Profile = (() => {
     return `
       <div class="card">
         <div class="card-title">💫 Income Multipliers</div>
-        <div class="mult-row"><span>♻️ Legacy (${state.legacyPoints} pts)</span><b>×${Progression.legacyMultiplier().toFixed(2)}</b></div>
         <div class="mult-row"><span>⭐ Reputation (${Progression.reputation()} pts)</span><b>×${Progression.repMultiplier().toFixed(2)}</b></div>
         <div class="mult-row"><span>🏆 Achievements</span><b>×${Progression.achievementMultiplier().toFixed(2)}</b></div>
         <div class="mult-row"><span>💎 Luxury sets</span><b>×${Assets.luxuryMultiplier().toFixed(2)}</b></div>
         ${effectRows}
         <div class="mult-row mult-total"><span>Total</span><b class="gold">×${Progression.globalIncomeMultiplier().toFixed(2)}</b></div>
-      </div>`;
-  }
-
-  /** Legacy / prestige card with a full preview BEFORE any commitment. */
-  function legacyHTML() {
-    const gain = Progression.legacyGain();
-    const newMult = 1 + (state.legacyPoints + gain) * PROG.LEGACY_MULT_PER_POINT;
-    const startCash = PROG.PRESTIGE_BASE_CASH + PROG.PRESTIGE_CASH_PER_POINT * (state.legacyPoints + gain);
-    return `
-      <div class="card legacy-card">
-        <div class="card-title">♻️ Legacy</div>
-        <div class="card-sub">Reset your businesses for permanent Legacy points —
-          each is <b>+10% income forever</b>. You KEEP your level, slots, achievements and reputation.</div>
-        <div class="legacy-preview">
-          <div class="mult-row"><span>This run earned</span><b>${formatMoney(state.runEarned)}</b></div>
-          <div class="mult-row"><span>Reset now grants</span><b class="gold">+${gain} Legacy point${gain === 1 ? '' : 's'}</b></div>
-          <div class="mult-row"><span>New income multiplier</span><b class="up">×${Progression.legacyMultiplier().toFixed(2)} → ×${newMult.toFixed(2)}</b></div>
-          <div class="mult-row"><span>Restart cash</span><b>${formatMoney(startCash)}</b></div>
-        </div>
-        ${gain >= 1
-          ? `<button class="btn btn-gold btn-wide" data-prestige>Legacy Reset · +${gain} points</button>`
-          : `<button class="btn btn-wide" disabled>Earn ${formatMoney(Progression.nextLegacyPointAt())} this run to unlock</button>`}
-        <div class="progress-caption">Next point at ${formatMoney(Progression.nextLegacyPointAt())} run earnings · resets: businesses, cash, tap, management</div>
       </div>`;
   }
 
@@ -101,12 +78,10 @@ const Profile = (() => {
     const done = ACHIEVEMENT_DEFS.filter((a) => state.achievements[a.id]).length;
     const cells = [
       ['Lifetime earned', formatMoney(state.totalEarned)],
-      ['This run', formatMoney(state.runEarned)],
       ['Businesses', `${usedSlots()}/${maxSlots()} slots`],
       ['Employees', formatNumber(staff)],
       ['Taps', formatNumber(state.stats.taps || 0)],
       ['Tap level', state.tapLevel],
-      ['Legacy resets', state.prestiges],
       ['Achievements', `${done}/${ACHIEVEMENT_DEFS.length}`],
     ];
     // Tech companies under management feed net worth via their valuation.
@@ -140,42 +115,6 @@ const Profile = (() => {
       <div class="section-head" style="margin-top:6px"><h2>Achievements</h2>
         <div class="section-stat">${ACHIEVEMENT_DEFS.filter((a) => state.achievements[a.id]).length}/${ACHIEVEMENT_DEFS.length}</div></div>
       <div class="ach-grid">${cards}</div>`;
-  }
-
-  /* ---------------------- Prestige confirmation ---------------------- */
-
-  function showPrestigeConfirm() {
-    const gain = Progression.legacyGain();
-    if (gain < 1) return;
-    const newMult = 1 + (state.legacyPoints + gain) * PROG.LEGACY_MULT_PER_POINT;
-    const startCash = PROG.PRESTIGE_BASE_CASH + PROG.PRESTIGE_CASH_PER_POINT * (state.legacyPoints + gain);
-
-    const overlay = document.createElement('div');
-    overlay.className = 'overlay';
-    overlay.innerHTML = `
-      <div class="modal">
-        <div class="modal-emoji">♻️</div>
-        <h2>Legacy Reset</h2>
-        <div class="legacy-preview" style="text-align:left">
-          <div class="mult-row"><span>You gain</span><b class="gold">+${gain} Legacy points</b></div>
-          <div class="mult-row"><span>Income forever</span><b class="up">×${newMult.toFixed(2)}</b></div>
-          <div class="mult-row"><span>Restart cash</span><b>${formatMoney(startCash)}</b></div>
-          <div class="mult-row"><span>You keep</span><b>level · slots · achievements · rep</b></div>
-          <div class="mult-row"><span>You reset</span><b>businesses · cash · tap · mgmt</b></div>
-        </div>
-        <button class="btn btn-gold btn-wide" id="prestigeGo">Start New Legacy</button>
-        <button class="btn btn-wide" id="prestigeCancel">Not yet</button>
-      </div>`;
-    document.body.appendChild(overlay);
-    overlay.querySelector('#prestigeCancel').addEventListener('click', () => overlay.remove());
-    overlay.querySelector('#prestigeGo').addEventListener('click', () => {
-      if (Progression.doPrestige()) {
-        overlay.remove();
-        UI.renderBalance();
-        render();
-        UI.showToast(`♻️ <b>New Legacy begins!</b><br>All income ×${Progression.legacyMultiplier().toFixed(2)} forever.`);
-      }
-    });
   }
 
   return { mount, render };

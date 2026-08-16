@@ -105,7 +105,18 @@ const SAVE_KEY = 'tycoon_save_v1';
 //      are left untouched — that value was already realized, not clawed
 //      back. Players who never hired staff or ran a campaign on a stock
 //      company see zero disruption.
-const SAVE_VERSION = 25;
+// v26: Two systems retired ahead of a rebuilt Business tab:
+//       1) Per-business LEVELING — no more "Buy Level" purchase. Every
+//          business's level (and the income it earns at that level) simply
+//          freezes wherever it already is; nothing is refunded since that
+//          money already paid off permanently. No fields to migrate.
+//       2) The Legacy (prestige) system — removed outright, not just hidden,
+//          per explicit request. Any legacyPoints/prestiges (and the income
+//          multiplier they granted) are wiped; runEarned (which only ever
+//          fed the Legacy-point formula) is dropped too. Businesses/cash
+//          from a past prestige are NOT retroactively restored — only the
+//          ongoing multiplier and the ability to prestige again go away.
+const SAVE_VERSION = 26;
 
 // Buyout data for v22 -> v23 migration (see below). Copied from the removed
 // businesses' definitions so the refund math matches exactly what players
@@ -206,9 +217,6 @@ function defaultState() {
 
     /* Phase 3 — progression & meta */
     achievements: {},      // id -> true (completed; rewards already granted)
-    legacyPoints: 0,       // permanent prestige currency (+10% income each)
-    prestiges: 0,          // number of Legacy resets performed
-    runEarned: 0,          // earned since last prestige (legacy-point basis)
     stats: { taps: 0 },    // lifetime counters for the Profile
     effects: [],           // active timed effects [{id, kind, mult, endsAt}]
     nextEventAt: 0,        // wall-clock ms of the next random event
@@ -230,13 +238,12 @@ function defaultState() {
 
 /**
  * Central earnings sink: EVERY income source (ticks, taps, mechanic payouts,
- * offline, events, achievement bonuses) goes through here so lifetime XP and
- * the Legacy run counter always stay in sync.
+ * offline, events, achievement bonuses) goes through here so lifetime XP
+ * always stays in sync.
  */
 function addEarnings(amount) {
   state.balance += amount;
   state.totalEarned += amount;
-  state.runEarned += amount;
 }
 
 // Current live state (populated by loadGame()).
@@ -522,6 +529,18 @@ function migrate(loaded) {
       }
     }
     loaded.version = 25;
+  }
+  // v25 -> v26: business leveling and the Legacy (prestige) system are both
+  // retired (see the SAVE_VERSION comment above for the full rationale).
+  // Business levels themselves need no transform — they just stop growing
+  // wherever they already are. Legacy is a real wipe: drop legacyPoints,
+  // prestiges and runEarned so the permanent income multiplier they granted
+  // (and the ability to prestige again) are gone, not just hidden.
+  if (loaded.version < 26) {
+    delete loaded.legacyPoints;
+    delete loaded.prestiges;
+    delete loaded.runEarned;
+    loaded.version = 26;
   }
   return loaded;
 }

@@ -112,7 +112,7 @@ function businessGrossPerSec(def) {
     mechanicMultiplier(def);
 }
 
-/** Phase 3 global multiplier: reputation x achievements x legacy x events. */
+/** Phase 3 global multiplier: reputation x achievements x luxury x events. */
 function globalIncomeMultiplier() {
   return typeof Progression !== 'undefined' ? Progression.globalIncomeMultiplier() : 1;
 }

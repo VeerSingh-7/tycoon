@@ -129,19 +129,12 @@ const BizDash = (() => {
 
   function overviewHTML(def, biz) {
     const net = businessIncomePerSec(def);
-    const nextCost = businessNextCost(def);
-    const canBuy = state.balance >= nextCost;
-    const ms = nextMilestone(biz.level);
     const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
     return `
       <div class="card">
         <div class="biz-stats">
           <div><span class="muted">Net income</span><b class="gold">${formatRate(net)}</b></div>
-          <div><span class="muted">Next level</span><b>${formatMoney(nextCost)}</b></div>
         </div>
-        <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy="${def.id}" ${canBuy ? '' : 'disabled'}>
-          Buy Level ${biz.level + 1} · ${formatMoney(nextCost)}</button>
-        <div class="progress-caption">💥 Output ×2 at Lv ${ms} (milestone)</div>
       </div>
       <button class="sell-link" data-sell="${def.id}">Sell business — ${formatMoney(refund)} refund (25%), frees slot</button>
     `;

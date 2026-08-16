@@ -31,6 +31,35 @@ const Businesses = (() => {
         <path d="M30 10 C34.5 10 38 13.5 38 18 C38 23.5 30 33 30 33 C30 33 22 23.5 22 18 C22 13.5 25.5 10 30 10 Z"
           fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 
+  /** A stylized (not survey-accurate) world map silhouette for the World Map
+   *  placeholder page — hand-drawn continent blobs on a lat/long grid, all
+   *  monochrome so it themes with dark/light like every other icon. */
+  const WORLD_MAP_SVG = `
+    <svg viewBox="0 0 360 180" class="biz-world-map-svg" aria-hidden="true">
+      <g stroke="var(--border)" stroke-width="1">
+        <line x1="0" y1="45" x2="360" y2="45"/>
+        <line x1="0" y1="90" x2="360" y2="90"/>
+        <line x1="0" y1="135" x2="360" y2="135"/>
+        <line x1="90" y1="0" x2="90" y2="180"/>
+        <line x1="180" y1="0" x2="180" y2="180"/>
+        <line x1="270" y1="0" x2="270" y2="180"/>
+      </g>
+      <g fill="currentColor" fill-opacity="0.55">
+        <path d="M40,15 C60,8 90,10 110,20 C130,28 135,45 125,55 C115,65 100,60 90,68
+          C80,78 75,95 65,100 C55,90 50,75 45,60 C35,55 25,45 20,35 C22,25 30,18 40,15 Z"/>
+        <path d="M100,75 C115,70 130,78 135,95 C140,115 130,140 115,155
+          C105,150 95,135 92,115 C90,100 92,85 100,75 Z"/>
+        <path d="M175,20 C190,15 205,18 212,28 C215,38 205,45 195,48
+          C185,50 175,45 172,35 C170,28 172,23 175,20 Z"/>
+        <path d="M180,55 C200,48 220,52 228,70 C235,90 232,115 220,140
+          C210,155 195,150 188,135 C180,115 175,95 178,75 C179,68 178,60 180,55 Z"/>
+        <path d="M215,15 C240,8 270,10 295,20 C315,28 330,35 335,48
+          C330,58 315,55 300,60 C285,65 270,60 255,65 C240,68 225,60 215,50 C208,40 210,25 215,15 Z"/>
+        <path d="M295,105 C310,100 325,105 330,115 C332,122 325,130 315,132
+          C305,133 295,128 292,120 C291,115 292,108 295,105 Z"/>
+      </g>
+    </svg>`;
+
   function mount(el) {
     container = el;
     container.addEventListener('click', onClick);
@@ -89,7 +118,7 @@ const Businesses = (() => {
         <div class="section-stat">${formatRate(totalBusinessIncomePerSec())}</div>
       </div>
 
-      <button class="card hub-card" data-biz-nav="map" type="button" aria-label="Open World Map">
+      <button class="card hub-card biz-map-card" data-biz-nav="map" type="button" aria-label="Open World Map">
         <span class="hub-logo">${MAP_ICON}</span>
         <span class="hub-text">
           <span class="hub-title">World Map</span>
@@ -104,7 +133,7 @@ const Businesses = (() => {
           <b>${owned.length} owned</b>
         </button>
         <button class="stat-cell biz-nav-cell ${listMode === 'all' ? 'on' : ''}" data-biz-nav="all" type="button">
-          <span>Businesses You Can Own</span>
+          <span class="biz-nav-condensed">Businesses You Can Own</span>
           <b>${BUSINESS_DEFS.length} total</b>
         </button>
       </div>
@@ -132,6 +161,7 @@ const Businesses = (() => {
             <div class="bizd-co-sub">Your business empire, worldwide</div>
           </div>
         </div>
+        ${WORLD_MAP_SVG}
         <div class="coming-soon">
           <div class="cs-badge">COMING SOON</div>
           <h2>World Map</h2>
@@ -189,15 +219,12 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /* Owned: a compact summary — quick-buy stays here for the idle-clicking
-   * loop, everything else (staff/mechanic/upgrades/sell) lives on the
-   * dedicated page (js/bizdash.js) — mirrors how the stock side's list row
-   * keeps buy/sell inline while any deeper management lives elsewhere. */
+  /* Owned: a compact summary — everything (staff/mechanic/upgrades/sell)
+   * lives on the dedicated page (js/bizdash.js). Leveling is retired (no
+   * more "Buy Level" purchase) — income is whatever it is at the level the
+   * business is already at, frozen, ahead of a future business-tab rebuild. */
   function ownedCardHTML(def, biz) {
     const net = businessIncomePerSec(def);
-    const nextCost = businessNextCost(def);
-    const canBuy = state.balance >= nextCost;
-    const ms = nextMilestone(biz.level);
 
     return `
       <div class="card biz-card">
@@ -212,12 +239,7 @@ const Businesses = (() => {
 
         <div class="biz-stats">
           <div><span class="muted">Net income</span><b class="gold">${formatRate(net)}</b></div>
-          <div><span class="muted">Next level</span><b>${formatMoney(nextCost)}</b></div>
         </div>
-
-        <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy="${def.id}" ${canBuy ? '' : 'disabled'}>
-          Buy Level ${biz.level + 1} · ${formatMoney(nextCost)}</button>
-        <div class="progress-caption">💥 Output ×2 at Lv ${ms} (milestone)</div>
 
         <button class="btn btn-wide biz-manage-btn" data-manage="${def.id}">Manage Business ›</button>
       </div>`;
@@ -239,7 +261,7 @@ const Businesses = (() => {
           <span class="upgrade-desc">Salaries ${formatRate(salaries)}${nextRole && biz.staff < cap ? ` · Next hire: ${nextRole}` : ''}</span>
         </div>
         ${biz.staff >= cap
-          ? '<span class="pill pill-locked">Level up</span>'
+          ? '<span class="pill pill-locked">Staff full</span>'
           : `<button class="btn btn-sm ${canHire ? 'btn-gold' : ''}" data-hire="${def.id}" ${canHire ? '' : 'disabled'}>Hire ${formatMoney(cost)}</button>`}
       </div>`;
   }

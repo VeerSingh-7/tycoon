@@ -1,16 +1,15 @@
 /* =========================================================================
  * progression.js — Phase 3 engine: reputation, titles, achievements,
- *                  random events, boosters, and the Legacy (prestige) system
+ *                  random events, boosters
  * -------------------------------------------------------------------------
  * Feeds ONE number into the economy: globalIncomeMultiplier() =
- *   reputation × achievements × legacy × active income effects
+ *   reputation × achievements × active income effects
  * (engine.js applies it to every business's net income, so mechanic payouts
  * and offline earnings scale consistently).
  *
- * Design note (GAME_PLAN.md problem #6): prestige here is REWARDING —
- * player level, slots, achievements and reputation are all KEPT; you get
- * +10%/point forever plus a cash head start. Only businesses, cash, tap and
- * management reset.
+ * The Legacy (prestige) system has been removed entirely, at explicit
+ * request — not just hidden. There is no reset loop anymore: player
+ * level/XP, achievements, reputation and businesses just keep growing.
  * ========================================================================= */
 
 const Progression = (() => {
@@ -35,9 +34,9 @@ const Progression = (() => {
 
   /* ---------------------------- Reputation ------------------------------ */
 
-  /** Rep points: sum of completed achievements' rep + 10 per Legacy reset. */
+  /** Rep points: sum of completed achievements' rep. */
   function reputation() {
-    let rep = state.prestiges * PROG.REP_PER_PRESTIGE;
+    let rep = 0;
     for (const a of ACHIEVEMENT_DEFS) if (state.achievements[a.id]) rep += a.rep;
     return rep;
   }
@@ -103,15 +102,11 @@ const Progression = (() => {
 
   /* ------------------------ The global multiplier ------------------------ */
 
-  function legacyMultiplier() {
-    return 1 + state.legacyPoints * PROG.LEGACY_MULT_PER_POINT;
-  }
-
   /** Applied by engine.js to all business net income. */
   function globalIncomeMultiplier() {
     // Luxury set bonuses (Phase 5) join the product when Assets is loaded.
     const lux = typeof Assets !== 'undefined' ? Assets.luxuryMultiplier() : 1;
-    return repMultiplier() * achievementMultiplier() * legacyMultiplier() * lux * effectMultiplier('income');
+    return repMultiplier() * achievementMultiplier() * lux * effectMultiplier('income');
   }
 
   /** Applied by engine.js to tap earnings ("Gone Viral" event). */
@@ -200,42 +195,6 @@ const Progression = (() => {
     scheduleNextEvent();
   }
 
-  /* ----------------------------- Legacy reset ---------------------------- */
-
-  /** Legacy points a reset would grant right now. */
-  function legacyGain() {
-    return Math.floor(Math.sqrt((state.runEarned || 0) / PROG.LEGACY_DIVISOR));
-  }
-
-  /** Run earnings needed for the NEXT legacy point (for the preview UI). */
-  function nextLegacyPointAt() {
-    const next = legacyGain() + 1;
-    return next * next * PROG.LEGACY_DIVISOR;
-  }
-
-  /**
-   * Perform the Legacy reset.
-   * KEEPS: player level/XP (and therefore slots), titles, achievements,
-   *        reputation, legacy points, lifetime stats.
-   * RESETS: businesses, cash (to a head-start amount), tap level, management.
-   */
-  function doPrestige() {
-    const gain = legacyGain();
-    if (gain < 1) return false;
-
-    state.legacyPoints += gain;
-    state.prestiges += 1;
-    state.businesses = {};
-    state.tapLevel = 1;
-    state.managementLevel = 0;
-    state.effects = [];
-    state.runEarned = 0;
-    state.boosterReadyAt = 0;
-    state.balance = PROG.PRESTIGE_BASE_CASH + PROG.PRESTIGE_CASH_PER_POINT * state.legacyPoints;
-    saveGame();
-    return true;
-  }
-
   /* ------------------------------- Tick ---------------------------------- */
 
   let _lastAchCheck = 0;
@@ -255,7 +214,7 @@ const Progression = (() => {
     reputation, repMultiplier, achievementMultiplier,
     activeEffects, effectMultiplier, globalIncomeMultiplier, tapMultiplier,
     boosterInfo, activateBooster,
-    fireEvent, legacyGain, nextLegacyPointAt, legacyMultiplier, doPrestige,
+    fireEvent,
     checkAchievements, tick,
   };
 })();
