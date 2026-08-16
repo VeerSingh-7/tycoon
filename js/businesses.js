@@ -54,11 +54,13 @@ const Businesses = (() => {
   let countryNames = {};     // ISO code -> readable name, parsed from the fetched SVG's hidden label layer
 
   const MAP_ZOOM_DEFAULT_VW = 350;
-  const MAP_ZOOM_MIN_VW = 150;
-  const MAP_ZOOM_MAX_VW = 1400;
+  const MAP_ZOOM_MIN_VW = 100;   // fully zoomed out — the whole map, edge to edge, no panning needed
+  const MAP_ZOOM_MAX_VW = 2200;  // fully zoomed in — even a tiny country fills most of the screen
   let mapWidthVw = MAP_ZOOM_DEFAULT_VW; // current zoom level (the SVG's CSS width, in vw units)
   let pinchStartDist = null;
   let pinchStartWidthVw = null;
+  let pinchRAF = null;      // requestAnimationFrame handle coalescing touchmove bursts
+  let pinchPending = null;  // { targetVw, midX, midY } for the next coalesced frame
   let selectedCountryEl = null;   // the <g> currently highlighted, or null
   let selectedCountryCode = null; // its ISO code, or null
 
@@ -251,15 +253,28 @@ const Businesses = (() => {
   // zoom directly resizes it (mapWidthVw), keeping the pinch/click point
   // anchored in place via a scroll-offset adjustment so the view doesn't
   // drift toward a corner on every zoom step.
+  //
+  // Smoothness: button zoom gets a CSS width transition (a real animated
+  // resize instead of an instant jump); pinch turns that transition OFF
+  // (direct 1:1 finger tracking would otherwise fight/lag behind it) and
+  // batches rapid touchmove events through one requestAnimationFrame, so a
+  // burst of touch events collapses into at most one resize per frame
+  // instead of layout-thrashing on every single one.
 
   function mapScreenEl() { return typeof document !== 'undefined' ? document.querySelector('.biz-worldmap-screen') : null; }
   function mapScrollEl() { return typeof document !== 'undefined' ? document.querySelector('.biz-worldmap-scroll') : null; }
   function mapSvgEl() { const s = mapScrollEl(); return s && s.querySelector ? s.querySelector('svg') : null; }
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+  const raf = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : (fn) => setTimeout(fn, 16);
 
   /** Set the map's zoom to an ABSOLUTE width (in vw), keeping whatever's
    *  under (anchorX, anchorY) — a click/pinch-midpoint in viewport
-   *  coordinates — visually anchored in place. No anchor = viewport center. */
+   *  coordinates — visually anchored in place. No anchor = viewport center.
+   *  The target size is computed ANALYTICALLY from the pre-change rect
+   *  (not by re-reading getBoundingClientRect() after the style write) so
+   *  this stays correct even while a CSS width transition is animating —
+   *  reading the DOM again mid-transition would report a stale, in-between
+   *  size and throw the anchor math off. */
   function setMapWidth(targetVw, anchorX, anchorY) {
     const newVw = clamp(targetVw, MAP_ZOOM_MIN_VW, MAP_ZOOM_MAX_VW);
     const svg = mapSvgEl();
@@ -273,16 +288,20 @@ const Businesses = (() => {
     const fracX = oldRect.width ? (scroll.scrollLeft + ax) / oldRect.width : 0;
     const fracY = oldRect.height ? (scroll.scrollTop + ay) / oldRect.height : 0;
 
+    const viewportW = (typeof window !== 'undefined' && window.innerWidth) || 400;
+    const aspect = oldRect.width ? oldRect.height / oldRect.width : (507.209 / 1000);
+    const newWidthPx = (newVw / 100) * viewportW;
+    const newHeightPx = newWidthPx * aspect;
+
     mapWidthVw = newVw;
     svg.style.width = mapWidthVw + 'vw';
 
-    const newRect = svg.getBoundingClientRect();
-    scroll.scrollLeft = fracX * newRect.width - ax;
-    scroll.scrollTop = fracY * newRect.height - ay;
+    scroll.scrollLeft = fracX * newWidthPx - ax;
+    scroll.scrollTop = fracY * newHeightPx - ay;
   }
 
   function zoomStep(dir) {
-    setMapWidth(mapWidthVw * (dir > 0 ? 1.5 : 1 / 1.5));
+    setMapWidth(mapWidthVw * (dir > 0 ? 1.6 : 1 / 1.6));
   }
 
   function touchDist(a, b) {
@@ -294,6 +313,8 @@ const Businesses = (() => {
     if (!mapOpen || e.touches.length !== 2) return;
     pinchStartDist = touchDist(e.touches[0], e.touches[1]);
     pinchStartWidthVw = mapWidthVw;
+    const svg = mapSvgEl();
+    if (svg) svg.style.transition = 'none'; // direct 1:1 tracking, no animated lag while actively pinching
   }
 
   function onTouchMove(e) {
@@ -302,11 +323,21 @@ const Businesses = (() => {
     const dist = touchDist(e.touches[0], e.touches[1]);
     const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
     const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    setMapWidth(pinchStartWidthVw * (dist / pinchStartDist), midX, midY);
+    pinchPending = { targetVw: pinchStartWidthVw * (dist / pinchStartDist), midX, midY };
+    if (pinchRAF) return; // a frame is already queued — this event's data will still be used when it fires
+    pinchRAF = raf(() => {
+      pinchRAF = null;
+      if (pinchPending) { setMapWidth(pinchPending.targetVw, pinchPending.midX, pinchPending.midY); pinchPending = null; }
+    });
   }
 
   function onTouchEnd(e) {
-    if (e.touches.length < 2) { pinchStartDist = null; pinchStartWidthVw = null; }
+    if (e.touches.length < 2) {
+      pinchStartDist = null;
+      pinchStartWidthVw = null;
+      const svg = mapSvgEl();
+      if (svg) svg.style.transition = 'width 0.22s ease-out'; // restore smooth animated zoom for the buttons
+    }
   }
 
   /* ------------------------ Country selection ------------------------- */

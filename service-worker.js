@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v89'; // v89: world map pinch/button zoom, tap-to-highlight countries with an info box
+const CACHE_NAME = 'tycoon-v90'; // v90: world map zoom range widened (100vw-2200vw) + animated/smoother zoom
 
 const ASSETS = [
   'index.html',

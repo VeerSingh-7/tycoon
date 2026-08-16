@@ -644,13 +644,16 @@ html, body {
   position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 14px; z-index: 4;
 }
 
-/* Rendered wider than the viewport (js/businesses.js mapWidthVw, default
-   350vw) and left to scroll/pan in both directions — that, plus pinch or
-   the +/- buttons to go further, is what makes even the smallest country a
-   big enough tap target, without ever distorting the map's real
-   proportions (only width is ever set — height stays auto). */
+/* Rendered wider than the viewport (js/businesses.js mapWidthVw, ranges
+   100vw fully zoomed out to 2200vw fully zoomed in, default 350vw) and left
+   to scroll/pan in both directions — that, plus pinch or the +/- buttons to
+   zoom further, is what makes even the smallest country a big enough tap
+   target, without ever distorting the map's real proportions (only width
+   is ever set — height stays auto). The width transition makes BUTTON zoom
+   glide instead of snap; js/businesses.js turns it off during an active
+   pinch so direct finger-tracking never fights/lags behind it. */
 .biz-worldmap-scroll { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
-.biz-worldmap-scroll svg { width: 350vw; min-width: 1400px; height: auto; display: block; }
+.biz-worldmap-scroll svg { width: 350vw; height: auto; display: block; transition: width 0.22s ease-out; }
 .biz-worldmap-scroll svg path { fill: var(--bg-elev-2); stroke: var(--border); stroke-width: 0.6; }
 .biz-worldmap-scroll svg #Ocean { fill: var(--bg); stroke: var(--bg); }
 .biz-worldmap-scroll svg #World { fill: var(--bg); }
