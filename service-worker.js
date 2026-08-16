@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v83'; // v83: business leveling + Legacy/prestige system removed; World Map/nav box sizing pass
+const CACHE_NAME = 'tycoon-v84'; // v84: World Map hero image-card, redesigned My Businesses/Purchasable stat panels
 
 const ASSETS = [
   'index.html',

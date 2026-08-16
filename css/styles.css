@@ -547,32 +547,66 @@ html, body {
 }
 .stat-cell b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
-/* World Map hero card — a bigger hub-card variant so it reads as the obvious
-   top-of-page feature, not just another row. */
-.biz-map-card { padding: 26px 20px; margin-bottom: 4px; }
-.biz-map-card .hub-logo { width: 64px; height: 64px; border-radius: 18px; }
-.biz-map-card .hub-logo-svg { width: 40px; height: 40px; }
-.biz-map-card .hub-title { font-size: 23px; }
-.biz-map-card .hub-sub { font-size: 13px; }
-.biz-map-card .hub-arrow { font-size: 32px; }
-
-/* Clickable stat-cell variant (Business tab's My Businesses / Businesses You
-   Can Own toggle) — inactive = --muted outline, active = --surface fill +
-   --accent-bg outline, matching the shared Tab bar component. Deliberately
-   smaller than a normal .stat-cell so the World Map card above stays the
-   obvious feature and this reads as a compact filter, not a peer feature. */
-.biz-nav-grid { margin-top: 14px; }
-.biz-nav-cell {
-  width: 100%; text-align: left; font-family: inherit; cursor: pointer;
-  border: 1px solid var(--line); padding: 8px 10px;
+/* World Map hero card — a wide image-card (background-image slot via
+   js/businesses.js WORLD_MAP_IMAGE_URL). With no image set it falls back to
+   a solid --bg-mid fill + a centered icon, so it never looks broken while
+   waiting for a real photo. Title/sub/chevron sit in a bottom overlay over
+   a --bg scrim, which fades transparent -> var(--bg) — that keeps var(--text)
+   legible against either the fallback fill or a future photo in both themes,
+   since the scrim's own color always matches the theme text is tuned for. */
+.biz-map-card {
+  position: relative; display: block; width: 100%; overflow: hidden;
+  min-height: 168px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--bg-mid) center/cover no-repeat;
+  padding: 0; margin: 0 0 14px; cursor: pointer; text-align: left;
+  font-family: inherit; color: inherit;
 }
-.biz-nav-cell span { font-size: 9px; }
-.biz-nav-cell b { font-size: 12.5px; }
-.biz-nav-cell.on { background: var(--surface); border-color: var(--accent-bg); }
-.biz-nav-cell.on b { color: var(--text); }
-/* "Businesses You Can Own" is the longer label of the pair — condensed
-   (tighter tracking, smaller) so it doesn't wrap inside the now-smaller box. */
-.biz-nav-condensed { letter-spacing: -0.2px; font-size: 8.5px; display: block; }
+.biz-map-card:active { transform: scale(0.985); }
+.biz-map-fallback {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--muted);
+}
+.biz-map-fallback svg { width: 64px; height: 64px; }
+.biz-map-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 0%, transparent 45%, var(--bg) 100%);
+}
+.biz-map-overlay {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 1;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 12px; padding: 16px 18px;
+}
+.biz-map-text { display: flex; flex-direction: column; gap: 3px; }
+.biz-map-title { font-size: 21px; font-weight: 800; letter-spacing: 0.2px; color: var(--text); }
+.biz-map-sub { font-size: 12.5px; font-weight: 500; color: var(--muted); line-height: 1.35; }
+.biz-map-arrow { font-size: 28px; color: var(--text); line-height: 1; flex-shrink: 0; }
+
+/* My Businesses / Purchasable — a large informational stat-panel pair, NOT
+   styled as an active/inactive toggle (they're read-only summaries; tapping
+   still filters the list below, it just isn't foregrounded visually). The
+   two panels are differentiated by weight/fill rather than color: My
+   Businesses is the filled/primary panel, Purchasable is the lighter,
+   outlined, more condensed one — reversing the old imbalance where the
+   longer "Businesses You Can Own" label read as the more prominent box. */
+.biz-nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 14px; }
+.biz-nav-panel {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  width: 100%; text-align: left; font-family: inherit; cursor: pointer;
+  border-radius: 16px; padding: 18px 16px 16px;
+}
+.biz-nav-icon svg { width: 22px; height: 22px; display: block; }
+.biz-nav-num { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.biz-nav-label { font-weight: 700; }
+.biz-nav-panel--mine {
+  background: var(--surface); border: 1px solid var(--accent-bg);
+}
+.biz-nav-panel--mine .biz-nav-icon, .biz-nav-panel--mine .biz-nav-num, .biz-nav-panel--mine .biz-nav-label { color: var(--text); }
+.biz-nav-panel--mine .biz-nav-label { font-size: 12.5px; }
+.biz-nav-panel--own {
+  background: var(--bg-elev-2); border: 1px solid var(--line);
+}
+.biz-nav-panel--own .biz-nav-icon, .biz-nav-panel--own .biz-nav-num, .biz-nav-panel--own .biz-nav-label { color: var(--muted); }
+.biz-nav-panel--own .biz-nav-label { font-size: 10.5px; letter-spacing: -0.1px; }
 
 /* World Map placeholder page — a stylized continent illustration above the
    "Coming Soon" copy (js/businesses.js WORLD_MAP_SVG). */

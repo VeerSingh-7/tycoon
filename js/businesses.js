@@ -6,13 +6,15 @@
  *   available  — can be started (needs money + a free business slot)
  *   owned      — level/income/staff/mechanic/upgrades/sell
  *
- * Two entry points sit above the list: "My Businesses" (owned only) and
- * "Businesses You Can Own" (the full catalog, same three-flavour cards as
- * before) — a UI-only filter (listMode), not persisted, reset on every
- * mount() same as the rest of the app's per-screen view state.
+ * Two entry points sit above the list, styled as large informational stat
+ * panels (not a visible tab bar): "My Businesses" (owned only) and
+ * "Purchasable" (the full catalog, same three-flavour cards as before).
+ * Tapping either still filters the list below (listMode) — a UI-only
+ * filter, not persisted, reset on every mount().
  *
- * The World Map card is a placeholder teaser (same "Coming Soon" pattern as
- * js/banking.js etc.) for a future feature showing where each business is
+ * The World Map card is a wide hero-image card (background-image slot via
+ * WORLD_MAP_IMAGE_URL, currently unset — falls back to a solid fill + a
+ * centered icon) for a future feature showing where each business is
  * located on a real map — no location data or map rendering exists yet.
  *
  * Events use DELEGATION on the container so the 2x/sec re-render (needed for
@@ -24,12 +26,30 @@ const Businesses = (() => {
   let listMode = 'all'; // 'all' | 'mine' — which businesses the list below shows
   let mapOpen = false;  // World Map "Coming Soon" overlay
 
+  // Set this to an image URL/path later to show a real photo behind the
+  // World Map hero card. Left null for now — the card falls back to a
+  // solid --bg-mid fill with a centered icon so it never looks broken.
+  const WORLD_MAP_IMAGE_URL = null;
+
   const MAP_ICON = `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
         <circle cx="17" cy="20" r="12" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2.4"/>
         <path d="M5 20 L29 20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
         <path d="M17 8 C22 13 22 27 17 32 C12 27 12 13 17 8 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
         <path d="M30 10 C34.5 10 38 13.5 38 18 C38 23.5 30 33 30 33 C30 33 22 23.5 22 18 C22 13.5 25.5 10 30 10 Z"
           fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
+
+  // My Businesses: a small skyline — the businesses you already own.
+  const NAV_ICON_MINE = `<svg viewBox="0 0 24 24" class="biz-nav-icon-svg" aria-hidden="true">
+        <rect x="3" y="10" width="5" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <rect x="9.5" y="5" width="5" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <rect x="16" y="13" width="5" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`;
+
+  // Purchasable: a catalog grid — everything you could start.
+  const NAV_ICON_OWN = `<svg viewBox="0 0 24 24" class="biz-nav-icon-svg" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <rect x="14" y="3" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <rect x="3" y="14" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <rect x="14" y="14" width="7" height="7" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`;
 
   /** A stylized (not survey-accurate) world map silhouette for the World Map
    *  placeholder page — hand-drawn continent blobs on a lat/long grid, all
@@ -118,23 +138,29 @@ const Businesses = (() => {
         <div class="section-stat">${formatRate(totalBusinessIncomePerSec())}</div>
       </div>
 
-      <button class="card hub-card biz-map-card" data-biz-nav="map" type="button" aria-label="Open World Map">
-        <span class="hub-logo">${MAP_ICON}</span>
-        <span class="hub-text">
-          <span class="hub-title">World Map</span>
-          <span class="hub-sub">See where your empire operates around the globe</span>
+      <button class="biz-map-card" data-biz-nav="map" type="button" aria-label="Open World Map"
+        ${WORLD_MAP_IMAGE_URL ? `style="background-image:url('${WORLD_MAP_IMAGE_URL}')"` : ''}>
+        ${WORLD_MAP_IMAGE_URL ? '' : `<span class="biz-map-fallback">${MAP_ICON}</span>`}
+        <span class="biz-map-scrim"></span>
+        <span class="biz-map-overlay">
+          <span class="biz-map-text">
+            <span class="biz-map-title">World Map</span>
+            <span class="biz-map-sub">See where your empire operates around the globe</span>
+          </span>
+          <span class="biz-map-arrow">›</span>
         </span>
-        <span class="hub-arrow">›</span>
       </button>
 
-      <div class="stat-grid biz-nav-grid">
-        <button class="stat-cell biz-nav-cell ${listMode === 'mine' ? 'on' : ''}" data-biz-nav="mine" type="button">
-          <span>My Businesses</span>
-          <b>${owned.length} owned</b>
+      <div class="biz-nav-grid">
+        <button class="biz-nav-panel biz-nav-panel--mine" data-biz-nav="mine" type="button">
+          <span class="biz-nav-icon">${NAV_ICON_MINE}</span>
+          <span class="biz-nav-num">${owned.length}</span>
+          <span class="biz-nav-label">My Businesses</span>
         </button>
-        <button class="stat-cell biz-nav-cell ${listMode === 'all' ? 'on' : ''}" data-biz-nav="all" type="button">
-          <span class="biz-nav-condensed">Businesses You Can Own</span>
-          <b>${BUSINESS_DEFS.length} total</b>
+        <button class="biz-nav-panel biz-nav-panel--own" data-biz-nav="all" type="button">
+          <span class="biz-nav-icon">${NAV_ICON_OWN}</span>
+          <span class="biz-nav-num">${BUSINESS_DEFS.length}</span>
+          <span class="biz-nav-label">Purchasable</span>
         </button>
       </div>
 
