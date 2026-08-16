@@ -84,7 +84,7 @@ const AssetsTab = (() => {
     const canBuy = !owned && state.balance >= def.price;
     return `
       <div class="asset-row lux-row ${owned ? 'is-owned' : ''}">
-        <span class="logo-tile estate-tile" style="--ph:hsl(${set.hue}, 45%, 52%)"><span class="estate-emoji">${set.icon}</span></span>
+        <span class="logo-tile estate-tile"><span class="estate-emoji">${set.icon}</span></span>
         <div class="asset-name-wrap">
           <div class="asset-sym">${def.name}</div>
           <div class="asset-name">${owned ? 'Owned' : set.name}</div>

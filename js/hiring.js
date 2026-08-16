@@ -181,9 +181,9 @@ const Hiring = (() => {
 
   function agencyIconSVG() {
     return `<svg viewBox="0 0 32 32" class="hire-agency-icon-svg" aria-hidden="true">
-      <circle cx="16" cy="16" r="6.5" fill="none" stroke="#6FD1EA" stroke-width="2"/>
-      <circle cx="16" cy="16" r="2" fill="#6FD1EA"/>
-      <path d="M16 5 L16 11 M16 21 L16 27 M5 16 L11 16 M21 16 L27 16" stroke="#6FD1EA" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="16" cy="16" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle cx="16" cy="16" r="2" fill="currentColor"/>
+      <path d="M16 5 L16 11 M16 21 L16 27 M5 16 L11 16 M21 16 L27 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </svg>`;
   }
 

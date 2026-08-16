@@ -1,57 +1,78 @@
 /* =========================================================================
- * styles.css — Dark, modern, mobile-first theme. Gold = money.
- * ========================================================================= */
-
-/* =========================================================================
- * Theming. LIGHT is the default (:root); DARK is opt-in via
- * <html data-theme="dark">. Everything is driven by these variables so both
- * themes work everywhere with nothing hard-coded. `--gold` is the semantic
- * ACCENT (a blue that reads on white in light; the classic gold in dark).
+ * styles.css — ONE monochrome design system, Dark (default) / Light.
+ * -------------------------------------------------------------------------
+ * Every screen (including what used to be the separate Product Studio/
+ * Hiring/Marketing "blueprint" reskin) reads from this single token set —
+ * nothing hard-coded. --green/--red are the ONLY colors in the app, reserved
+ * strictly for positive/negative money figures.
+ *
+ * Old token names are kept (--gold, --bg-elev, --line, --danger, ...) as the
+ * ones ~450 component rules across this file already reference — only their
+ * VALUES changed here, all pointing at the new monochrome palette. New
+ * screens should reach for the canonical names directly: --bg, --bg-mid,
+ * --surface, --border, --text, --muted, --accent-bg, --accent-text, --green,
+ * --red — --gold/--bg-elev/--bg-elev-2/--line/--danger/--accent-ink are
+ * exact aliases of --accent-bg/--surface/--bg-mid/--border/--red/--accent-text
+ * respectively, kept only so the existing call sites don't all need touching.
  * ========================================================================= */
 :root {
-  --bg:        #ffffff;   /* app background (near-white) */
-  --bg-elev:   #ffffff;   /* cards / elevated surfaces */
-  --bg-elev-2: #f3f5f8;   /* nested surfaces */
-  --line:      #e6e9ef;   /* borders / dividers */
-  --text:      #0f172a;   /* bold near-black */
-  --muted:     #667085;   /* soft grey secondary */
-  --gold:      #2563eb;   /* ACCENT — buttons & highlights (reads on white) */
-  --gold-deep: #1d4ed8;
-  --gold-glow: rgba(37, 99, 235, 0.16);
-  --green:     #16a34a;   /* up */
-  --danger:    #dc2626;   /* down */
-  --green-soft: rgba(22, 163, 74, 0.12);
-  --accent-ink: #ffffff;  /* text on accent buttons */
-  --topbar-bg: rgba(255, 255, 255, 0.92);
-  --nav-bg:    rgba(255, 255, 255, 0.96);
-  --shadow:    rgba(15, 23, 42, 0.08);
-  --chart-grid: #eef1f5;
-  --chart-fill-top: rgba(37, 99, 235, 0.16);
-  --chart-fill-bot: rgba(37, 99, 235, 0);
+  /* ---- Dark (default) ---- */
+  --bg:        #0A0A0B;
+  --bg-mid:    #0D0D0F;
+  --surface:   rgba(255, 255, 255, 0.045);
+  --border:    rgba(255, 255, 255, 0.09);
+  --text:      #F4F4F3;
+  --muted:     #87898F;
+  --accent-bg: #FFFFFF;
+  --accent-text: #0A0A0B;
+  --accent-deep: #D8D8D6;              /* pressed/hover shade of the accent */
+  --accent-glow: rgba(255, 255, 255, 0.10); /* soft tint for active/selected states */
+  --green:     #5FD98A;
+  --red:       #E2665A;
+  --green-soft: rgba(95, 217, 138, 0.15);
+
+  /* ---- Back-compat aliases — every existing var(--X) call site below
+     keeps working unchanged, now resolving to the new monochrome values. ---- */
+  --bg-elev:   var(--surface);
+  --bg-elev-2: var(--bg-mid);
+  --line:      var(--border);
+  --gold:      var(--accent-bg);
+  --gold-deep: var(--accent-deep);
+  --gold-glow: var(--accent-glow);
+  --danger:    var(--red);
+  --accent-ink: var(--accent-text);
+
+  --topbar-bg: rgba(10, 10, 11, 0.92);
+  --nav-bg:    rgba(10, 10, 11, 0.96);
+  --shadow:    rgba(0, 0, 0, 0.5);
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-fill-top: rgba(255, 255, 255, 0.14);
+  --chart-fill-bot: rgba(255, 255, 255, 0);
   --radius:    16px;
   --nav-h:     64px;
   --top-h:     72px;
 }
-:root[data-theme="dark"] {
-  --bg:        #0d0f14;
-  --bg-elev:   #161a23;
-  --bg-elev-2: #1e2430;
-  --line:      #262d3a;
-  --text:      #eef1f6;
-  --muted:     #8a93a6;
-  --gold:      #f5c451;   /* accent stays gold in the dark theme */
-  --gold-deep: #d4a017;
-  --gold-glow: rgba(245, 196, 81, 0.35);
-  --green:     #3ddc84;
-  --danger:    #ff5d5d;
-  --green-soft: rgba(61, 220, 132, 0.15);
-  --accent-ink: #2a1e00;
-  --topbar-bg: linear-gradient(180deg, #12151d 0%, rgba(13, 15, 20, 0.92) 100%);
-  --nav-bg:    rgba(18, 21, 29, 0.96);
-  --shadow:    rgba(0, 0, 0, 0.5);
-  --chart-grid: #1e2430;
-  --chart-fill-top: rgba(245, 196, 81, 0.26);
-  --chart-fill-bot: rgba(245, 196, 81, 0);
+:root[data-theme="light"] {
+  --bg:        #FAFAF8;
+  --bg-mid:    #F3F3F1;
+  --surface:   #FFFFFF;
+  --border:    rgba(0, 0, 0, 0.08);
+  --text:      #101113;
+  --muted:     #71747B;
+  --accent-bg: #101113;
+  --accent-text: #FFFFFF;
+  --accent-deep: #000000;
+  --accent-glow: rgba(0, 0, 0, 0.06);
+  --green:     #1E9E56;
+  --red:       #C4453A;
+  --green-soft: rgba(30, 158, 86, 0.12);
+
+  --topbar-bg: rgba(250, 250, 248, 0.92);
+  --nav-bg:    rgba(255, 255, 255, 0.96);
+  --shadow:    rgba(16, 17, 19, 0.08);
+  --chart-grid: rgba(0, 0, 0, 0.06);
+  --chart-fill-top: rgba(16, 17, 19, 0.10);
+  --chart-fill-bot: rgba(16, 17, 19, 0);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -188,7 +209,7 @@ html, body {
 .btn:active { transform: scale(0.96); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-gold {
-  background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+  background: var(--gold);
   color: var(--accent-ink);
   border-color: var(--gold-deep);
   box-shadow: 0 4px 16px var(--gold-glow);
@@ -201,18 +222,16 @@ html, body {
 .tap-zone {
   width: 240px; height: 240px;
   border-radius: 50%;
-  border: 3px solid var(--gold-deep);
-  background:
-    radial-gradient(circle at 50% 38%, var(--gold-glow), transparent 70%),
-    var(--bg-elev);
-  color: var(--gold);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 4px;
   cursor: pointer;
   position: relative;
   margin: 22px 0 26px;
-  box-shadow: 0 0 40px var(--gold-glow), inset 0 0 30px var(--gold-glow);
+  box-shadow: 0 8px 24px var(--shadow);
   transition: transform 0.06s;
   touch-action: manipulation;
 }
@@ -222,7 +241,7 @@ html, body {
 .tap-zone.tap-pop { animation: tapPop 0.18s ease; }
 @keyframes tapPop {
   0% { transform: scale(1); }
-  40% { transform: scale(0.93); box-shadow: 0 0 60px var(--gold-glow); }
+  40% { transform: scale(0.93); box-shadow: 0 10px 30px var(--shadow); }
   100% { transform: scale(1); }
 }
 
@@ -239,7 +258,7 @@ html, body {
 .progress-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+  background: var(--gold);
   border-radius: 6px;
   transition: width 0.25s ease;
 }
@@ -422,10 +441,10 @@ html, body {
 
 /* ---------------------------------------------------------- */
 /* Dedicated business page (js/bizdash.js) — a fullscreen shell in the
- * Business tab's own look (same tokens/cards as everything above), not the
- * Product Studio blueprint reskin. Structurally mirrors the stock side's
- * .tc-screen (header, hero, tabs, body) — but styled and named as the
- * Business tab's own page. */
+ * Business tab's own look (same shared monochrome tokens/cards as
+ * everything above). Structurally mirrors the stock side's .tc-screen
+ * (header, hero, tabs, body) — but styled and named as the Business
+ * tab's own page. */
 .bizd-screen {
   position: fixed; inset: 0; z-index: 320; background: var(--bg);
   display: flex; flex-direction: column; overflow-y: auto;
@@ -666,11 +685,12 @@ html, body {
 .logo-tile svg { width: 100%; height: 100%; display: block; }
 .logo-tile.lg { width: 52px; height: 52px; }
 .logo-tile.sm { width: 26px; height: 26px; vertical-align: -6px; }
-/* Property tiles: a rounded, tinted badge holding the property emoji, so real
-   estate rows sit flush with the generated/designed asset logos. */
+/* Property/luxury-item tiles: a rounded neutral badge holding the item
+   emoji, so these rows sit flush with the generated/designed asset logos —
+   monochrome, differentiated by icon shape only, never by hue. */
 .logo-tile.estate-tile {
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--ph, #223); border-radius: 24%;
+  background: var(--bg-mid); border: 1px solid var(--border); border-radius: 24%;
 }
 .logo-tile.estate-tile .estate-emoji { font-size: 22px; line-height: 1; }
 .logo-tile.lg.estate-tile .estate-emoji { font-size: 30px; }
@@ -696,8 +716,7 @@ html, body {
 .hub-logo {
   width: 54px; height: 54px; border-radius: 16px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.28);
+  background: var(--bg-mid); border: 1px solid var(--border); color: var(--text);
 }
 .hub-logo-svg { width: 32px; height: 32px; display: block; }
 .hub-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -705,84 +724,25 @@ html, body {
 .hub-sub { font-size: 12.5px; font-weight: 500; color: var(--muted); line-height: 1.35; }
 .hub-arrow { font-size: 28px; color: var(--muted); line-height: 1; flex-shrink: 0; }
 
-/* Each service reads as its own modern colour — a soft card wash + tinted
-   border, with a bold matching logo tile. */
-.hub-finances {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.04));
-  border-color: rgba(99, 102, 241, 0.30);
-}
-.hub-finances .hub-logo {
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.32);
-}
-.hub-marketing {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(249, 115, 22, 0.05));
-  border-color: rgba(236, 72, 153, 0.30);
-}
-.hub-marketing .hub-logo {
-  background: linear-gradient(135deg, #ec4899, #f97316);
-  box-shadow: 0 6px 18px rgba(236, 72, 153, 0.32);
-}
-.hub-hiring {
-  background: linear-gradient(135deg, rgba(20, 184, 166, 0.08), rgba(34, 197, 94, 0.05));
-  border-color: rgba(20, 184, 166, 0.30);
-}
-.hub-hiring .hub-logo {
-  background: linear-gradient(135deg, #14b8a6, #22c55e);
-  box-shadow: 0 6px 18px rgba(20, 184, 166, 0.32);
-}
-.hub-banking {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(6, 182, 212, 0.05));
-  border-color: rgba(59, 130, 246, 0.30);
-}
-.hub-banking .hub-logo {
-  background: linear-gradient(135deg, #3b82f6, #06b6d4);
-  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.32);
-}
-.hub-legal {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(190, 18, 60, 0.05));
-  border-color: rgba(239, 68, 68, 0.30);
-}
-.hub-legal .hub-logo {
-  background: linear-gradient(135deg, #ef4444, #be123c);
-  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.32);
-}
-.hub-tax {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(180, 83, 9, 0.05));
-  border-color: rgba(245, 158, 11, 0.30);
-}
-.hub-tax .hub-logo {
-  background: linear-gradient(135deg, #f59e0b, #b45309);
-  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.32);
-}
-.hub-training {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(217, 70, 239, 0.05));
-  border-color: rgba(139, 92, 246, 0.30);
-}
-.hub-training .hub-logo {
-  background: linear-gradient(135deg, #8b5cf6, #d946ef);
-  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.32);
-}
-.hub-shop {
-  background: linear-gradient(135deg, rgba(132, 204, 22, 0.08), rgba(5, 150, 105, 0.05));
-  border-color: rgba(132, 204, 22, 0.30);
-}
-.hub-shop .hub-logo {
-  background: linear-gradient(135deg, #84cc16, #059669);
-  box-shadow: 0 6px 18px rgba(132, 204, 22, 0.32);
-}
+/* Every service (.hub-finances/.hub-marketing/.hub-hiring/etc., still one
+   class per service in the markup) now just reads as a normal .card — same
+   neutral surface + border, differentiated by icon shape only, never by
+   hue (the monochrome design system has no other colors besides green/red
+   for money). No per-service override needed any more. */
 
-/* "Bought out" (100% owned) marker — a gold crown pill + a soft gold wash. */
+/* "Bought out" (100% owned) marker — an outlined status pill, per the
+   shared Status Pill component (outlined, --text label; green/red are
+   reserved strictly for money figures, and "Owned" isn't one). */
 .owned-tag {
   display: inline-flex; align-items: center; gap: 3px; vertical-align: middle;
   font-size: 9.5px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
-  color: var(--accent-ink); background: linear-gradient(135deg, var(--gold-deep), var(--gold));
+  color: var(--text); background: var(--surface); border: 1px solid var(--border);
   padding: 2px 7px; border-radius: 999px; margin-left: 7px; white-space: nowrap;
-  box-shadow: 0 1px 5px var(--gold-glow); position: relative; top: -1px;
+  position: relative; top: -1px;
 }
 .asset-row.owned {
-  background: linear-gradient(90deg, var(--gold-glow), transparent 55%);
-  box-shadow: inset 3px 0 0 var(--gold);
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--border);
 }
 .asset-sym.big .owned-tag { font-size: 10.5px; padding: 3px 9px; }
 
@@ -932,7 +892,7 @@ html, body {
   background: var(--gold-glow); border-radius: 20px; padding: 4px 12px; white-space: nowrap;
 }
 .buyout-bar { height: 8px; background: var(--bg-elev-2); border-radius: 8px; overflow: hidden; margin: 14px 0; }
-.buyout-fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width 0.25s ease; }
+.buyout-fill { height: 100%; border-radius: 8px; background: var(--gold); transition: width 0.25s ease; }
 .buyout-stats { display: flex; gap: 10px; }
 .buyout-stats > div {
   flex: 1; background: var(--bg-elev-2); border-radius: 12px; padding: 11px 12px;
@@ -960,7 +920,7 @@ html, body {
 }
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%;
-  background: linear-gradient(180deg, var(--gold), var(--gold-deep)); cursor: pointer;
+  background: var(--gold); cursor: pointer;
   border: 2px solid var(--bg); box-shadow: 0 0 10px var(--gold-glow);
 }
 .slider::-moz-range-thumb {
@@ -1035,7 +995,7 @@ html, body {
 /* Item visual: coloured placeholder that a drop-in image covers */
 .asset-visual {
   position: relative; height: 96px; border-radius: 12px;
-  background: linear-gradient(160deg, var(--ph, #1e2430) 0%, var(--bg-elev-2) 100%);
+  background: linear-gradient(160deg, var(--bg-elev) 0%, var(--bg-elev-2) 100%);
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; margin-bottom: 10px;
 }
@@ -1199,7 +1159,7 @@ html, body {
 }
 .tc-sig-trait-badge {
   display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
-  color: var(--accent-ink); background: linear-gradient(135deg, var(--gold-deep), var(--gold));
+  color: var(--accent-ink); background: var(--gold);
   padding: 2px 8px; border-radius: 999px; margin-bottom: 7px;
 }
 .tc-sig-trait-name { font-size: 15px; font-weight: 800; }
@@ -1213,7 +1173,7 @@ html, body {
 }
 .tc-sig-step.is-locked { opacity: 0.55; }
 .tc-sig-step.is-next { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
-.tc-sig-step.is-done { background: linear-gradient(90deg, var(--gold-glow), transparent 60%); }
+.tc-sig-step.is-done { background: var(--accent-glow); }
 .tc-sig-num, .tc-sig-tick {
   width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
   display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;
@@ -1235,7 +1195,7 @@ html, body {
   text-align: left; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 13px;
   padding: 12px; cursor: pointer; font-family: inherit; color: var(--text); width: 100%;
 }
-.tc-sig-stance.on { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); background: linear-gradient(90deg, var(--gold-glow), transparent 65%); }
+.tc-sig-stance.on { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); background: var(--accent-glow); }
 .tc-sig-stance-top { display: flex; align-items: center; gap: 8px; }
 .tc-sig-stance-top b { font-size: 14px; font-weight: 800; }
 .tc-sig-onflag {
@@ -1395,7 +1355,7 @@ html, body {
 .tc-share-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
 .tc-share-sub b { color: var(--text); }
 .tc-share-track { height: 10px; background: var(--bg-elev-2); border-radius: 99px; overflow: hidden; margin-top: 12px; }
-.tc-share-you { height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); border-radius: 99px; transition: width 0.4s ease; }
+.tc-share-you { height: 100%; background: var(--gold); border-radius: 99px; transition: width 0.4s ease; }
 
 .tc-compete-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .tc-compete {
@@ -1464,61 +1424,49 @@ html, body {
 .tc-event-desc { font-size: 13px; color: var(--muted); line-height: 1.45; margin-bottom: 13px; }
 .tc-event-btns { display: flex; gap: 8px; }
 
-/* Product Studio — wizard, name input, roles, review, product detail. */
+/* Product Studio wizard, name input, roles, review, product detail. */
 .tc-launch-head .tc-wiz-step { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600; }
 
 /* =========================================================================
- * PRODUCT STUDIO — "Blueprint / Product Lab" reskin.
- * Every rule below is scoped under .tc-wizard-page so it only ever touches
- * the Product Studio launch flow — the rest of the company dashboard (R&D,
- * Market, product detail, etc.) keeps using the base .tc-chip/.tc-tag/…
- * rules untouched, even though this page reuses those class names.
+ * PRODUCT STUDIO / HIRING & TALENT / MARKETING & GROWTH — all now the SAME
+ * monochrome design system as the rest of the app (base tokens, aliased at
+ * the top of this file). .tc-wizard-page used to be a separate cyan/amber
+ * "blueprint" reskin scoped to just this flow; that reskin is retired —
+ * this wrapper now only provides the fullscreen layout/safe-area shell,
+ * with zero color or font overrides of its own, so every class inside it
+ * (.tc-chip, .tc-field-label, .tc-hint, .tc-tag, .icon-btn, .btn-gold, ...)
+ * renders through the exact same shared rules as everywhere else in the app.
  * ========================================================================= */
 .tc-wizard-page {
-  --bp-navy1: #0A2038; --bp-navy2: #0E2A47;
-  --bp-cyan: #6FD1EA; --bp-amber: #F2A93B;
-  --bp-text: #EDF4F8; --bp-muted: #7FA0B8;
-  --bp-line: rgba(111, 209, 234, 0.18); --bp-line-soft: rgba(111, 209, 234, 0.10);
-  --bp-panel: rgba(11, 32, 56, 0.55); --bp-panel-2: rgba(14, 42, 71, 0.6);
-  --bp-font-head: 'Oswald', 'Arial Narrow', 'Segoe UI', sans-serif;
-  --bp-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --bp-font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   display: flex; flex-direction: column; min-height: 100%; animation: fadeIn 0.16s ease;
-  color: var(--bp-text); font-family: var(--bp-font-body);
-  background:
-    repeating-linear-gradient(0deg, var(--bp-line-soft) 0 1px, transparent 1px 40px),
-    repeating-linear-gradient(90deg, var(--bp-line-soft) 0 1px, transparent 1px 40px),
-    linear-gradient(160deg, var(--bp-navy1), var(--bp-navy2));
+  background: var(--bg);
   margin: calc(-1 * (env(safe-area-inset-top) + 12px)) -14px calc(-1 * (env(safe-area-inset-bottom) + 18px));
   padding: calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 18px);
 }
-.tc-wizard-page .amber { color: var(--bp-amber); font-weight: 800; }
-.tc-wizard-page .down { color: #e0687a; }
-.tc-wizard-page .muted { color: var(--bp-muted); }
+.tc-wizard-page .amber { color: var(--text); font-weight: 800; }
 
 /* Topbar */
 .tc-wiz-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .tc-wiz-title { flex: 1; min-width: 0; text-align: center; }
-.tc-wiz-title .tc-wiz-co { font-family: var(--bp-font-mono); font-size: 10px; color: var(--bp-cyan); font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; }
-.tc-wiz-title b { font-family: var(--bp-font-head); font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--bp-text); }
-.tc-wizard-page .icon-btn { background: rgba(111, 209, 234, 0.08); border: 1px solid var(--bp-line); color: var(--bp-cyan); }
+.tc-wiz-title .tc-wiz-co { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; }
+.tc-wiz-title b { font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text); }
 
 /* Waypoint stepper: nodes on a connecting rail. */
 .tc-wiz-rail { position: relative; display: flex; justify-content: space-between; margin: 4px 4px 18px; }
 .tc-wiz-rail::before {
   content: ''; position: absolute; left: 12px; right: 12px; top: 9px; height: 2px;
-  background: var(--bp-line); z-index: 0;
+  background: var(--border); z-index: 0;
 }
 .tc-way { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
 .tc-way-node {
-  width: 18px; height: 18px; border-radius: 50%; background: var(--bp-navy2); border: 2px solid var(--bp-line);
-  display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--bp-cyan);
+  width: 18px; height: 18px; border-radius: 50%; background: var(--bg-mid); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: var(--muted);
 }
-.tc-way small { font-family: var(--bp-font-head); font-size: 9px; color: var(--bp-muted); text-transform: uppercase; letter-spacing: 0.6px; }
-.tc-way.done .tc-way-node { background: var(--bp-cyan); border-color: var(--bp-cyan); color: #06222f; }
-.tc-way.done small { color: var(--bp-cyan); }
-.tc-way.on .tc-way-node { background: var(--bp-amber); border-color: var(--bp-amber); box-shadow: 0 0 0 4px rgba(242, 169, 59, 0.22), 0 0 12px rgba(242, 169, 59, 0.5); }
-.tc-way.on small { color: var(--bp-text); font-weight: 700; }
+.tc-way small { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+.tc-way.done .tc-way-node { background: var(--accent-bg); border-color: var(--accent-bg); color: var(--accent-text); }
+.tc-way.done small { color: var(--text); }
+.tc-way.on .tc-way-node { background: var(--accent-bg); border-color: var(--accent-bg); box-shadow: 0 0 0 4px var(--accent-glow); color: var(--accent-text); }
+.tc-way.on small { color: var(--text); font-weight: 700; }
 
 /* Two-column reflow: side (live feedback) is first in markup — natural
    mobile stack order — but pinned to the right on wide viewports. */
@@ -1534,112 +1482,79 @@ html, body {
   .tc-wiz-side { grid-column: 2; grid-row: 1; position: sticky; top: 14px; }
 }
 
-.tc-wizard-page .btn-gold {
-  background: linear-gradient(135deg, var(--bp-amber), #d98f22); color: #1a1206; border: none;
-  box-shadow: 0 4px 18px rgba(242, 169, 59, 0.35); font-family: var(--bp-font-head);
-  text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;
-}
-.tc-wizard-page .btn:not(.btn-gold) { background: rgba(111, 209, 234, 0.07); border: 1px solid var(--bp-line); color: var(--bp-cyan); }
-
 /* Sidebar cards. */
-.tc-side-card { background: var(--bp-panel); border: 1px solid var(--bp-line); border-radius: 14px; padding: 13px 14px; backdrop-filter: blur(2px); }
-.tc-side-title { font-family: var(--bp-font-head); font-size: 11.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--bp-cyan); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; }
-.tc-side-title .muted { font-family: var(--bp-font-mono); font-size: 9.5px; text-transform: none; letter-spacing: 0; }
+.tc-side-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 13px 14px; backdrop-filter: blur(2px); }
+.tc-side-title { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; }
+.tc-side-title .muted { font-size: 9.5px; text-transform: none; letter-spacing: 0; }
 
 /* Quality gauge. */
 .tc-gauge-svg { width: 100%; height: auto; display: block; }
-.tc-gauge-track { fill: none; stroke: var(--bp-line); stroke-width: 9; stroke-linecap: round; }
-.tc-gauge-fill { fill: none; stroke: var(--bp-amber); stroke-width: 9; stroke-linecap: round; filter: drop-shadow(0 0 5px rgba(242, 169, 59, 0.55)); }
+.tc-gauge-track { fill: none; stroke: var(--border); stroke-width: 9; stroke-linecap: round; }
+.tc-gauge-fill { fill: none; stroke: var(--accent-bg); stroke-width: 9; stroke-linecap: round; }
 .tc-gauge-read { text-align: center; margin-top: -8px; }
-.tc-gauge-read b { font-family: var(--bp-font-mono); font-size: 26px; font-weight: 700; color: var(--bp-text); display: block; line-height: 1; }
-.tc-gauge-read span { font-family: var(--bp-font-head); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--bp-cyan); }
-.tc-wiz-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bp-line); }
+.tc-gauge-read b { font-size: 26px; font-weight: 800; color: var(--text); display: block; line-height: 1; font-variant-numeric: tabular-nums; }
+.tc-gauge-read span { font-size: 10.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.tc-wiz-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .tc-wiz-metrics > div { text-align: center; }
-.tc-wiz-metrics span { display: block; font-family: var(--bp-font-mono); font-size: 8.5px; color: var(--bp-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
-.tc-wiz-metrics b { font-family: var(--bp-font-mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--bp-text); }
+.tc-wiz-metrics span { display: block; font-size: 8.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+.tc-wiz-metrics b { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text); }
 
-/* Market Intel radar. */
+/* Market Intel radar — two series told apart by weight/tint, not hue:
+   "build" (this product, yours) gets the accent; "demand" (ambient market
+   data) stays muted. */
 .tc-radar { width: 100%; height: auto; display: block; margin-top: 2px; }
-.tc-radar-ring { fill: none; stroke: var(--bp-line); stroke-width: 1; }
-.tc-radar-axis { stroke: var(--bp-line); stroke-width: 1; }
-.tc-radar-demand { fill: rgba(111, 209, 234, 0.20); stroke: var(--bp-cyan); stroke-width: 1.6; }
-.tc-radar-build { fill: rgba(242, 169, 59, 0.20); stroke: var(--bp-amber); stroke-width: 1.6; }
-.tc-radar-label { fill: var(--bp-muted); font-family: var(--bp-font-mono); font-size: 7px; text-transform: uppercase; letter-spacing: 0.3px; }
-.tc-radar-legend { display: flex; gap: 14px; justify-content: center; margin-top: 4px; font-family: var(--bp-font-mono); font-size: 9.5px; color: var(--bp-muted); }
+.tc-radar-ring { fill: none; stroke: var(--border); stroke-width: 1; }
+.tc-radar-axis { stroke: var(--border); stroke-width: 1; }
+.tc-radar-demand { fill: var(--bg-mid); stroke: var(--muted); stroke-width: 1.6; }
+.tc-radar-build { fill: var(--accent-glow); stroke: var(--accent-bg); stroke-width: 1.6; }
+.tc-radar-label { fill: var(--muted); font-size: 7px; text-transform: uppercase; letter-spacing: 0.3px; }
+.tc-radar-legend { display: flex; gap: 14px; justify-content: center; margin-top: 4px; font-size: 9.5px; color: var(--muted); }
 .tc-leg-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
-.tc-leg-dot.demand { background: var(--bp-cyan); }
-.tc-leg-dot.build { background: var(--bp-amber); }
+.tc-leg-dot.demand { background: var(--muted); }
+.tc-leg-dot.build { background: var(--accent-bg); }
 
-/* Rival Watch. */
-.tc-rival-you { padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--bp-line); }
-.tc-rival-you > span { font-family: var(--bp-font-head); font-size: 10px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--bp-text); display: block; margin-bottom: 5px; }
-.tc-rival-row { padding-top: 9px; margin-top: 9px; border-top: 1px solid var(--bp-line); }
+/* Rival Watch — "you" gets the accent; rivals stay neutral. */
+.tc-rival-you { padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px dashed var(--border); }
+.tc-rival-you > span { font-size: 10px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text); display: block; margin-bottom: 5px; }
+.tc-rival-row { padding-top: 9px; margin-top: 9px; border-top: 1px solid var(--border); }
 .tc-rival-row:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
-.tc-rival-name { font-family: var(--bp-font-head); font-size: 12px; letter-spacing: 0.3px; color: var(--bp-cyan); margin-bottom: 5px; }
+.tc-rival-name { font-size: 12px; font-weight: 700; letter-spacing: 0.3px; color: var(--text); margin-bottom: 5px; }
 .tc-rival-bar-line { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
-.tc-rival-bar-line span { font-family: var(--bp-font-mono); font-size: 8.5px; color: var(--bp-muted); text-transform: uppercase; width: 34px; flex: 0 0 auto; }
-.tc-rival-bar { flex: 1; height: 5px; background: rgba(111, 209, 234, 0.10); border-radius: 99px; overflow: hidden; }
+.tc-rival-bar-line span { font-size: 8.5px; color: var(--muted); text-transform: uppercase; width: 34px; flex: 0 0 auto; }
+.tc-rival-bar { flex: 1; height: 5px; background: var(--bg-mid); border-radius: 99px; overflow: hidden; }
 .tc-rival-bar-fill { height: 100%; border-radius: 99px; }
-.tc-rival-bar-fill.price { background: var(--bp-cyan); }
-.tc-rival-bar-fill.qual { background: var(--bp-amber); }
-.tc-rival-bar-fill.you { background: var(--bp-text); }
-.tc-rival-bar-line b { font-family: var(--bp-font-mono); font-size: 10.5px; color: var(--bp-text); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.tc-rival-bar-fill.price { background: var(--muted); }
+.tc-rival-bar-fill.qual { background: var(--text); }
+.tc-rival-bar-fill.you { background: var(--accent-bg); }
+.tc-rival-bar-line b { font-size: 10.5px; color: var(--text); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 
-/* Shared dashboard classes, restyled only inside the Studio. */
-.tc-wizard-page .tc-field-label { font-family: var(--bp-font-head); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--bp-cyan); margin: 16px 2px 8px; font-weight: 500; }
-.tc-wizard-page .tc-field-label .muted { font-family: var(--bp-font-body); text-transform: none; letter-spacing: 0; font-size: 11.5px; }
-.tc-wizard-page .tc-hint { font-size: 12.5px; color: var(--bp-muted); line-height: 1.5; margin: 4px 2px 14px; }
-.tc-wizard-page .tc-chip {
-  background: var(--bp-panel-2); border: 1px solid var(--bp-line); color: var(--bp-text);
-  font-family: var(--bp-font-mono); font-size: 11.5px; border-radius: 8px; padding: 8px 10px;
-}
-.tc-wizard-page .tc-chip.on { background: rgba(242, 169, 59, 0.16); border-color: var(--bp-amber); color: var(--bp-amber); box-shadow: 0 0 10px rgba(242, 169, 59, 0.22); }
-.tc-wizard-page .tc-tag { font-family: var(--bp-font-mono); background: rgba(111, 209, 234, 0.12); color: var(--bp-cyan); }
-.tc-wizard-page .tc-tag.gold { background: rgba(242, 169, 59, 0.16); color: var(--bp-amber); }
-.tc-wizard-page .tc-section-label { color: var(--bp-cyan); font-family: var(--bp-font-head); text-transform: uppercase; letter-spacing: 0.7px; }
-.tc-wizard-page .tc-detail-grid { }
-.tc-wizard-page .tc-dstat { background: var(--bp-panel-2); border: 1px solid var(--bp-line); }
-.tc-wizard-page .tc-dstat span { color: var(--bp-muted); }
-.tc-wizard-page .tc-dstat b { font-family: var(--bp-font-mono); color: var(--bp-text); }
-.tc-wizard-page .tc-rev-title { font-family: var(--bp-font-head); font-size: 19px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; color: var(--bp-text); }
-.tc-wizard-page .tc-rev-sub { color: var(--bp-muted); }
-.tc-wizard-page .tc-rev-list { background: var(--bp-panel-2); border: 1px solid var(--bp-line); }
-.tc-wizard-page .tc-rev-row { border-top-color: var(--bp-line); }
-.tc-wizard-page .tc-rev-row span { color: var(--bp-muted); }
-.tc-wizard-page .tc-rev-row b { font-family: var(--bp-font-mono); color: var(--bp-text); }
-.tc-wizard-page .tc-tier-detail { background: var(--bp-panel-2); border: 1px solid var(--bp-line); }
-.tc-wizard-page .tc-tierstat span { color: var(--bp-muted); font-family: var(--bp-font-mono); }
-.tc-wizard-page .tc-tierstat b { font-family: var(--bp-font-mono); color: var(--bp-text); }
-.tc-wizard-page .tc-tierstat b.up { color: var(--bp-cyan); }
-.tc-wizard-page .tc-tierstat b.down { color: #e0687a; }
-
-/* Name field — engraved plate with a static cursor bar. */
+/* Name field — a plain bordered input plate with a static cursor bar. */
 .tc-wizard-page .tc-name-plate {
-  position: relative; background: rgba(4, 16, 29, 0.55); border: 1px solid var(--bp-line); border-radius: 8px;
-  box-shadow: inset 0 2px 5px rgba(0,0,0,0.35); margin-bottom: 4px;
+  position: relative; background: var(--bg-mid); border: 1px solid var(--border); border-radius: 8px;
+  margin-bottom: 4px;
 }
 .tc-wizard-page .tc-name-input {
-  width: 100%; background: none; border: none; color: var(--bp-text); font-family: var(--bp-font-mono);
+  width: 100%; background: none; border: none; color: var(--text);
   font-size: 15px; font-weight: 600; letter-spacing: 0.5px; padding: 12px 26px 12px 12px;
 }
 .tc-wizard-page .tc-name-input:focus { outline: none; }
-.tc-wizard-page .tc-name-plate:focus-within { border-color: var(--bp-cyan); }
-.tc-wizard-page .tc-name-cursor { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 2px; height: 15px; background: var(--bp-amber); }
+.tc-wizard-page .tc-name-plate:focus-within { border-color: var(--accent-bg); }
+.tc-wizard-page .tc-name-cursor { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 2px; height: 15px; background: var(--accent-bg); }
 
-/* Type / category grid — line icon + viewfinder corner brackets when selected. */
+/* Type / category grid — line icon + corner brackets when selected. */
 .tc-wizard-page .tc-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .tc-wizard-page .tc-type {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
-  background: var(--bp-panel-2); border: 1px solid var(--bp-line); border-radius: 10px; padding: 12px 10px;
-  color: var(--bp-text); text-align: left; font-family: inherit;
+  background: var(--bg-mid); border: 1px solid var(--border); border-radius: 10px; padding: 12px 10px;
+  color: var(--text); text-align: left; font-family: inherit;
 }
-.tc-wizard-page .tc-type-ico { color: var(--bp-cyan); }
+.tc-wizard-page .tc-type-ico { color: var(--muted); }
 .tc-wizard-page .tc-type-ico-svg { width: 20px; height: 20px; display: block; }
-.tc-wizard-page .tc-type-label { font-family: var(--bp-font-mono); font-size: 12px; }
-.tc-wizard-page .tc-type.on { border-color: var(--bp-amber); background: rgba(242, 169, 59, 0.10); box-shadow: 0 0 14px rgba(242, 169, 59, 0.25); }
-.tc-wizard-page .tc-type.on .tc-type-ico { color: var(--bp-amber); }
+.tc-wizard-page .tc-type-label { font-size: 12px; }
+.tc-wizard-page .tc-type.on { border-color: var(--accent-bg); background: var(--accent-glow); }
+.tc-wizard-page .tc-type.on .tc-type-ico { color: var(--accent-bg); }
 .tc-wizard-page .tc-type:disabled { opacity: 0.4; }
-.tc-wizard-page .tc-corner { position: absolute; width: 9px; height: 9px; border: 2px solid var(--bp-amber); opacity: 0.9; }
+.tc-wizard-page .tc-corner { position: absolute; width: 9px; height: 9px; border: 2px solid var(--accent-bg); opacity: 0.9; }
 .tc-wizard-page .tc-corner.tl { top: 4px; left: 4px; border-right: none; border-bottom: none; }
 .tc-wizard-page .tc-corner.tr { top: 4px; right: 4px; border-left: none; border-bottom: none; }
 .tc-wizard-page .tc-corner.bl { bottom: 4px; left: 4px; border-right: none; border-top: none; }
@@ -1647,75 +1562,83 @@ html, body {
 
 /* Tier rail — node size grows with prestige; the top tier renders as a diamond. */
 .tc-wizard-page .tc-tier-rail { position: relative; display: flex; justify-content: space-between; align-items: flex-end; margin: 4px 4px 14px; padding-top: 4px; }
-.tc-wizard-page .tc-tier-rail::before { content: ''; position: absolute; left: 6px; right: 6px; bottom: 20px; height: 2px; background: var(--bp-line); z-index: 0; }
+.tc-wizard-page .tc-tier-rail::before { content: ''; position: absolute; left: 6px; right: 6px; bottom: 20px; height: 2px; background: var(--border); z-index: 0; }
 .tc-wizard-page .tc-tier-node { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; flex: 1; font-family: inherit; }
-.tc-wizard-page .tc-tier-dot { width: var(--tn, 14px); height: var(--tn, 14px); border-radius: 50%; background: var(--bp-navy2); border: 2px solid var(--bp-line); }
+.tc-wizard-page .tc-tier-dot { width: var(--tn, 14px); height: var(--tn, 14px); border-radius: 50%; background: var(--bg-mid); border: 2px solid var(--border); }
 .tc-wizard-page .tc-tier-node.halo .tc-tier-dot { border-radius: 3px; transform: rotate(45deg); }
-.tc-wizard-page .tc-tier-node small { font-family: var(--bp-font-mono); font-size: 8.5px; color: var(--bp-muted); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
-.tc-wizard-page .tc-tier-node.on .tc-tier-dot { background: var(--bp-amber); border-color: var(--bp-amber); box-shadow: 0 0 10px rgba(242, 169, 59, 0.6); }
-.tc-wizard-page .tc-tier-node.on small { color: var(--bp-amber); font-weight: 700; }
+.tc-wizard-page .tc-tier-node small { font-size: 8.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+.tc-wizard-page .tc-tier-node.on .tc-tier-dot { background: var(--accent-bg); border-color: var(--accent-bg); }
+.tc-wizard-page .tc-tier-node.on small { color: var(--text); font-weight: 700; }
 
-.tc-wizard-page .tc-role { background: var(--bp-panel-2); border: 1px solid var(--bp-line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.tc-wizard-page .tc-role { background: var(--bg-mid); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
 .tc-wizard-page .tc-role-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.tc-wizard-page .tc-role-head b { font-family: var(--bp-font-head); text-transform: uppercase; letter-spacing: 0.4px; font-size: 13px; color: var(--bp-text); }
-.tc-wizard-page .tc-role-head small { font-size: 10.5px; color: var(--bp-muted); text-align: right; }
+.tc-wizard-page .tc-role-head b { text-transform: uppercase; letter-spacing: 0.4px; font-size: 13px; font-weight: 800; color: var(--text); }
+.tc-wizard-page .tc-role-head small { font-size: 10.5px; color: var(--muted); text-align: right; }
 .tc-wizard-page .tc-role .tc-chip-row { flex-wrap: wrap; }
 .tc-wizard-page .tc-role .tc-chip { flex: 1 1 22%; padding: 7px 4px; font-size: 11px; }
 .tc-wizard-page .tc-spec-row { flex-wrap: wrap; }
 .tc-wizard-page .tc-spec-row .tc-chip { flex: 1 1 30%; }
 
+/* Review step (Product Studio only — no base equivalent elsewhere). */
+.tc-wizard-page .tc-rev-title { font-size: 19px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 800; color: var(--text); }
+.tc-wizard-page .tc-rev-sub { color: var(--muted); }
+.tc-wizard-page .tc-rev-list { background: var(--bg-mid); border: 1px solid var(--border); }
+.tc-wizard-page .tc-rev-row { border-top-color: var(--border); }
+.tc-wizard-page .tc-rev-row span { color: var(--muted); }
+.tc-wizard-page .tc-rev-row b { color: var(--text); font-variant-numeric: tabular-nums; }
+
 /* Recruitment — Engineering Roster seats in the Team step (named hires). */
 .tc-emp-seats { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
 .tc-emp-seat { }
 .tc-emp-card {
-  position: relative; width: 100%; text-align: left; background: var(--bp-panel-2);
-  border: 1px solid var(--bp-line); border-radius: 10px; padding: 10px 12px;
-  color: var(--bp-text); display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  position: relative; width: 100%; text-align: left; background: var(--bg-mid);
+  border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+  color: var(--text); display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
 .tc-emp-card.empty { display: block; }
-.tc-emp-card.on { border-color: var(--bp-cyan); background: rgba(111, 209, 234, 0.08); }
+.tc-emp-card.on { border-color: var(--accent-bg); background: var(--accent-glow); }
 .tc-emp-card-main { background: none; border: none; text-align: left; padding: 0; color: inherit; font-family: inherit; flex: 1; min-width: 0; }
 .tc-emp-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.tc-emp-card-top b { font-family: var(--bp-font-head); font-size: 13.5px; letter-spacing: 0.2px; }
-.tc-emp-card-top b.muted { color: var(--bp-muted); font-weight: 500; }
-.tc-emp-cand-sub { font-family: var(--bp-font-mono); font-size: 10.5px; color: var(--bp-muted); margin-top: 3px; }
-.tc-emp-fit { font-family: var(--bp-font-mono); font-size: 9.5px; padding: 2px 6px; border-radius: 99px; white-space: nowrap; flex: 0 0 auto; }
-.tc-emp-fit.good { background: rgba(111, 209, 234, 0.18); color: var(--bp-cyan); }
-.tc-emp-fit.alt { background: rgba(242, 169, 59, 0.16); color: var(--bp-amber); }
-.tc-emp-fit.warn { background: rgba(224, 104, 122, 0.16); color: #e0687a; }
+.tc-emp-card-top b { font-size: 13.5px; font-weight: 800; letter-spacing: 0.2px; }
+.tc-emp-card-top b.muted { color: var(--muted); font-weight: 500; }
+.tc-emp-cand-sub { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+.tc-emp-fit { font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 99px; white-space: nowrap; flex: 0 0 auto; }
+.tc-emp-fit.good { background: var(--accent-glow); color: var(--text); }
+.tc-emp-fit.alt { background: var(--bg-mid); color: var(--muted); }
+.tc-emp-fit.warn { background: var(--green-soft); color: var(--red); }
 
 .tc-emp-browse {
-  margin: 6px 0 12px; padding: 10px 10px 4px; background: rgba(4, 16, 29, 0.35);
-  border: 1px dashed var(--bp-line); border-radius: 10px;
+  margin: 6px 0 12px; padding: 10px 10px 4px; background: var(--bg-mid);
+  border: 1px dashed var(--border); border-radius: 10px;
 }
 .tc-emp-group-label {
-  font-family: var(--bp-font-head); font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
-  color: var(--bp-cyan); margin: 4px 2px 6px;
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--muted); margin: 4px 2px 6px;
 }
 .tc-emp-cand {
-  background: var(--bp-panel-2); border: 1px solid var(--bp-line); border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
   padding: 9px 10px; margin-bottom: 8px;
 }
 .tc-emp-cand-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.tc-emp-cand-top b { font-family: var(--bp-font-head); font-size: 13px; }
+.tc-emp-cand-top b { font-size: 13px; font-weight: 800; }
 .tc-emp-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 7px 0; }
 .tc-emp-stat-row > div { text-align: center; }
-.tc-emp-stat-row span { display: block; font-family: var(--bp-font-mono); font-size: 7.5px; color: var(--bp-muted); text-transform: uppercase; }
-.tc-emp-stat-row b { font-family: var(--bp-font-mono); font-size: 11.5px; color: var(--bp-text); }
+.tc-emp-stat-row span { display: block; font-size: 7.5px; color: var(--muted); text-transform: uppercase; }
+.tc-emp-stat-row b { font-size: 11.5px; color: var(--text); font-variant-numeric: tabular-nums; }
 .tc-emp-cand .btn { width: 100%; }
 .tc-emp-hunt { width: 100%; margin: 4px 0 8px; }
 
 /* Hiring & Talent — standalone screen (Services → Invest). Reuses the
-   blueprint .tc-wizard-page theme + the .tc-emp-* cards defined above. */
+   .tc-emp-* cards defined above, same monochrome tokens as everywhere. */
 .hire-co-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
 .hire-co-card {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
-  background: var(--bp-panel-2); border: 1px solid var(--bp-line); border-radius: 12px;
-  padding: 14px 10px; color: var(--bp-text); font-family: inherit;
+  background: var(--bg-mid); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 10px; color: var(--text); font-family: inherit;
 }
 .hire-co-card:not(.locked):active { transform: scale(0.98); }
 .hire-co-card.locked { opacity: 0.55; }
-.hire-co-name { font-family: var(--bp-font-head); font-size: 12.5px; font-weight: 600; letter-spacing: 0.2px; line-height: 1.25; }
+.hire-co-name { font-size: 12.5px; font-weight: 700; letter-spacing: 0.2px; line-height: 1.25; }
 .hire-co-card .tc-emp-cand-sub { margin-top: 0; text-align: center; }
 .hire-stats-card { margin-bottom: 4px; }
 .hire-metrics-top { border-top: none; margin-top: 0; padding-top: 0; margin-bottom: 12px; }
@@ -1726,25 +1649,25 @@ html, body {
 /* Hiring Agency — a conversational front-end on the same roster/candidate/
    headhunt system above (see js/hiring.js "Agency" section). */
 .hire-agency-panel {
-  background: var(--bp-panel); border: 1px solid var(--bp-line); border-radius: 14px;
-  padding: 13px 14px; margin-bottom: 14px; backdrop-filter: blur(2px);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 13px 14px; margin-bottom: 14px;
 }
 .hire-agency-top { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
 .hire-agency-icon {
   width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(111, 209, 234, 0.10); border: 1px solid var(--bp-line);
+  background: var(--bg-mid); border: 1px solid var(--border); color: var(--text);
 }
 .hire-agency-icon-svg { width: 20px; height: 20px; }
 .hire-agency-name {
-  font-family: var(--bp-font-head); font-size: 11px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.8px; color: var(--bp-cyan);
+  font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted);
 }
-.hire-agency-name .muted { font-family: var(--bp-font-mono); text-transform: none; letter-spacing: 0; font-size: 10px; }
+.hire-agency-name .muted { text-transform: none; letter-spacing: 0; font-size: 10px; }
 .hire-agency-msg {
-  font-family: var(--bp-font-mono); font-size: 12.5px; line-height: 1.55;
-  color: var(--bp-text); background: rgba(4, 16, 29, 0.35);
-  border-left: 2px solid var(--bp-cyan); border-radius: 0 8px 8px 0;
+  font-size: 12.5px; line-height: 1.55;
+  color: var(--text); background: var(--bg-mid);
+  border-left: 2px solid var(--accent-bg); border-radius: 0 8px 8px 0;
   padding: 8px 10px; margin-bottom: 11px;
 }
 .hire-tier-row { margin-bottom: 10px; }
@@ -1752,22 +1675,22 @@ html, body {
 
 /* Choose Role sheet — full-screen searchable directory of all 40 roles. */
 .hire-role-search-input {
-  width: 100%; margin: 2px 0 12px; background: var(--bp-panel-2); border: 1px solid var(--bp-line);
-  border-radius: 10px; padding: 11px 12px; font-size: 14px; color: var(--bp-text);
-  font-family: var(--bp-font-body);
+  width: 100%; margin: 2px 0 12px; background: var(--bg-mid); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 12px; font-size: 14px; color: var(--text);
+  font-family: inherit;
 }
-.hire-role-search-input::placeholder { color: var(--bp-muted); }
+.hire-role-search-input::placeholder { color: var(--muted); }
 .hire-role-sheet-list { display: flex; flex-direction: column; gap: 7px; }
 .hire-role-row {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  width: 100%; text-align: left; background: var(--bp-panel-2); border: 1px solid var(--bp-line);
-  border-radius: 10px; padding: 10px 12px; color: var(--bp-text); font-family: inherit;
+  width: 100%; text-align: left; background: var(--bg-mid); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; color: var(--text); font-family: inherit;
 }
 .hire-role-row:active { transform: scale(0.98); }
 .hire-role-row-main { min-width: 0; }
-.hire-role-row-main b { font-family: var(--bp-font-head); font-size: 13.5px; font-weight: 600; }
+.hire-role-row-main b { font-size: 13.5px; font-weight: 700; }
 .hire-role-row-main .tc-emp-cand-sub { margin-top: 2px; }
-.hire-role-row .hub-arrow { color: var(--bp-cyan); font-size: 22px; }
+.hire-role-row .hub-arrow { color: var(--muted); font-size: 22px; }
 
 /* Product row main becomes a tappable button. */
 .tc-prod-main { background: none; border: none; text-align: left; padding: 0; font-family: inherit; color: var(--text); cursor: pointer; flex: 1; min-width: 0; }
@@ -1775,8 +1698,8 @@ html, body {
 .tc-update-wide { margin-top: 4px; }
 
 /* =========================================================================
- * MARKETING & GROWTH — the game's normal theme (base --gold/--bg-elev
- * tokens, themeable light/dark), not the Product Studio blueprint reskin.
+ * MARKETING & GROWTH — the app's one shared monochrome theme (base
+ * --gold/--bg-elev tokens, aliased to the design system, dark/light).
  * ========================================================================= */
 .mk-hint { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 4px 2px 14px; }
 .mk-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 22px 16px; }
@@ -1795,7 +1718,7 @@ html, body {
 .mk-rep-num { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .mk-rep-num span { font-size: 13px; color: var(--muted); font-weight: 600; }
 .mk-rep-bar { height: 8px; border-radius: 99px; background: var(--bg-elev-2); overflow: hidden; margin-top: 10px; }
-.mk-rep-fill { height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); border-radius: 99px; }
+.mk-rep-fill { height: 100%; background: var(--gold); border-radius: 99px; }
 .mk-boost-note { color: var(--green); margin-top: 8px; }
 
 .mk-history { display: flex; flex-direction: column; gap: 10px; }
@@ -1839,8 +1762,7 @@ html, body {
 .mk-insight { font-style: italic; margin: 6px 0 10px; }
 
 /* Marketing Agency — a guided on-ramp into Quick Campaign (js/marketing.js).
-   Same base --gold/--bg-elev theme as the rest of Marketing & Growth, not
-   the Product Studio blueprint reskin. */
+   Same shared monochrome theme as the rest of Marketing & Growth. */
 .mk-agency-cta {
   display: flex; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 16px;
 }

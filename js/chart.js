@@ -30,11 +30,14 @@ class CandleChart {
     this.maxBars = 140;
 
     // Colours are pulled live from the CSS theme variables (see syncTheme),
-    // so the chart follows the light/dark theme on every draw.
+    // so the chart follows the light/dark theme on every draw. These initial
+    // values are dark-theme (the app default) — only used for the instant
+    // before the first syncTheme() call.
     this.COL = {
-      up: '#16a34a', down: '#dc2626',
-      grid: '#eef1f5', axis: '#667085',
-      line: '#2563eb', fillTop: 'rgba(37,99,235,0.16)', fillBot: 'rgba(37,99,235,0)',
+      up: '#5FD98A', down: '#E2665A',
+      grid: 'rgba(255,255,255,0.07)', axis: '#87898F',
+      line: '#FFFFFF', accentText: '#0A0A0B',
+      fillTop: 'rgba(255,255,255,0.14)', fillBot: 'rgba(255,255,255,0)',
     };
   }
 
@@ -47,13 +50,17 @@ class CandleChart {
       return val && val.trim() ? val.trim() : fallback;
     };
     this.COL = {
-      up: v('--green', '#16a34a'),
-      down: v('--danger', '#dc2626'),
-      grid: v('--chart-grid', '#eef1f5'),
-      axis: v('--muted', '#667085'),
-      line: v('--gold', '#2563eb'),
-      fillTop: v('--chart-fill-top', 'rgba(37,99,235,0.16)'),
-      fillBot: v('--chart-fill-bot', 'rgba(37,99,235,0)'),
+      up: v('--green', '#5FD98A'),
+      down: v('--danger', '#E2665A'),
+      grid: v('--chart-grid', 'rgba(255,255,255,0.07)'),
+      axis: v('--muted', '#87898F'),
+      line: v('--gold', '#FFFFFF'),
+      // Text drawn ON TOP of the accent-coloured price tag — must contrast
+      // with --gold/--accent-bg specifically (white in dark theme, near-
+      // black in light), not a fixed white (which vanishes on a white tag).
+      accentText: v('--accent-ink', '#0A0A0B'),
+      fillTop: v('--chart-fill-top', 'rgba(255,255,255,0.14)'),
+      fillBot: v('--chart-fill-bot', 'rgba(255,255,255,0)'),
     };
   }
 
@@ -189,15 +196,17 @@ class CandleChart {
     ctx.closePath();
   }
 
-  /** Filled coloured price pill in the right margin (white text). */
-  drawPriceTag(ctx, text, yPos, rightX, w, color) {
+  /** Filled coloured price pill in the right margin (text contrasts with
+   *  the tag's own fill — accentText when the fill is --gold/--accent-bg,
+   *  which flips between white/near-black per theme). */
+  drawPriceTag(ctx, text, yPos, rightX, w, color, textColor) {
     const tagH = 15, x0 = rightX + 3, x1 = w - 1;
     const yy = Math.round(yPos);
     ctx.fillStyle = color;
     this.roundRect(ctx, x0, yy - tagH / 2, x1 - x0, tagH, 3);
     ctx.fill();
     ctx.font = '600 10px -apple-system, system-ui, sans-serif';
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = textColor || this.COL.accentText;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, (x0 + x1) / 2, yy);

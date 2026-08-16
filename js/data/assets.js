@@ -14,19 +14,20 @@
  * ========================================================================= */
 
 /* ------------------------------ Luxury ---------------------------------- */
-// Sets: complete every item in a set → permanent income bonus. `hue` colours
-// the placeholder cards until real images are dropped in.
+// Sets: complete every item in a set → permanent income bonus. Placeholder
+// cards (until real images are dropped in) are monochrome now, so there's
+// no per-set hue to carry here any more.
 
 const LUXURY_SETS = [
-  { id: 'starter_cars', name: 'Starter Garage', icon: '🚗', bonus: 1.02, hue: 210 },
-  { id: 'sports_cars',  name: 'Sports Cars',    icon: '🏎️', bonus: 1.03, hue: 0 },
-  { id: 'classic_cars', name: 'Classics & Retro', icon: '🕰️', bonus: 1.04, hue: 30 },
-  { id: 'supercars',    name: 'Supercars',      icon: '💨', bonus: 1.05, hue: 275 },
-  { id: 'hypercars',    name: 'Hypercars',      icon: '🚀', bonus: 1.08, hue: 320 },
-  { id: 'helicopters',  name: 'Helicopters',    icon: '🚁', bonus: 1.04, hue: 180 },
-  { id: 'boats',        name: 'Boats & Yachts', icon: '🛥️', bonus: 1.05, hue: 200 },
-  { id: 'jets',         name: 'Private Jets',   icon: '✈️', bonus: 1.08, hue: 240 },
-  { id: 'jewellery',    name: 'Jewellery',      icon: '💎', bonus: 1.06, hue: 45 },
+  { id: 'starter_cars', name: 'Starter Garage', icon: '🚗', bonus: 1.02 },
+  { id: 'sports_cars',  name: 'Sports Cars',    icon: '🏎️', bonus: 1.03 },
+  { id: 'classic_cars', name: 'Classics & Retro', icon: '🕰️', bonus: 1.04 },
+  { id: 'supercars',    name: 'Supercars',      icon: '💨', bonus: 1.05 },
+  { id: 'hypercars',    name: 'Hypercars',      icon: '🚀', bonus: 1.08 },
+  { id: 'helicopters',  name: 'Helicopters',    icon: '🚁', bonus: 1.04 },
+  { id: 'boats',        name: 'Boats & Yachts', icon: '🛥️', bonus: 1.05 },
+  { id: 'jets',         name: 'Private Jets',   icon: '✈️', bonus: 1.08 },
+  { id: 'jewellery',    name: 'Jewellery',      icon: '💎', bonus: 1.06 },
 ];
 
 const LUXURY_DEFS = [

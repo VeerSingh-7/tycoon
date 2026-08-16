@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v79'; // v79: Hiring & Talent / Marketing & Growth blank for stock companies (removed for now)
+const CACHE_NAME = 'tycoon-v80'; // v80: one shared monochrome design system + real dark/light theme toggle, blueprint reskin retired app-wide
 
 const ASSETS = [
   'index.html',

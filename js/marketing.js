@@ -20,8 +20,9 @@
  * per-channel weighting, explicit spread tier, message picker, manual
  * staff) still share the one mktStartCampaign() engine call, unchanged.
  *
- * Uses the game's normal theme (base --gold/--bg-elev tokens, themeable
- * light/dark) — NOT the Product Studio blueprint reskin.
+ * Uses the app's one shared monochrome theme (base --gold/--bg-elev tokens,
+ * aliased to the design system, themeable dark/light) — the Product Studio
+ * blueprint reskin this used to be distinct from has since been retired.
  * ========================================================================= */
 
 // The in-fiction marketing agency: a conversational front-end on top of the

@@ -27,18 +27,21 @@ const UI = (() => {
   let displayedBalance = 0; // for smooth counting animation
   let balanceEl, incomeEl, tabBodyEl;
 
-  /* ------------------- Theme (light default / dark opt-in) ------------------- */
+  /* ------------------- Theme (dark default / light opt-in) ------------------- */
 
   function getTheme() {
-    try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch (e) { return 'light'; }
+    // Dark is the default — only an explicit past choice of "light" opts out
+    // (matches index.html's pre-paint script, and preserves anyone who'd
+    // already picked light before dark became the default).
+    try { return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'; } catch (e) { return 'dark'; }
   }
 
-  /** Apply + persist a theme. Light is the default for new & existing players. */
+  /** Apply + persist a theme. Dark is the default for new & existing players. */
   function applyTheme(theme) {
-    const dark = theme === 'dark';
+    const dark = theme !== 'light';
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', dark ? '#0d0f14' : '#ffffff');
+    if (meta) meta.setAttribute('content', dark ? '#0A0A0B' : '#FAFAF8');
     try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch (e) {}
     // Any open chart re-reads theme colours on its next draw.
     if (typeof Invest !== 'undefined' && Invest.refresh) Invest.refresh();

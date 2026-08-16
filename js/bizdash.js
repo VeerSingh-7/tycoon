@@ -14,8 +14,9 @@
  * instead of cramming everything into the list card.
  *
  * Visual style matches the Business tab's own look (.card, .biz-stats,
- * .upgrade-list, gold accents, themeable light/dark tokens) — NOT the
- * Product Studio blueprint reskin, which is a separate, unrelated screen.
+ * .upgrade-list, accent tokens, themeable dark/light) — the same shared
+ * monochrome design system used everywhere now (the Product Studio
+ * blueprint reskin this used to be distinct from has since been retired).
  * ========================================================================= */
 
 const BizDash = (() => {
