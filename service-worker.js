@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v87'; // v87: real 1:1 world map with per-country borders, "Coming Soon" removed
+const CACHE_NAME = 'tycoon-v88'; // v88: interactive full-bleed world map, tap-to-name countries, fixed bottom-nav flash
 
 const ASSETS = [
   'index.html',

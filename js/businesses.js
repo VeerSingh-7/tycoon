@@ -14,10 +14,23 @@
  *
  * The World Map card is a wide hero-image card (background-image slot via
  * WORLD_MAP_IMAGE_URL, currently unset — falls back to a solid fill + a
- * centered icon). Opening it shows an actual 1:1 world map (img/map/world-
- * map.svg — real country borders, MIT-licensed, see CREDITS.md), fetched
- * once and cached in memory; no per-business location data exists yet, so
- * it's a real map with no markers on it rather than a "coming soon" page.
+ * centered icon). Opening it shows an actual 1:1, full-bleed, pannable
+ * world map (img/map/world-map.svg — real country borders, MIT-licensed,
+ * see CREDITS.md), fetched once and cached in memory. Every country is
+ * tappable (its name shows in a small floating label) — no per-business
+ * location data exists yet, so tapping doesn't do anything deeper than
+ * that for now.
+ *
+ * IMPORTANT: the map view's render() is idempotent (mapRenderState) —
+ * ui.js re-renders the whole Business tab every ~500ms for the list's
+ * mechanic countdowns, and re-injecting the ~1.2MB inline SVG on every one
+ * of those ticks was destroying + recreating the fullscreen overlay that
+ * often, which restarted its fadeIn animation each time and made the
+ * bottom nav visibly flash through the momentarily-transparent overlay.
+ * The map's own DOM is only touched when what it should show actually
+ * changes (open/close, or the fetch finishing) — never on a plain timer
+ * tick. Tapping a country patches the label element directly (no render()
+ * at all), for the same reason.
  *
  * Events use DELEGATION on the container so the 2x/sec re-render (needed for
  * mechanic countdowns) never orphans listeners.
@@ -27,9 +40,11 @@ const Businesses = (() => {
   let container;
   let listMode = 'all'; // 'all' | 'mine' — which businesses the list below shows
   let mapOpen = false;  // World Map overlay
+  let mapRenderState = null; // null | 'loading' | 'loaded' — what's actually in the DOM for the map right now
   let openMenuId = null; // id of the owned business whose ⋮ menu is open (Sell), or null
   let worldMapSvg = null;    // fetched img/map/world-map.svg markup, cached once loaded
   let worldMapFetching = false;
+  let countryNames = {};     // ISO code -> readable name, parsed from the fetched SVG's hidden label layer
 
   // Set this to an image URL/path later to show a real photo behind the
   // World Map hero card. Left null for now — the card falls back to a
@@ -96,6 +111,7 @@ const Businesses = (() => {
     container.addEventListener('click', onClick);
     listMode = 'all';
     mapOpen = false;
+    mapRenderState = null;
     openMenuId = null;
     render();
   }
@@ -103,6 +119,8 @@ const Businesses = (() => {
   /* ------------------------- Event delegation ------------------------- */
 
   function onClick(e) {
+    if (mapOpen && handleCountryClick(e)) return;
+
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
     const d = btn.dataset;
@@ -137,9 +155,22 @@ const Businesses = (() => {
 
   /* ------------------------------ Render ------------------------------ */
 
+  /** The map view's own DOM (the ~1.2MB inline SVG) only gets touched when
+   *  what it should show actually changes — see the file header for why
+   *  (this is the fix for the bottom-nav flashing on the map screen). The
+   *  business list keeps re-rendering normally for its mechanic countdowns. */
   function render() {
     if (!container) return;
-    container.innerHTML = mapOpen ? mapHTML() : bizTabHTML();
+    if (mapOpen) {
+      const desired = worldMapSvg ? 'loaded' : 'loading';
+      if (mapRenderState !== desired) {
+        container.innerHTML = mapHTML();
+        mapRenderState = desired;
+      }
+      return;
+    }
+    mapRenderState = null;
+    container.innerHTML = bizTabHTML();
   }
 
   /** Fetch the real world map once and cache it in memory; the browser's
@@ -152,10 +183,39 @@ const Businesses = (() => {
       .then((res) => res.text())
       .then((svg) => {
         worldMapSvg = svg;
+        countryNames = parseCountryNames(svg);
         worldMapFetching = false;
         if (mapOpen) render();
       })
       .catch(() => { worldMapFetching = false; });
+  }
+
+  /** The source file's hidden <g id="labels" display="none"> layer has one
+   *  <text id="XX-label">Country Name</text> per country — parse that once
+   *  instead of hand-maintaining our own ~250-entry ISO code table. */
+  function parseCountryNames(svg) {
+    const names = {};
+    const re = /id="([A-Za-z]{2})-label"[^>]*>([^<]+)</g;
+    let m;
+    while ((m = re.exec(svg))) names[m[1].toUpperCase()] = m[2].trim();
+    return names;
+  }
+
+  /** Resolve a click to the country <g> it landed in (multi-part countries
+   *  have suffixed sub-territory ids like "us-" for insets — the leading
+   *  2 letters always match the main id) and patch the label directly, no
+   *  render() involved. Returns true if the click was actually on a
+   *  recognized country, so callers can stop normal button handling. */
+  function handleCountryClick(e) {
+    if (!worldMapSvg) return false;
+    const g = e.target.closest && e.target.closest('g[id]');
+    if (!g || !g.id) return false;
+    const code = (g.id.match(/^[A-Za-z]{2}/) || [])[0];
+    const name = code && countryNames[code.toUpperCase()];
+    if (!name) return false;
+    const label = document.getElementById('bizWorldMapLabel');
+    if (label) label.textContent = name;
+    return true;
   }
 
   function bizTabHTML() {
@@ -213,20 +273,19 @@ const Businesses = (() => {
    *  region), fetched from img/map/world-map.svg. Shows the stylized
    *  continent teaser as a lightweight placeholder only while the real
    *  map is still loading (first open of the session). */
+  /** Full-bleed, edge-to-edge (no header row eating vertical space) — the
+   *  real map renders far bigger than the viewport (.biz-worldmap-scroll's
+   *  CSS width) so even the smallest countries are big enough to tap, and
+   *  the wrapping div scrolls/pans in both directions to reach them. */
   function mapHTML() {
     const body = worldMapSvg
-      ? `<div class="biz-worldmap-wrap">${worldMapSvg}</div>`
-      : `<div class="biz-worldmap-wrap biz-worldmap-loading">${WORLD_MAP_SVG}</div>`;
+      ? `<div class="biz-worldmap-scroll">${worldMapSvg}</div>`
+      : `<div class="biz-worldmap-scroll biz-worldmap-loading">${WORLD_MAP_SVG}</div>`;
     return `
-      <div class="bizd-screen">
-        <div class="bizd-head">
-          <button class="icon-btn" data-biz-nav="closeMap" type="button" aria-label="Close">✕</button>
-          <div class="bizd-id">
-            <div class="bizd-co-name">World Map</div>
-            <div class="bizd-co-sub">Your business empire, worldwide</div>
-          </div>
-        </div>
+      <div class="biz-worldmap-screen">
+        <button class="icon-btn biz-worldmap-close" data-biz-nav="closeMap" type="button" aria-label="Close">✕</button>
         ${body}
+        <div class="biz-worldmap-label" id="bizWorldMapLabel">${worldMapSvg ? 'Tap a country' : ''}</div>
       </div>`;
   }
 

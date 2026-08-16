@@ -630,22 +630,52 @@ html, body {
 .biz-nav-panel.is-active .biz-nav-icon svg { color: var(--text); }
 .biz-nav-panel.is-active .biz-nav-label { color: var(--text); }
 
-/* World Map page — a real 1:1 map (img/map/world-map.svg, fetched and
-   inlined by js/businesses.js, see CREDITS.md) with every country its own
-   bordered path. The source file bakes in its own gray/white fill+stroke
-   per path; since SVG presentation attributes always lose to any matching
-   CSS rule, these overrides apply without touching the file itself. */
-.biz-worldmap-wrap svg { width: 100%; height: auto; display: block; margin-top: 4px; }
-.biz-worldmap-wrap svg path { fill: var(--bg-elev-2); stroke: var(--border); stroke-width: 0.6; }
-.biz-worldmap-wrap svg #Ocean { fill: var(--bg); stroke: var(--bg); }
-.biz-worldmap-wrap svg #World { fill: var(--bg); }
-.biz-worldmap-wrap svg #labels { display: none; }
+/* World Map page — full-bleed (no header row), a real 1:1 map
+   (img/map/world-map.svg, fetched and inlined by js/businesses.js, see
+   CREDITS.md) with every country its own bordered, tappable path. The
+   source file bakes in its own gray/white fill+stroke per path; since SVG
+   presentation attributes always lose to any matching CSS rule, these
+   overrides apply without touching the file itself. */
+.biz-worldmap-screen {
+  position: fixed; inset: 0; z-index: 320; background: var(--bg);
+  animation: fadeIn 0.16s ease;
+}
+.biz-worldmap-close {
+  position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 14px; z-index: 4;
+}
 
-/* Lightweight placeholder (the old stylized continent illustration) shown
-   only while the real map is still being fetched, first open per session. */
-.biz-worldmap-loading svg {
-  width: 100%; height: auto; max-height: 220px; margin: 4px 0 18px;
-  color: var(--muted);
+/* Rendered far bigger than the viewport (350vw) and left to scroll/pan in
+   both directions — that's what makes even the smallest country a big
+   enough tap target, without distorting the map's real proportions. */
+.biz-worldmap-scroll { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+.biz-worldmap-scroll svg { width: 350vw; min-width: 1400px; height: auto; display: block; }
+.biz-worldmap-scroll svg path { fill: var(--bg-elev-2); stroke: var(--border); stroke-width: 0.6; }
+.biz-worldmap-scroll svg #Ocean { fill: var(--bg); stroke: var(--bg); }
+.biz-worldmap-scroll svg #World { fill: var(--bg); }
+.biz-worldmap-scroll svg #labels { display: none; }
+.biz-worldmap-scroll svg g[id] { cursor: pointer; }
+.biz-worldmap-scroll svg g[id]:active path { fill: var(--surface); }
+
+/* Lightweight placeholder (the old stylized continent illustration), shown
+   centered and un-panned only while the real map is still being fetched
+   (first open per session) — the combined-class selector beats the plain
+   .biz-worldmap-scroll rules above regardless of stylesheet order. */
+.biz-worldmap-scroll.biz-worldmap-loading {
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
+.biz-worldmap-scroll.biz-worldmap-loading svg {
+  width: 60%; max-width: 280px; min-width: 0; height: auto; color: var(--muted);
+}
+
+/* Floating "tap a country" label — patched directly by js/businesses.js
+   (handleCountryClick), never re-rendered, so tapping never touches the
+   map's own (expensive) DOM. */
+.biz-worldmap-label {
+  position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 16px);
+  transform: translateX(-50%); z-index: 4;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  padding: 8px 18px; font-size: 14px; font-weight: 800; color: var(--text);
+  pointer-events: none; white-space: nowrap; max-width: 80vw; overflow: hidden; text-overflow: ellipsis;
 }
 
 /* Achievements grid */
