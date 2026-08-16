@@ -306,11 +306,6 @@ html, body {
 .biz-card { position: relative; }
 .biz-card.not-owned { opacity: 0.96; }
 .biz-head { display: flex; align-items: center; gap: 12px; }
-.biz-icon {
-  font-size: 30px; width: 52px; height: 52px;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--bg-elev-2); border-radius: 14px; flex-shrink: 0;
-}
 .biz-title-wrap { flex: 1; min-width: 0; }
 .biz-name { font-weight: 800; font-size: 16px; }
 .biz-blurb { font-size: 12px; color: var(--muted); }

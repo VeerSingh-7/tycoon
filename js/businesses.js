@@ -474,7 +474,7 @@ const Businesses = (() => {
       </button>
 
       <div class="biz-nav-grid">
-        <button class="biz-nav-panel biz-nav-panel--mine ${listMode === 'mine' ? 'is-active' : ''}" data-biz-nav="mine" type="button">
+        <button class="biz-nav-panel ${listMode === 'mine' ? 'is-active' : ''}" data-biz-nav="mine" type="button">
           <span class="biz-nav-top">
             <span class="biz-nav-icon">${NAV_ICON_MINE}</span>
             <span class="biz-nav-num">${owned.length}</span>
@@ -503,12 +503,12 @@ const Businesses = (() => {
 
   /** World Map — a real 1:1 world map (every country its own bordered
    *  region), fetched from img/map/world-map.svg. Shows the stylized
-   *  continent teaser as a lightweight placeholder only while the real
-   *  map is still loading (first open of the session). */
-  /** Full-bleed, edge-to-edge (no header row eating vertical space) — the
-   *  real map renders far bigger than the viewport (.biz-worldmap-scroll's
-   *  CSS width) so even the smallest countries are big enough to tap, and
-   *  the wrapping div scrolls/pans in both directions to reach them. */
+   *  continent teaser as a lightweight placeholder only while the real map
+   *  is still loading (first open of the session). Full-bleed, edge-to-edge
+   *  (no header row eating vertical space) and rendered far bigger than the
+   *  viewport (.biz-worldmap-scroll's CSS width) so even the smallest
+   *  countries are big enough to tap, panning/scrolling in both directions
+   *  to reach them. */
   function mapHTML() {
     const body = worldMapSvg
       ? `<div class="biz-worldmap-scroll">${worldMapSvg}</div>`
@@ -537,7 +537,6 @@ const Businesses = (() => {
     return `
       <div class="card biz-card biz-locked">
         <div class="biz-head">
-          <div class="biz-icon">${def.icon}</div>
           <div class="biz-title-wrap">
             <div class="biz-name">${def.name}</div>
             <div class="biz-blurb">${def.blurb}</div>
@@ -557,7 +556,6 @@ const Businesses = (() => {
     return `
       <div class="card biz-card not-owned">
         <div class="biz-head">
-          <div class="biz-icon">${def.icon}</div>
           <div class="biz-title-wrap">
             <div class="biz-name">${def.name}</div>
             <div class="biz-blurb">${def.blurb}</div>
@@ -596,7 +594,6 @@ const Businesses = (() => {
             </button>
           </div>` : ''}
         <div class="biz-head">
-          <div class="biz-icon">${def.icon}</div>
           <div class="biz-title-wrap">
             <div class="biz-name">${def.name}</div>
             <div class="biz-blurb">${def.blurb}</div>

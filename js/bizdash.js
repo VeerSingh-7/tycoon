@@ -59,8 +59,7 @@ const BizDash = (() => {
     if (d.bizdTab) { dash.tab = d.bizdTab; render(); return; }
 
     let changed = false;
-    if (d.buy) changed = buyBusinessLevel(d.buy);
-    else if (d.upgrade) changed = buyBusinessUpgrade(d.biz, d.upgrade);
+    if (d.upgrade) changed = buyBusinessUpgrade(d.biz, d.upgrade);
     else if (d.hire) changed = hireStaff(d.hire);
     else if (d.mechAction) { changed = Mechanics.action(d.biz, d.mechAction, d.arg); if (changed) saveGame(); }
     else if (d.sell) {
@@ -93,7 +92,7 @@ const BizDash = (() => {
       <div class="bizd-head">
         <button class="icon-btn" data-bizd-close aria-label="Close">✕</button>
         <div class="bizd-id">
-          <div class="bizd-co-name">${def.icon} ${def.name}</div>
+          <div class="bizd-co-name">${def.name}</div>
           <div class="bizd-co-sub">${def.blurb}</div>
         </div>
         <div class="bizd-level">Lv ${biz.level}</div>
@@ -124,7 +123,7 @@ const BizDash = (() => {
     // lever (js/mechanics.js) — this just surfaces the SAME panel the list
     // card used to show, on its own tab instead of crammed inline.
     const panel = Mechanics.panelHTML(def);
-    return panel || `<div class="bizd-empty">No live operations lever for this business — just level up and hire staff.</div>`;
+    return panel || `<div class="bizd-empty">No live operations lever for this business — just hire staff.</div>`;
   }
 
   function overviewHTML(def, biz) {
