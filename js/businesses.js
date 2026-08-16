@@ -6,11 +6,11 @@
  *   available  — can be started (needs money + a free business slot)
  *   owned      — level/income/staff/mechanic/upgrades/sell
  *
- * Two entry points sit above the list, styled as large informational stat
- * panels (not a visible tab bar): "My Businesses" (owned only) and
- * "Purchasable" (the full catalog, same three-flavour cards as before).
- * Tapping either still filters the list below (listMode) — a UI-only
- * filter, not persisted, reset on every mount().
+ * Two entry points sit above the list as a compact stat-panel toggle:
+ * "My Businesses" (owned only) and "Purchasable" (the full catalog, same
+ * three-flavour cards as before). Tapping either filters the list below
+ * (listMode) and highlights that panel (.is-active) — a UI-only filter,
+ * not persisted, reset on every mount().
  *
  * The World Map card is a wide hero-image card (background-image slot via
  * WORLD_MAP_IMAGE_URL, currently unset — falls back to a solid fill + a
@@ -152,12 +152,12 @@ const Businesses = (() => {
       </button>
 
       <div class="biz-nav-grid">
-        <button class="biz-nav-panel biz-nav-panel--mine" data-biz-nav="mine" type="button">
+        <button class="biz-nav-panel biz-nav-panel--mine ${listMode === 'mine' ? 'is-active' : ''}" data-biz-nav="mine" type="button">
           <span class="biz-nav-icon">${NAV_ICON_MINE}</span>
           <span class="biz-nav-num">${owned.length}</span>
           <span class="biz-nav-label">My Businesses</span>
         </button>
-        <button class="biz-nav-panel biz-nav-panel--own" data-biz-nav="all" type="button">
+        <button class="biz-nav-panel biz-nav-panel--own ${listMode === 'all' ? 'is-active' : ''}" data-biz-nav="all" type="button">
           <span class="biz-nav-icon">${NAV_ICON_OWN}</span>
           <span class="biz-nav-num">${BUSINESS_DEFS.length}</span>
           <span class="biz-nav-label">Purchasable</span>
@@ -167,7 +167,7 @@ const Businesses = (() => {
       <div class="biz-list">
     `;
     if (listMode === 'mine' && defs.length === 0) {
-      html += `<div class="bizd-empty">You don't own any businesses yet — tap "Businesses You Can Own" to get started.</div>`;
+      html += `<div class="bizd-empty">You don't own any businesses yet — tap "Purchasable" to get started.</div>`;
     } else {
       for (const def of defs) html += businessCardHTML(def, level);
     }
@@ -236,7 +236,7 @@ const Businesses = (() => {
           </div>
         </div>
         <div class="biz-stats">
-          <div><span class="muted">Income at Lv 1</span><b class="gold">${formatRate(def.baseIncome)}</b></div>
+          <div><span class="muted">Income</span><b class="gold">${formatRate(def.baseIncome)}</b></div>
           <div><span class="muted">Startup</span><b>${formatMoney(cost)}</b></div>
         </div>
         <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy="${def.id}" ${canBuy ? '' : 'disabled'}>

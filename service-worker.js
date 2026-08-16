@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v84'; // v84: World Map hero image-card, redesigned My Businesses/Purchasable stat panels
+const CACHE_NAME = 'tycoon-v85'; // v85: smaller stat panels, real click-to-highlight toggle, drop "Lv 1" from purchasable cards
 
 const ASSETS = [
   'index.html',

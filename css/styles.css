@@ -581,32 +581,28 @@ html, body {
 .biz-map-sub { font-size: 12.5px; font-weight: 500; color: var(--muted); line-height: 1.35; }
 .biz-map-arrow { font-size: 28px; color: var(--text); line-height: 1; flex-shrink: 0; }
 
-/* My Businesses / Purchasable — a large informational stat-panel pair, NOT
-   styled as an active/inactive toggle (they're read-only summaries; tapping
-   still filters the list below, it just isn't foregrounded visually). The
-   two panels are differentiated by weight/fill rather than color: My
-   Businesses is the filled/primary panel, Purchasable is the lighter,
-   outlined, more condensed one — reversing the old imbalance where the
-   longer "Businesses You Can Own" label read as the more prominent box. */
-.biz-nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 14px; }
+/* My Businesses / Purchasable — a smaller stat-panel pair that actually
+   toggles: whichever was tapped last (.is-active) gets the --surface fill +
+   --accent-bg outline, matching the shared Tab bar component; the other
+   panel stays a plain --bg-elev-2/--line outline. Tapping still filters the
+   list below (unchanged) and now visibly shows which filter is applied.
+   Purchasable's label stays smaller/condensed either way, since it's the
+   longer of the two and shouldn't visually compete with My Businesses. */
+.biz-nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 14px; }
 .biz-nav-panel {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
   width: 100%; text-align: left; font-family: inherit; cursor: pointer;
-  border-radius: 16px; padding: 18px 16px 16px;
-}
-.biz-nav-icon svg { width: 22px; height: 22px; display: block; }
-.biz-nav-num { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-.biz-nav-label { font-weight: 700; }
-.biz-nav-panel--mine {
-  background: var(--surface); border: 1px solid var(--accent-bg);
-}
-.biz-nav-panel--mine .biz-nav-icon, .biz-nav-panel--mine .biz-nav-num, .biz-nav-panel--mine .biz-nav-label { color: var(--text); }
-.biz-nav-panel--mine .biz-nav-label { font-size: 12.5px; }
-.biz-nav-panel--own {
+  border-radius: 13px; padding: 11px 12px 10px;
   background: var(--bg-elev-2); border: 1px solid var(--line);
 }
-.biz-nav-panel--own .biz-nav-icon, .biz-nav-panel--own .biz-nav-num, .biz-nav-panel--own .biz-nav-label { color: var(--muted); }
-.biz-nav-panel--own .biz-nav-label { font-size: 10.5px; letter-spacing: -0.1px; }
+.biz-nav-icon svg { width: 16px; height: 16px; display: block; color: var(--muted); }
+.biz-nav-num { font-size: 20px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text); }
+.biz-nav-label { font-weight: 700; font-size: 11px; color: var(--muted); }
+.biz-nav-panel--own .biz-nav-label { font-size: 9.5px; letter-spacing: -0.1px; }
+
+.biz-nav-panel.is-active { background: var(--surface); border-color: var(--accent-bg); }
+.biz-nav-panel.is-active .biz-nav-icon svg { color: var(--text); }
+.biz-nav-panel.is-active .biz-nav-label { color: var(--text); }
 
 /* World Map placeholder page — a stylized continent illustration above the
    "Coming Soon" copy (js/businesses.js WORLD_MAP_SVG). */
