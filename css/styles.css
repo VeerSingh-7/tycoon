@@ -644,25 +644,48 @@ html, body {
   position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 14px; z-index: 4;
 }
 
-/* Rendered wider than the viewport (js/businesses.js mapWidthVw, ranges
-   100vw fully zoomed out to 2200vw fully zoomed in, default 350vw) and left
-   to scroll/pan in both directions — that, plus pinch or the +/- buttons to
-   zoom further, is what makes even the smallest country a big enough tap
-   target, without ever distorting the map's real proportions (only width
-   is ever set — height stays auto). The width transition makes BUTTON zoom
-   glide instead of snap; js/businesses.js turns it off during an active
-   pinch so direct finger-tracking never fights/lags behind it. */
+/* Rendered wider than the viewport (js/businesses.js mapWidthVw — bounds are
+   computed per-device by computeMapZoomBounds so "fully zoomed out" covers
+   the whole screen with zero blank space, up to 6x that for zooming in) and
+   left to scroll/pan in both directions — that, plus pinch or the +/-
+   buttons to zoom further, is what makes even the smallest country (down to
+   Mauritius-sized microstates, see the circle-marker rule below) a big
+   enough tap target, without ever distorting the map's real proportions
+   (only width is ever set — height stays auto). The width transition makes
+   BUTTON zoom glide instead of snap; js/businesses.js turns it off during an
+   active pinch so direct finger-tracking never fights/lags behind it.
+   #Ocean/#World are fully transparent rather than just background-colored —
+   that's what makes the drop-shadow below outline each landmass/coastline
+   individually instead of one flat rectangle (a transparent shape doesn't
+   count as "painted" for shadow purposes, only the actual land does), which
+   is what gives the map a raised, embossed feel instead of a flat picture —
+   especially visible on islands like Greenland or Mauritius, whose entire
+   border is a coastline. */
 .biz-worldmap-scroll { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
-.biz-worldmap-scroll svg { width: 350vw; height: auto; display: block; transition: width 0.22s ease-out; }
+.biz-worldmap-scroll svg {
+  width: 350vw; height: auto; display: block; transition: width 0.22s ease-out;
+  filter: drop-shadow(1.5px 3px 2.5px var(--shadow));
+}
 .biz-worldmap-scroll svg path { fill: var(--bg-elev-2); stroke: var(--border); stroke-width: 0.6; }
-.biz-worldmap-scroll svg #Ocean { fill: var(--bg); stroke: var(--bg); }
-.biz-worldmap-scroll svg #World { fill: var(--bg); }
+.biz-worldmap-scroll svg #Ocean { fill: none; stroke: none; }
+.biz-worldmap-scroll svg #World { fill: none; }
 .biz-worldmap-scroll svg #labels { display: none; }
 .biz-worldmap-scroll svg g[id] { cursor: pointer; }
 .biz-worldmap-scroll svg g[id]:active path { fill: var(--surface); }
+/* Invisible-by-source hit-target circles the file ships for ~100 tiny
+   island nations/microstates (id="xx_") — without a visible fill they're
+   both unclickable (pointer-events skip fully transparent fills) and
+   invisible, so a country like Mauritius would have nothing to tap at any
+   zoom level. Styled to match the country paths so they read as small dots
+   at low zoom and grow into real tap targets as you zoom in. */
+.biz-worldmap-scroll svg circle[id$="_"] { fill: var(--bg-elev-2); fill-opacity: 1; stroke: var(--border); stroke-width: 0.6; cursor: pointer; }
 /* The tapped/selected country (js/businesses.js .is-selected) — a lighter
-   fill + a bold accent outline, not a solid color wash. */
-.biz-worldmap-scroll svg g.is-selected path { fill: var(--surface); stroke: var(--accent-bg); stroke-width: 1.4; }
+   fill + a bold accent outline, not a solid color wash. Covers both the
+   normal path shapes and the microstate circle markers above. */
+.biz-worldmap-scroll svg g.is-selected path,
+.biz-worldmap-scroll svg g.is-selected circle {
+  fill: var(--surface); fill-opacity: 1; stroke: var(--accent-bg); stroke-width: 1.4;
+}
 
 /* Lightweight placeholder (the old stylized continent illustration), shown
    centered and un-panned only while the real map is still being fetched

@@ -53,10 +53,17 @@ const Businesses = (() => {
   let worldMapFetching = false;
   let countryNames = {};     // ISO code -> readable name, parsed from the fetched SVG's hidden label layer
 
-  const MAP_ZOOM_DEFAULT_VW = 350;
-  const MAP_ZOOM_MIN_VW = 100;   // fully zoomed out — the whole map, edge to edge, no panning needed
-  const MAP_ZOOM_MAX_VW = 2200;  // fully zoomed in — even a tiny country fills most of the screen
-  let mapWidthVw = MAP_ZOOM_DEFAULT_VW; // current zoom level (the SVG's CSS width, in vw units)
+  // The map's own aspect ratio (viewBox 1000 x 507.209 — a wide equirectangular
+  // projection) doesn't match a phone's tall portrait screen, so a naive
+  // "fit to width" zoomed-out state leaves a band of empty space above/below
+  // the map. mapZoomMinVw/mapZoomMaxVw are computed per-device (see
+  // computeMapZoomBounds) so "fully zoomed out" instead COVERS the whole
+  // screen (like CSS object-fit:cover) — no blank space on any edge, ever,
+  // at any zoom level from there up.
+  const MAP_ASPECT = 507.209 / 1000; // svg intrinsic height/width
+  let mapZoomMinVw = 350;  // recomputed by computeMapZoomBounds() every time the map opens
+  let mapZoomMaxVw = 2200; // recomputed alongside it (a fixed multiple of the min, device-adaptive)
+  let mapWidthVw = mapZoomMinVw; // current zoom level (the SVG's CSS width, in vw units)
   let pinchStartDist = null;
   let pinchStartWidthVw = null;
   let pinchRAF = null;      // requestAnimationFrame handle coalescing touchmove bursts
@@ -160,7 +167,8 @@ const Businesses = (() => {
 
     if (d.bizNav === 'map') {
       mapOpen = true;
-      mapWidthVw = MAP_ZOOM_DEFAULT_VW;
+      computeMapZoomBounds();
+      mapWidthVw = mapZoomMinVw; // open fully zoomed out (covering the screen, no blank space)
       selectedCountryEl = null;
       selectedCountryCode = null;
       fetchWorldMap();
@@ -267,6 +275,22 @@ const Businesses = (() => {
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   const raf = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : (fn) => setTimeout(fn, 16);
 
+  /** "Cover" sizing (like CSS object-fit:cover), computed per-device: the
+   *  smallest width (in vw) at which the map's rendered height ALSO covers
+   *  the full viewport height, so the fully-zoomed-out state never shows a
+   *  strip of blank space above/below (the map is landscape, phones are
+   *  portrait — a plain "fit to width" leaves a big gap otherwise). Max is
+   *  a fixed multiple of that, so zoom depth scales with the device too —
+   *  enough to make even a tiny island nation (Mauritius) a real tap target. */
+  function computeMapZoomBounds() {
+    const vw = (typeof window !== 'undefined' && window.innerWidth) || 400;
+    const vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
+    const widthForHeightCoverPx = vh / MAP_ASPECT;
+    const neededPx = Math.max(vw, widthForHeightCoverPx);
+    mapZoomMinVw = (neededPx / vw) * 100;
+    mapZoomMaxVw = mapZoomMinVw * 6;
+  }
+
   /** Set the map's zoom to an ABSOLUTE width (in vw), keeping whatever's
    *  under (anchorX, anchorY) — a click/pinch-midpoint in viewport
    *  coordinates — visually anchored in place. No anchor = viewport center.
@@ -276,7 +300,7 @@ const Businesses = (() => {
    *  reading the DOM again mid-transition would report a stale, in-between
    *  size and throw the anchor math off. */
   function setMapWidth(targetVw, anchorX, anchorY) {
-    const newVw = clamp(targetVw, MAP_ZOOM_MIN_VW, MAP_ZOOM_MAX_VW);
+    const newVw = clamp(targetVw, mapZoomMinVw, mapZoomMaxVw);
     const svg = mapSvgEl();
     const scroll = mapScrollEl();
     if (!svg || !scroll || newVw === mapWidthVw) { mapWidthVw = newVw; return; }
@@ -289,7 +313,7 @@ const Businesses = (() => {
     const fracY = oldRect.height ? (scroll.scrollTop + ay) / oldRect.height : 0;
 
     const viewportW = (typeof window !== 'undefined' && window.innerWidth) || 400;
-    const aspect = oldRect.width ? oldRect.height / oldRect.width : (507.209 / 1000);
+    const aspect = oldRect.width ? oldRect.height / oldRect.width : MAP_ASPECT;
     const newWidthPx = (newVw / 100) * viewportW;
     const newHeightPx = newWidthPx * aspect;
 

@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v90'; // v90: world map zoom range widened (100vw-2200vw) + animated/smoother zoom
+const CACHE_NAME = 'tycoon-v91'; // v91: world map "cover" zoom-out (no blank space), tappable microstates, raised/embossed 3D depth
 
 const ASSETS = [
   'index.html',
