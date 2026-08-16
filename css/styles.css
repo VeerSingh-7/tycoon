@@ -398,10 +398,6 @@ html, body {
   border-radius: 12px; padding: 2px 8px; width: fit-content;
 }
 
-/* Meta card (level / slots / xp) */
-.meta-card { border-color: var(--gold-deep); }
-.xp-num { font-size: 13px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
-
 /* Locked businesses */
 .biz-locked { opacity: 0.55; }
 .lock-tag {

@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v80'; // v80: one shared monochrome design system + real dark/light theme toggle, blueprint reskin retired app-wide
+const CACHE_NAME = 'tycoon-v81'; // v81: Businesses tab — removed the level/rank card and the Management upgrade card
 
 const ASSETS = [
   'index.html',

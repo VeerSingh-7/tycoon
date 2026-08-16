@@ -31,7 +31,6 @@ const Businesses = (() => {
     else if (d.buy) changed = buyBusinessLevel(d.buy);
     else if (d.upgrade) changed = buyBusinessUpgrade(d.biz, d.upgrade);
     else if (d.hire) changed = hireStaff(d.hire);
-    else if (d.mgmt !== undefined) changed = buyManagementUpgrade();
     else if (d.sell) {
       const def = BUSINESS_BY_ID[d.sell];
       const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
@@ -63,47 +62,11 @@ const Businesses = (() => {
         <h2>Businesses</h2>
         <div class="section-stat">${formatRate(totalBusinessIncomePerSec())}</div>
       </div>
-      ${headerHTML(level)}
-      ${managementHTML()}
       <div class="biz-list">
     `;
     for (const def of BUSINESS_DEFS) html += businessCardHTML(def, level);
     html += '</div>';
     return html;
-  }
-
-  /** Player level + XP progress + slot usage. */
-  function headerHTML(level) {
-    const pct = (playerLevelProgress() * 100).toFixed(1);
-    return `
-      <div class="card meta-card">
-        <div class="card-row">
-          <div>
-            <div class="card-title">Level ${level} ${Progression.currentTitle().name}</div>
-            <div class="card-sub">Slots: <b class="gold">${usedSlots()}/${maxSlots()}</b> · next slot every 2 levels</div>
-          </div>
-          <div class="xp-num">${formatMoney(state.totalEarned)} <span class="muted">earned</span></div>
-        </div>
-        <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
-        <div class="progress-caption">Level ${level + 1} at ${formatMoney(xpForLevel(level + 1))} lifetime earnings</div>
-      </div>`;
-  }
-
-  /** Global management upgrade card (staff efficiency). */
-  function managementHTML() {
-    const cost = managementUpgradeCost();
-    const eff = Math.round(STAFF_OUTPUT_BONUS * 100 * (1 + MGMT_EFFICIENCY_PER_LEVEL * state.managementLevel));
-    const afford = state.balance >= cost;
-    return `
-      <div class="card">
-        <div class="card-row">
-          <div>
-            <div class="card-title">🧑‍💼 Management · Lv ${state.managementLevel}</div>
-            <div class="card-sub">Each employee gives +${eff}% output. Upgrade: +25% staff efficiency (all businesses).</div>
-          </div>
-          <button class="btn btn-sm ${afford ? 'btn-gold' : ''}" data-mgmt ${afford ? '' : 'disabled'}>${formatMoney(cost)}</button>
-        </div>
-      </div>`;
   }
 
   function businessCardHTML(def, level) {
