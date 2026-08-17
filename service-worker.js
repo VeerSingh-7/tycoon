@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v103'; // v103: colored property-listing design system (fixed --color-1..4 tokens), favorite heart, BizDash tab accents
+const CACHE_NAME = 'tycoon-v104'; // v104: compact horizontal property list cards (photo thumb + tags + price/stats), monochrome, shared by Setup and Properties
 
 const ASSETS = [
   'index.html',

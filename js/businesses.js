@@ -146,31 +146,6 @@ const Businesses = (() => {
         <path d="M8 20 L20 9 L32 20 V32 H8 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
         <path d="M16 32 V22 H24 V32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
 
-  // Storefront glyph shown next to every property row — a scalloped awning
-  // over a door, the classic "shop" mark. One shape for every listing; the
-  // colour is what varies (see PROPERTY_ACCENTS below), so the list still
-  // reads as colourful/varied at a glance without needing a distinct icon
-  // per property.
-  const PROPERTY_ROW_ICON = `<svg viewBox="0 0 24 24" class="hub-logo-svg" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 9.5 L5 4 H19 L20 9.5"/>
-        <path d="M4 9.5 A2.5 2.5 0 0 0 9 9.5 A2.5 2.5 0 0 0 14 9.5 A2.5 2.5 0 0 0 19 9.5"/>
-        <path d="M5 9.5 V20 H19 V9.5"/>
-        <path d="M9.5 20 V14 H14.5 V20"/></svg>`;
-
-  // A deliberate, EXPLICIT colour exception (like the World Map) — the
-  // player asked for the property listings to feel "colourful" and for
-  // each row to carry its own icon accent. Deterministically seeded per
-  // property (js/data/properties.js seededFraction) so the same property
-  // always gets the same colour across reloads, but the list as a whole
-  // reads as varied. Fixed hex values (not theme tokens) on purpose —
-  // these are meant to look the same, vividly colourful, in both themes.
-  const PROPERTY_ACCENTS = ['#FF6B6B', '#4F86F7', '#2EC4B6', '#F5A623', '#A66DFF', '#FF8C42', '#5FD98A', '#E056FD'];
-
-  function propertyAccentColor(property) {
-    const f = seededFraction(propertySlug(property.name) + '_accent');
-    return PROPERTY_ACCENTS[Math.floor(f * PROPERTY_ACCENTS.length) % PROPERTY_ACCENTS.length];
-  }
-
   const HEART_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 20.5 C12 20.5 3 15 3 8.7 C3 5.7 5.35 3.5 8.1 3.5 C9.9 3.5 11.3 4.4 12 5.7 C12.7 4.4 14.1 3.5 15.9 3.5 C18.65 3.5 21 5.7 21 8.7 C21 15 12 20.5 12 20.5 Z"/></svg>`;
 
@@ -214,19 +189,76 @@ const Businesses = (() => {
     if (btn.setAttribute) btn.setAttribute('aria-pressed', String(active));
   }
 
-  /** One property row, shared by the setup wizard's browse screen and the
-   *  read-only Properties browser — colour-accented icon on the left,
-   *  name/size/blurb in the middle, arrow on the right. */
-  function propertyRowHTML(p) {
-    const color = propertyAccentColor(p);
+  // 3-letter code per city, matching the [CITYCODE]-[NUM].jpg filename
+  // convention real storefront photos will use once they're dropped into
+  // img/storefronts/ — the card's <img> just points at that path; nothing
+  // in the code needs to change when the files show up.
+  const CITY_CODES = {
+    London: 'LON', Manchester: 'MAN', Edinburgh: 'EDI', Liverpool: 'LIV',
+    Toronto: 'TOR', Vancouver: 'VAN', Montreal: 'MTL', Calgary: 'CAL',
+    Sydney: 'SYD', Melbourne: 'MEL', Brisbane: 'BRI', Perth: 'PER',
+    Tokyo: 'TYO', Osaka: 'OSA', Kyoto: 'KYO', Yokohama: 'YOK',
+  };
+
+  function propertyImagePath(cityName, storeIndex) {
+    const code = CITY_CODES[cityName] || cityName.slice(0, 3).toUpperCase();
+    return `img/storefronts/${code}-${String(storeIndex + 1).padStart(2, '0')}.jpg`;
+  }
+
+  /** "1,850" -> "1.9K", "590" -> "590" — a compact thousands abbreviation
+   *  for daily-footfall figures on the card (distinct from format.js's
+   *  formatMoney/formatNumber, whose abbreviation threshold is $10,000+ —
+   *  traffic here never gets that high, so those would just print the
+   *  number in full). */
+  function formatTrafficCompact(n) {
+    if (n < 1000) return String(n);
+    return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  }
+
+  /** Compact horizontal property card, shared by the setup wizard's browse
+   *  screen and the read-only Properties browser — a 120px square photo
+   *  thumbnail (falls back to a plain shop emoji until real photos land in
+   *  img/storefronts/, no code change needed when they do) on the left,
+   *  name/meta/price/stats on the right. Deliberately monochrome (no accent
+   *  colors) — that's reserved for the detail page this card opens into.
+   *  Every figure comes from this property's own generated stats
+   *  (propertyDetails), same as the detail page — never hardcoded. */
+  function propertyRowHTML(p, cityName, storeIndex) {
+    const d = propertyDetails(p, cityName, storeIndex);
+    const monthlyRent = Math.round(d.financials.monthlyRent);
     return `
-      <button class="card hub-card" data-setup-property="${propertySlug(p.name)}" type="button">
-        <span class="hub-logo" style="background:${color}26;border-color:${color}66;color:${color}">${PROPERTY_ROW_ICON}</span>
-        <span class="hub-text">
-          <span class="hub-title">${p.name}</span>
-          <span class="hub-sub">${p.sqft.toLocaleString()} sq ft · ${p.desc}</span>
+      <button class="card biz-prop-card" data-setup-property="${propertySlug(p.name)}" type="button">
+        <span class="biz-prop-thumb">
+          <span class="biz-prop-thumb-fallback" aria-hidden="true">🏪</span>
+          <img class="biz-prop-thumb-img" src="${propertyImagePath(cityName, storeIndex)}" alt=""
+            loading="lazy" onerror="this.style.opacity='0'">
         </span>
-        <span class="hub-arrow">›</span>
+        <span class="biz-prop-content">
+          <span class="biz-prop-top">
+            <span class="biz-prop-name">${escapeHtml(p.name)}</span>
+            <span class="biz-prop-chevron">›</span>
+          </span>
+          <span class="biz-prop-meta">
+            <span class="biz-prop-tag">${p.sqft.toLocaleString()} sq ft</span>
+            <span class="biz-prop-tag">${escapeHtml(d.stats.condition)}</span>
+          </span>
+          <span class="biz-prop-footer">
+            <span class="biz-prop-price">
+              <span class="biz-prop-price-value">$${monthlyRent.toLocaleString()}</span>
+              <span class="biz-prop-price-label">Monthly Rent</span>
+            </span>
+            <span class="biz-prop-stats">
+              <span class="biz-prop-stat">
+                <span class="biz-prop-stat-value">${formatTrafficCompact(d.stats.dailyTraffic)}</span>
+                <span class="biz-prop-stat-label">Traffic</span>
+              </span>
+              <span class="biz-prop-stat">
+                <span class="biz-prop-stat-value">${d.amenities.length}</span>
+                <span class="biz-prop-stat-label">Amenities</span>
+              </span>
+            </span>
+          </span>
+        </span>
       </button>`;
   }
 
@@ -541,7 +573,7 @@ const Businesses = (() => {
     return `
       ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, dropdownOpen)}
       <div class="biz-list">
-        ${cityObj.properties.map(propertyRowHTML).join('')}
+        ${cityObj.properties.map((p, i) => propertyRowHTML(p, cityObj.name, i)).join('')}
       </div>`;
   }
 
@@ -715,7 +747,7 @@ const Businesses = (() => {
     return `
       ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, setupFlow.countryDropdownOpen)}
       <div class="biz-list">
-        ${cityObj.properties.map(propertyRowHTML).join('')}
+        ${cityObj.properties.map((p, i) => propertyRowHTML(p, cityObj.name, i)).join('')}
       </div>`;
   }
 

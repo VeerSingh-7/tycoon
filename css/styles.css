@@ -977,6 +977,73 @@ html, body {
 }
 .biz-setup-chip.is-active { background: var(--surface); border-color: var(--accent-bg); color: var(--text); }
 
+/* -------------------------------------------------- Compact property card */
+/* Horizontal, ~140px card: a 120px square photo thumbnail on the left,
+   name/meta/price/stats on the right. Shared by the setup wizard's browse
+   screen and the read-only Properties browser (js/businesses.js
+   propertyRowHTML) — deliberately monochrome, no accent colors here; the
+   colored design system is reserved for the detail page this card opens
+   into (propertyListingHTML), untouched by this component. */
+.biz-prop-card {
+  display: flex; align-items: stretch; gap: 12px;
+  width: 100%; min-height: 140px; padding: 10px;
+  text-align: left; cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  animation: bizPropCardIn 0.25s ease both;
+}
+.biz-prop-card:hover, .biz-prop-card:active {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px var(--shadow);
+  border-color: var(--muted);
+}
+@keyframes bizPropCardIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Every city list is exactly 6 stores — a fixed, ~0.05s-per-card stagger. */
+.biz-list .biz-prop-card:nth-child(1) { animation-delay: 0s; }
+.biz-list .biz-prop-card:nth-child(2) { animation-delay: 0.05s; }
+.biz-list .biz-prop-card:nth-child(3) { animation-delay: 0.1s; }
+.biz-list .biz-prop-card:nth-child(4) { animation-delay: 0.15s; }
+.biz-list .biz-prop-card:nth-child(5) { animation-delay: 0.2s; }
+.biz-list .biz-prop-card:nth-child(6) { animation-delay: 0.25s; }
+
+.biz-prop-thumb {
+  position: relative; width: 120px; height: 120px; flex-shrink: 0;
+  border-radius: 12px; overflow: hidden; background: var(--bg-mid);
+  display: flex; align-items: center; justify-content: center;
+}
+.biz-prop-thumb-fallback { font-size: 36px; line-height: 1; opacity: 0.6; }
+.biz-prop-thumb-img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: 1; transition: opacity 0.15s ease;
+}
+
+.biz-prop-content { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 2px 2px 0; }
+.biz-prop-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.biz-prop-name { font-size: 15px; font-weight: 800; line-height: 1.3; color: var(--text); }
+.biz-prop-chevron { font-size: 20px; color: var(--muted); line-height: 1.2; flex-shrink: 0; }
+
+.biz-prop-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.biz-prop-tag {
+  font-size: 10.5px; font-weight: 700; color: var(--muted); white-space: nowrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 3px 7px;
+}
+
+.biz-prop-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.biz-prop-price { display: flex; flex-direction: column; min-width: 0; }
+.biz-prop-price-value { font-size: 16px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.biz-prop-price-label { font-size: 8.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+.biz-prop-stats { display: flex; gap: 6px; flex-shrink: 0; }
+.biz-prop-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px 8px; min-width: 40px;
+}
+.biz-prop-stat-value { font-size: 12.5px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.biz-prop-stat-label { font-size: 7.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); }
+
 /* Achievements grid */
 .ach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ach-card {
