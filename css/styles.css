@@ -418,7 +418,7 @@ html, body {
    the setup wizard's property screen and the read-only Properties browser
    (js/businesses.js propertyListingHTML) — same markup, different actions. */
 .biz-listing-hero {
-  position: relative; height: 280px; margin: 0 -14px; overflow: hidden;
+  position: relative; height: 280px; flex-shrink: 0; margin: 0 -14px; overflow: hidden;
   background: #B7B7B1; /* sidewalk-grey fallback while the SVG loads/if it's ever empty */
 }
 /* Every property's own generated storefront illustration (js/data/

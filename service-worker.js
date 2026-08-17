@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v104'; // v104: compact horizontal property list cards (photo thumb + tags + price/stats), monochrome, shared by Setup and Properties
+const CACHE_NAME = 'tycoon-v105'; // v105: fix property-listing hero collapsing to a sliver (flex-shrink bug in .bizd-screen), visible worst in Light theme
 
 const ASSETS = [
   'index.html',
