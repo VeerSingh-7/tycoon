@@ -101,15 +101,6 @@ const Businesses = (() => {
   let selectedCountryEl = null;   // the <g> currently highlighted, or null
   let selectedCountryCode = null; // its ISO code, or null
 
-  // Setup wizard Step 2's signature pad: pointer-driven freehand drawing on
-  // a <canvas>, wired once at container mount (delegated, like the zoom-hold
-  // above) rather than re-wired on every render — the canvas element only
-  // gets created once per visit to the signature screen (render()'s
-  // lastRenderKey doesn't change while drawing), so the strokes persist.
-  let sigDrawing = false;
-  let sigLastX = 0;
-  let sigLastY = 0;
-
   // Set this to an image URL/path later to show a real photo behind the
   // World Map hero card. Left null for now — the card falls back to a
   // solid --bg-mid fill with a centered icon so it never looks broken.
@@ -335,11 +326,6 @@ const Businesses = (() => {
     container.addEventListener('pointerup', stopZoomHold);
     container.addEventListener('pointercancel', stopZoomHold);
     container.addEventListener('pointerleave', stopZoomHold);
-    container.addEventListener('pointerdown', onSignaturePointerDown);
-    container.addEventListener('pointermove', onSignaturePointerMove);
-    container.addEventListener('pointerup', onSignaturePointerUp);
-    container.addEventListener('pointercancel', onSignaturePointerUp);
-    container.addEventListener('pointerleave', onSignaturePointerUp);
     listMode = 'all';
     mapOpen = false;
     propertiesOpen = false;
@@ -453,10 +439,6 @@ const Businesses = (() => {
       if (lastRenderKey !== desired) {
         container.innerHTML = setupHTML();
         lastRenderKey = desired;
-        // Size the signature canvas's pixel buffer once, right after it's
-        // created — never again while the player is still on this screen,
-        // or their strokes would be wiped (see the section header comment).
-        if (setupFlow.step === 'details') setupSignatureCanvas();
       }
       return;
     }
@@ -579,34 +561,34 @@ const Businesses = (() => {
 
   /* ------------------------- Business setup flow ------------------------ */
   // A multi-STAGE wizard for a business with its own property catalog
-  // (js/data/properties.js) — SETUP_STAGES lists the stages: "Property"
-  // (stage 1) then "Business Details" (stage 2 — store type, company name,
-  // suppliers, signature). Only stage indices show in the header ("Step 1
+  // (js/data/properties.js) — SETUP_STAGES lists the stages: "Business
+  // Details" (stage 1 — store type, company name, suppliers) then
+  // "Property" (stage 2). Only stage indices show in the header ("Step 1
   // of 2"); each stage internally walks through its own sequence of steps.
   //
-  // Stage 1 (Property) starts on ONE browse screen: a country selector
-  // (flag + name, tap for a dropdown of the other 3) at the top, a
-  // horizontally-scrollable city bar below it, and the selected city's 6
-  // real properties listed underneath — switching country or city just
-  // updates that same screen in place. Tapping a property opens ITS real
-  // generated listing (js/data/properties.js propertyDetails — description,
-  // key stats, amenities, financials) with Rent/Purchase actions. Either
-  // one starts the business for real (same buyBusinessLevel() + cost as
-  // every other business — the property is flavor, not a separate charge)
-  // and unlocks "Continue to Step 2".
+  // Stage 1 (Business Details) is ONE scrollable page — pick a store type,
+  // name the company, and a suppliers placeholder — all on the same
+  // screen, no sub-navigation. "Continue to Step 2" (enabled once a store
+  // type is picked) moves on to Property.
   //
-  // Stage 2 (Business Details) is 4 screens in sequence: pick a store type
-  // (type) -> name the company (name) -> suppliers, a placeholder for now
-  // (suppliers) -> draw a signature to finish (signature). "Finish Setup"
-  // on the last screen saves it all onto the business (biz.brand) and
-  // closes the wizard — there's nothing after it yet.
+  // Stage 2 (Property) is ONE browse screen: a country selector (flag +
+  // name, tap for a dropdown of the other 3) at the top, a horizontally-
+  // scrollable city bar below it, and the selected city's 6 real
+  // properties listed underneath — switching country or city just updates
+  // that same screen in place. Tapping a property opens ITS real generated
+  // listing (js/data/properties.js propertyDetails — description, key
+  // stats, amenities, financials) with Rent/Purchase actions. Either one
+  // starts the business for real (same buyBusinessLevel() + cost as every
+  // other business — the property is flavor, not a separate charge),
+  // saves the store type + company name collected in Stage 1 onto
+  // biz.brand, and closes the wizard — it's the last step.
   //
   // Businesses WITHOUT a catalog are completely unaffected — still buy
   // instantly, no wizard at all.
 
   const SETUP_STAGES = [
-    { id: 'property', label: 'Property' },
     { id: 'details', label: 'Business Details' },
+    { id: 'property', label: 'Property' },
   ];
 
   const STORE_TYPES = [
@@ -624,7 +606,7 @@ const Businesses = (() => {
   function openBusinessSetup(bizId) {
     const firstCountry = BUSINESS_PROPERTIES[bizId].countries[0];
     setupFlow = {
-      bizId, stage: 0, step: 'browse',
+      bizId, stage: 0, step: 'details',
       countryId: firstCountry.id, city: firstCountry.cities[0].name,
       propertyId: null, countryDropdownOpen: false, tenure: null,
       storeType: null, companyName: '',
@@ -641,7 +623,7 @@ const Businesses = (() => {
     if (d.setupFavorite) { toggleFavoriteClick(btn); return; }
     if (d.setupBack !== undefined) {
       if (setupFlow.step === 'property') setupFlow.step = 'browse';
-      else if (setupFlow.step === 'details') { setupFlow.stage = 0; setupFlow.step = 'property'; }
+      else if (setupFlow.step === 'browse') { setupFlow.stage = 0; setupFlow.step = 'details'; }
       render();
       return;
     }
@@ -662,24 +644,38 @@ const Businesses = (() => {
       return;
     }
     if (d.setupRent !== undefined || d.setupPurchase !== undefined) {
-      // Guard against a double-charge: if this business somehow already
-      // got started earlier in this same setup session (e.g. the player
-      // went back and tried a different property after already renting/
-      // buying one), don't let a second buyBusinessLevel() fire.
+      // Guard against a double-charge: harmless now that this is the last
+      // step (a successful rent/purchase closes the wizard immediately),
+      // but cheap insurance if that ever changes.
       if (getBiz(setupFlow.bizId).level > 0) return;
       const tenure = d.setupRent !== undefined ? 'rent' : 'purchase';
       if (buyBusinessLevel(setupFlow.bizId)) {
         const biz = getBiz(setupFlow.bizId);
         biz.property = { countryId: setupFlow.countryId, city: setupFlow.city, propertyId: setupFlow.propertyId, tenure };
+        // Store type + company name were collected back in Stage 1 — this
+        // is the last step, so save them onto the business now and close.
+        biz.brand = { storeType: setupFlow.storeType, companyName: setupFlow.companyName || BUSINESS_BY_ID[setupFlow.bizId].name };
         saveGame();
-        setupFlow.tenure = tenure;
         UI.renderBalance();
+        setupFlow = null;
         render();
         if (typeof Businesses !== 'undefined') Businesses.render();
       }
       return;
     }
-    if (d.setupContinueStage !== undefined) { setupFlow.stage = 1; setupFlow.step = 'details'; render(); return; }
+    if (d.setupContinueStage !== undefined) {
+      // Leaving the details page for good — snapshot whatever's currently
+      // typed in the name field, since that input won't exist once we're
+      // on the Property stage (see d.setupType's comment for why this
+      // snapshot pattern is needed at all).
+      const input = container && container.querySelector ? container.querySelector('[data-company-name-input]') : null;
+      const typed = input && typeof input.value === 'string' ? input.value.trim() : '';
+      setupFlow.companyName = typed || BUSINESS_BY_ID[setupFlow.bizId].name;
+      setupFlow.stage = 1;
+      setupFlow.step = 'browse';
+      render();
+      return;
+    }
     if (d.setupType) {
       // The details page is one long scroll with no per-field "Next" — a
       // type tap re-renders in place (storeType is part of lastRenderKey)
@@ -692,23 +688,6 @@ const Businesses = (() => {
       render();
       return;
     }
-    if (d.setupSignatureClear !== undefined) { clearSignatureCanvas(); return; }
-    if (d.setupFinish !== undefined) {
-      const input = container && container.querySelector ? container.querySelector('[data-company-name-input]') : null;
-      const typed = input && typeof input.value === 'string' ? input.value.trim() : '';
-      const canvas = signatureCanvasEl();
-      const biz = getBiz(setupFlow.bizId);
-      biz.brand = {
-        storeType: setupFlow.storeType,
-        companyName: typed || BUSINESS_BY_ID[setupFlow.bizId].name,
-        signature: canvas && typeof canvas.toDataURL === 'function' ? canvas.toDataURL() : null,
-      };
-      saveGame();
-      setupFlow = null;
-      render();
-      if (typeof Businesses !== 'undefined') Businesses.render();
-      return;
-    }
   }
 
   function setupHTML() {
@@ -719,7 +698,7 @@ const Businesses = (() => {
     else if (setupFlow.step === 'details') body = setupDetailsHTML(def);
     else body = setupBrowseHTML(def);
 
-    const closeOrBackBtn = setupFlow.step === 'browse'
+    const closeOrBackBtn = setupFlow.step === 'details'
       ? `<button class="icon-btn" data-biz-nav="closeSetup" type="button" aria-label="Close">✕</button>`
       : `<button class="icon-btn" data-setup-back type="button" aria-label="Back">‹</button>`;
 
@@ -820,12 +799,13 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /** Stage 1's property screen: the shared listing, plus Rent/Purchase (or,
-   *  once started, a "Continue to Step 2" button). Both actions start the
-   *  business the same way every other business starts (buyBusinessLevel,
-   *  same baseCost) — the property is flavor and a chosen tenure, not a
-   *  separate charge; PRESERVE means that mechanic stays exactly as-is
-   *  under the new visual template. */
+  /** Stage 2's property screen (the last step): the shared listing, plus
+   *  Rent/Purchase. Both actions start the business the same way every
+   *  other business starts (buyBusinessLevel, same baseCost) — the
+   *  property is flavor and a chosen tenure, not a separate charge — and,
+   *  since this is the final step, also save the store type + company
+   *  name collected in Stage 1 and close the wizard (see onSetupClick's
+   *  d.setupRent/d.setupPurchase handler). */
   function setupPropertyHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
@@ -834,15 +814,8 @@ const Businesses = (() => {
     const property = cityObj.properties[storeIndex];
     const cost = businessNextCost(def);
     const canBuy = state.balance >= cost;
-    const started = getBiz(def.id).level > 0;
 
-    const actionsHTML = started ? `
-        <div class="card" style="margin-top:6px">
-          <div class="card-title">${setupFlow.tenure === 'purchase' ? 'Purchased' : 'Deposit Paid'}</div>
-          <div class="progress-caption" style="text-align:left;margin-top:4px">${property.name} is now open for business.</div>
-        </div>
-        <button class="btn btn-wide btn-gold" data-setup-continue-stage type="button">Continue to Step 2 ›</button>`
-      : `
+    const actionsHTML = `
         <button class="btn btn-wide ${canBuy ? 'btn-deposit' : ''}" data-setup-rent type="button" ${canBuy ? '' : 'disabled'}>
           Pay Deposit · ${formatMoney(cost)}</button>
         <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-purchase type="button" ${canBuy ? '' : 'disabled'}>
@@ -851,18 +824,20 @@ const Businesses = (() => {
     return propertyListingHTML(def, property, cityObj, country, storeIndex, actionsHTML);
   }
 
-  /** Stage 2, ONE scrollable page: numbered step cards for store type,
-   *  company name, suppliers (placeholder), and a sign-to-finish canvas.
-   *  Selecting a type re-renders in place (storeType is part of
-   *  render()'s lastRenderKey) — the name field is snapshotted into
-   *  setupFlow.companyName first so a still-unsaved typed name survives
-   *  that re-render (see onSetupClick's d.setupType handler). */
+  /** Stage 1, ONE scrollable page: numbered step cards for store type,
+   *  company name, and suppliers (placeholder). Selecting a type
+   *  re-renders in place (storeType is part of render()'s lastRenderKey)
+   *  — the name field is snapshotted into setupFlow.companyName first so
+   *  a still-unsaved typed name survives that re-render (see
+   *  onSetupClick's d.setupType handler). "Continue to Step 2" (enabled
+   *  once a type is picked) snapshots the name one more time and moves on
+   *  to Property. */
   function setupDetailsHTML(def) {
     const nameVal = setupFlow.companyName || def.name;
     const typeDone = !!setupFlow.storeType;
     return `
       <div class="section-head" style="margin-top:14px"><h2>Business Details</h2></div>
-      <div class="progress-caption" style="text-align:left;margin:0 2px 18px">Everything ${escapeHtml(def.name)} needs to open its doors — one page, no rush.</div>
+      <div class="progress-caption" style="text-align:left;margin:0 2px 18px">Everything ${escapeHtml(def.name)} needs before picking a property — one page, no rush.</div>
 
       <div class="biz-step-card ${typeDone ? 'is-done' : ''}">
         <div class="biz-step-head">
@@ -912,25 +887,7 @@ const Businesses = (() => {
         </div>
       </div>
 
-      <div class="biz-step-card">
-        <div class="biz-step-head">
-          <span class="biz-step-badge">04</span>
-          <div class="biz-step-titles">
-            <div class="biz-step-title">Sign to Confirm</div>
-            <div class="biz-step-sub">Draw your signature with your finger.</div>
-          </div>
-        </div>
-        <div class="biz-step-body">
-          <div class="biz-sig-wrap">
-            <canvas class="biz-sig-canvas" data-signature-canvas></canvas>
-          </div>
-          <div class="biz-sig-actions">
-            <button class="btn" data-setup-signature-clear type="button">Clear</button>
-          </div>
-        </div>
-      </div>
-
-      <button class="btn btn-wide btn-gold" data-setup-finish type="button" ${typeDone ? '' : 'disabled'}>Finish Setup</button>`;
+      <button class="btn btn-wide btn-gold" data-setup-continue-stage type="button" ${typeDone ? '' : 'disabled'}>Continue to Step 2 ›</button>`;
   }
 
   /** Fetch the real world map once and cache it in memory; the browser's
@@ -1066,84 +1023,6 @@ const Businesses = (() => {
   function stopZoomHold() {
     if (zoomHoldTimer) { clearTimeout(zoomHoldTimer); zoomHoldTimer = null; }
     zoomHoldActive = false;
-  }
-
-  /* ------------------------- Signature pad (Step 2) ---------------------- */
-
-  function signatureCanvasEl() {
-    return container && container.querySelector ? container.querySelector('[data-signature-canvas]') : null;
-  }
-
-  /** Sizes the canvas's backing pixel buffer to match its on-screen box,
-   *  devicePixelRatio-aware so strokes stay crisp on phones — same approach
-   *  as chart.js's canvas. Called once right after the signature screen's
-   *  HTML is created. */
-  function setupSignatureCanvas() {
-    const canvas = signatureCanvasEl();
-    if (!canvas || typeof canvas.getContext !== 'function') return;
-    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
-    const w = canvas.clientWidth || 300;
-    const h = canvas.clientHeight || 200;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-  }
-
-  function signatureStrokeColor() {
-    if (typeof getComputedStyle !== 'function' || typeof document === 'undefined') return '#F4F4F3';
-    const v = getComputedStyle(document.documentElement).getPropertyValue('--text');
-    return (v && v.trim()) || '#F4F4F3';
-  }
-
-  function signaturePoint(canvas, e) {
-    const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  }
-
-  function onSignaturePointerDown(e) {
-    if (!setupFlow || setupFlow.step !== 'signature') return;
-    const canvas = e.target.closest && e.target.closest('[data-signature-canvas]');
-    if (!canvas) return;
-    e.preventDefault();
-    sigDrawing = true;
-    const p = signaturePoint(canvas, e);
-    sigLastX = p.x; sigLastY = p.y;
-    drawSignatureSegment(canvas, p.x, p.y, p.x + 0.01, p.y + 0.01); // a tap still leaves a dot
-  }
-
-  function onSignaturePointerMove(e) {
-    if (!sigDrawing) return;
-    const canvas = e.target.closest && e.target.closest('[data-signature-canvas]');
-    if (!canvas) return;
-    e.preventDefault();
-    const p = signaturePoint(canvas, e);
-    drawSignatureSegment(canvas, sigLastX, sigLastY, p.x, p.y);
-    sigLastX = p.x; sigLastY = p.y;
-  }
-
-  function onSignaturePointerUp() {
-    sigDrawing = false;
-  }
-
-  function drawSignatureSegment(canvas, x0, y0, x1, y1) {
-    if (typeof canvas.getContext !== 'function') return;
-    const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = signatureStrokeColor();
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
-    ctx.stroke();
-  }
-
-  function clearSignatureCanvas() {
-    const canvas = signatureCanvasEl();
-    if (!canvas || typeof canvas.getContext !== 'function') return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
   function touchDist(a, b) {

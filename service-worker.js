@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v105'; // v105: fix property-listing hero collapsing to a sliver (flex-shrink bug in .bizd-screen), visible worst in Light theme
+const CACHE_NAME = 'tycoon-v106'; // v106: swap setup wizard step order (Business Details is now Step 1, Property is Step 2); remove the signature pad
 
 const ASSETS = [
   'index.html',
