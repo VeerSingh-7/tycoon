@@ -169,6 +169,40 @@ const Businesses = (() => {
     return !!getFavorites()[favoriteKey(property, cityName)];
   }
 
+  /** Is THIS SPECIFIC property (city + country + slug, not slug alone) the
+   *  one biz.property records? propertySlug is derived from the name only,
+   *  and a few property names repeat across different cities in the
+   *  catalog — matching on slug alone would make every property sharing
+   *  that name show as "owned" the moment any one of them was purchased.
+   *  Business-level state (getBiz(id).level) is deliberately NOT part of
+   *  this check either — it's a single flag for the whole business, not
+   *  per-property, so using it here would make every property in the
+   *  entire catalog read as purchased once the business owned any one of
+   *  them. */
+  function isOwnedProperty(biz, property, cityObj, country) {
+    return !!(biz.property
+      && biz.property.propertyId === propertySlug(property.name)
+      && biz.property.city === cityObj.name
+      && biz.property.countryId === country.id);
+  }
+
+  /** Looks up the actual property record (name/sqft/desc + its city/country)
+   *  a business's biz.property points at, for display on its "My
+   *  Businesses" card — null if this business has no catalog or hasn't
+   *  set one up yet. */
+  function resolveOwnedProperty(bizId) {
+    const biz = getBiz(bizId);
+    if (!biz.property || !hasPropertyCatalog(bizId)) return null;
+    const catalog = BUSINESS_PROPERTIES[bizId];
+    const country = catalog.countries.find((c) => c.id === biz.property.countryId);
+    if (!country) return null;
+    const cityObj = country.cities.find((c) => c.name === biz.property.city);
+    if (!cityObj) return null;
+    const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === biz.property.propertyId);
+    if (storeIndex < 0) return null;
+    return { property: cityObj.properties[storeIndex], cityObj, country, storeIndex };
+  }
+
   /** Toggles the favorite flag and patches the DOM directly instead of
    *  going through render() — matches this file's established pattern
    *  (handleCountryClick does the same) for state changes that shouldn't
@@ -813,7 +847,7 @@ const Businesses = (() => {
   function propertyListingHTML(def, property, cityObj, country, storeIndex, actionsHTML) {
     const d = propertyDetails(property, cityObj.name, storeIndex);
     const biz = getBiz(def.id);
-    const isActive = !!(biz.property && biz.property.propertyId === propertySlug(property.name));
+    const isActive = isOwnedProperty(biz, property, cityObj, country);
     const ownedBy = isActive ? ((biz.brand && biz.brand.companyName) || def.name) : 'Available';
     const typeLabel = isActive && biz.brand && biz.brand.storeType
       ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || def.name)
@@ -884,19 +918,34 @@ const Businesses = (() => {
     const property = cityObj.properties[storeIndex];
     const cost = businessNextCost(def);
     const canBuy = state.balance >= cost;
-    const started = getBiz(def.id).level > 0;
+    const biz = getBiz(def.id);
+    // Only THIS property is "started" if it's the one biz.property actually
+    // records — level > 0 alone would say every property is bought the
+    // moment any one of them is (see isOwnedProperty's comment).
+    const started = isOwnedProperty(biz, property, cityObj, country);
+    const ownsElsewhere = biz.level > 0 && !started;
 
-    const actionsHTML = started ? `
+    let actionsHTML;
+    if (started) {
+      actionsHTML = `
         <div class="card" style="margin-top:6px">
           <div class="card-title">${setupFlow.tenure === 'purchase' ? 'Purchased' : 'Deposit Paid'}</div>
           <div class="progress-caption" style="text-align:left;margin-top:4px">${property.name} is now open for business.</div>
         </div>
-        <button class="btn btn-wide btn-gold" data-setup-continue-stage type="button">Continue to Step 3 ›</button>`
-      : `
+        <button class="btn btn-wide btn-gold" data-setup-continue-stage type="button">Continue to Step 3 ›</button>`;
+    } else if (ownsElsewhere) {
+      actionsHTML = `
+        <div class="card" style="margin-top:6px">
+          <div class="card-title">Already Open Elsewhere</div>
+          <div class="progress-caption" style="text-align:left;margin-top:4px">${escapeHtml(def.name)} already operates out of a different property — only one location is supported for now.</div>
+        </div>`;
+    } else {
+      actionsHTML = `
         <button class="btn btn-wide ${canBuy ? 'btn-deposit' : ''}" data-setup-rent type="button" ${canBuy ? '' : 'disabled'}>
           Pay Deposit · ${formatMoney(cost)}</button>
         <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-purchase type="button" ${canBuy ? '' : 'disabled'}>
           Buy Now · ${formatMoney(cost)}</button>`;
+    }
 
     return propertyListingHTML(def, property, cityObj, country, storeIndex, actionsHTML);
   }
@@ -1489,6 +1538,29 @@ const Businesses = (() => {
     const net = businessIncomePerSec(def);
     const menuOpen = openMenuId === def.id;
     const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
+    const owned = resolveOwnedProperty(def.id);
+
+    const propertyStripHTML = owned ? (() => {
+      const companyName = (biz.brand && biz.brand.companyName) || def.name;
+      const typeLabel = biz.brand && biz.brand.storeType
+        ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || 'General')
+        : 'General';
+      const tenureLabel = biz.property.tenure === 'purchase' ? 'Owned' : 'Rented';
+      return `
+        <div class="biz-owned-strip">
+          <span class="biz-owned-thumb">
+            <span class="biz-owned-thumb-fallback" aria-hidden="true">🏪</span>
+            <img class="biz-owned-thumb-img" src="${propertyImagePath(owned.cityObj.name, owned.storeIndex)}" alt=""
+              loading="lazy" onerror="this.style.opacity='0'">
+          </span>
+          <span class="biz-owned-info">
+            <span class="biz-owned-name">${escapeHtml(companyName)}</span>
+            <span class="biz-owned-meta">${escapeHtml(typeLabel)} · ${escapeHtml(def.name)}</span>
+            <span class="biz-owned-loc">${escapeHtml(owned.property.name)} · ${escapeHtml(owned.cityObj.name)}, ${escapeHtml(owned.country.name)}</span>
+          </span>
+          <span class="biz-owned-tenure">${tenureLabel}</span>
+        </div>`;
+    })() : '';
 
     return `
       <div class="card biz-card">
@@ -1507,6 +1579,8 @@ const Businesses = (() => {
           </div>
           <div class="biz-level">Lv ${biz.level}</div>
         </div>
+
+        ${propertyStripHTML}
 
         <div class="biz-stats">
           <div><span class="muted">Net income</span><b class="gold">${formatRate(net)}</b></div>
