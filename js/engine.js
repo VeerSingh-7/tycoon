@@ -50,6 +50,7 @@ function getBiz(id) {
   // Patch records from older shapes so new fields always exist.
   if (biz.staff == null) biz.staff = 0;
   if (!biz.mech) biz.mech = {};
+  if (biz.property === undefined) biz.property = null; // { countryId, city, tierId } chosen at setup, or null
   return biz;
 }
 

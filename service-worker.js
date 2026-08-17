@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v93'; // v93: world map colorized/smoother zoom/landscape contain-fit; Properties placeholder
+const CACHE_NAME = 'tycoon-v94'; // v94: Supermarket Start Business setup flow (property picker), fixed overlay-flicker regression
 
 const ASSETS = [
   'index.html',
@@ -17,6 +17,7 @@ const ASSETS = [
   'js/chart.js',
   'js/logos.js',
   'js/data/businesses.js',
+  'js/data/properties.js',
   'js/data/progression.js',
   'js/data/markets.js',
   'js/data/stocks.js',

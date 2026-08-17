@@ -24,6 +24,7 @@ const ROOT = path.join(__dirname, '..');
 const files = [
   'js/format.js',
   'js/data/businesses.js',
+  'js/data/properties.js',
   'js/data/progression.js',
   'js/state.js',
   'js/engine.js',

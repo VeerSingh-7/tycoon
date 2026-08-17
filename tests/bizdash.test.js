@@ -25,6 +25,7 @@ const files = [
   'js/chart.js',
   'js/logos.js',
   'js/data/businesses.js',
+  'js/data/properties.js',
   'js/data/progression.js',
   'js/data/markets.js',
   'js/data/stocks.js',

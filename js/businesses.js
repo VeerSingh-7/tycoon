@@ -27,17 +27,23 @@
  * country always shows the same numbers) — there's no real per-country
  * business data yet, this is intentionally just a placeholder for now.
  *
- * IMPORTANT: the map view's render() is idempotent (mapRenderState) —
+ * IMPORTANT: render() is idempotent for every overlay (lastRenderKey) —
  * ui.js re-renders the whole Business tab every ~500ms for the list's
- * mechanic countdowns, and re-injecting the ~1.2MB inline SVG on every one
- * of those ticks was destroying + recreating the fullscreen overlay that
- * often, which restarted its fadeIn animation each time and made the
- * bottom nav visibly flash through the momentarily-transparent overlay.
- * The map's own DOM is only touched when what it should show actually
- * changes (open/close, or the fetch finishing) — never on a plain timer
- * tick. Zooming, panning, selecting/deselecting a country and the info box
- * are all direct DOM writes for the same reason — none of them call
- * render() or touch the SVG's innerHTML.
+ * mechanic countdowns, and re-injecting a fullscreen overlay's markup on
+ * every one of those ticks (worst case, the map's ~1.2MB inline SVG) would
+ * destroy + recreate it that often, restarting its fadeIn animation each
+ * time and making the bottom nav visibly flash through the momentarily-
+ * transparent overlay. Every overlay's own DOM is only touched when what it
+ * should show actually changes — never on a plain timer tick. Zooming,
+ * panning, selecting/deselecting a country and the info box are all direct
+ * DOM writes for the same reason — none of them call render() either.
+ *
+ * Starting a business with a property catalog (js/data/properties.js — for
+ * now just the Supermarket Chain) opens a staged setup flow instead of
+ * buying instantly: pick a country, then a city, then a property tier,
+ * then confirm. The choice is recorded on the business (engine.js getBiz's
+ * .property) but is purely flavor for now — it doesn't change the
+ * business's real cost or income.
  *
  * Events use DELEGATION on the container so the 2x/sec re-render (needed for
  * mechanic countdowns) never orphans listeners.
@@ -48,7 +54,15 @@ const Businesses = (() => {
   let listMode = 'all'; // 'all' | 'mine' — which businesses the list below shows
   let mapOpen = false;  // World Map overlay
   let propertiesOpen = false; // Properties "Coming Soon" overlay
-  let mapRenderState = null; // null | 'loading' | 'loaded' — what's actually in the DOM for the map right now
+  let setupFlow = null; // { bizId, step, countryId, city, tierId } — Start Business property-picker, or null when closed
+  // A single signature for "what's actually in the DOM right now" across every
+  // overlay (map/properties/setup) — render() only touches innerHTML when
+  // this changes, never on a bare periodic tick. Without this, ui.js's
+  // ~500ms Business-tab re-render (for the list's mechanic countdowns) would
+  // recreate whichever overlay is open that often, restarting its fadeIn
+  // animation each time and flashing the bottom nav through the momentarily
+  // transparent overlay — the exact bug the map version of this had.
+  let lastRenderKey = null;
   let openMenuId = null; // id of the owned business whose ⋮ menu is open (Sell), or null
   let worldMapSvg = null;    // fetched img/map/world-map.svg markup, cached once loaded
   let worldMapFetching = false;
@@ -194,7 +208,8 @@ const Businesses = (() => {
     listMode = 'all';
     mapOpen = false;
     propertiesOpen = false;
-    mapRenderState = null;
+    setupFlow = null;
+    lastRenderKey = null;
     openMenuId = null;
     render();
   }
@@ -214,6 +229,8 @@ const Businesses = (() => {
       handleCountryClick(e);
       return;
     }
+
+    if (setupFlow) { onSetupClick(e); return; }
 
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
@@ -236,7 +253,14 @@ const Businesses = (() => {
     if (d.bizMenu !== undefined) { openMenuId = openMenuId === d.bizMenu ? null : d.bizMenu; render(); return; }
 
     if (d.manage) { if (typeof BizDash !== 'undefined') BizDash.open(d.manage); return; }
-    else if (d.buy) changed = buyBusinessLevel(d.buy);
+    else if (d.buy) {
+      // A business with its own property catalog gets a staged setup
+      // (choose a property) instead of buying instantly — d.buy only ever
+      // fires from "Start Business" now (level 0 -> 1), leveling further is
+      // retired, so there's no ambiguity about which purchase this is.
+      if (hasPropertyCatalog(d.buy)) { openBusinessSetup(d.buy); return; }
+      changed = buyBusinessLevel(d.buy);
+    }
     else if (d.upgrade) changed = buyBusinessUpgrade(d.biz, d.upgrade);
     else if (d.hire) changed = hireStaff(d.hire);
     else if (d.sell) {
@@ -259,30 +283,40 @@ const Businesses = (() => {
 
   /* ------------------------------ Render ------------------------------ */
 
-  /** The map view's own DOM (the ~1.2MB inline SVG) only gets touched when
-   *  what it should show actually changes — see the file header for why
-   *  (this is the fix for the bottom-nav flashing on the map screen). The
-   *  business list keeps re-rendering normally for its mechanic countdowns. */
+  /** Every overlay's own DOM is only touched when what it should show
+   *  actually changes — see the file header for why (this is the fix for
+   *  the bottom-nav flashing bug). The business list keeps re-rendering
+   *  normally for its mechanic countdowns. */
   function render() {
     if (!container) return;
     if (mapOpen) {
-      const desired = worldMapSvg ? 'loaded' : 'loading';
-      if (mapRenderState !== desired) {
+      const desired = 'map:' + (worldMapSvg ? 'loaded' : 'loading');
+      if (lastRenderKey !== desired) {
         container.innerHTML = mapHTML();
-        mapRenderState = desired;
+        lastRenderKey = desired;
         // Sync the current zoom level onto the freshly-created SVG element —
         // matters if the fetch resolved after the player had already zoomed
         // the (non-interactive) loading placeholder, which can't happen
         // today but costs nothing to keep correct.
-        if (desired === 'loaded') {
+        if (desired === 'map:loaded') {
           const svg = mapSvgEl();
           if (svg) svg.style.width = mapWidthVw + 'vw';
         }
       }
       return;
     }
-    mapRenderState = null;
-    if (propertiesOpen) { container.innerHTML = propertiesHTML(); return; }
+    if (propertiesOpen) {
+      if (lastRenderKey !== 'properties') container.innerHTML = propertiesHTML();
+      lastRenderKey = 'properties';
+      return;
+    }
+    if (setupFlow) {
+      const desired = 'setup:' + setupFlow.step + ':' + setupFlow.countryId + ':' + setupFlow.city + ':' + setupFlow.tierId;
+      if (lastRenderKey !== desired) container.innerHTML = setupHTML();
+      lastRenderKey = desired;
+      return;
+    }
+    lastRenderKey = null;
     container.innerHTML = bizTabHTML();
   }
 
@@ -305,6 +339,143 @@ const Businesses = (() => {
           <p class="muted">Keep growing — your businesses will show up here once this is built.</p>
         </div>
       </div>`;
+  }
+
+  /* ------------------------- Business setup flow ------------------------ */
+  // Country -> City -> Property tier -> Review, for a business with its own
+  // property catalog (js/data/properties.js). Purely a UI flow over the
+  // SAME buyBusinessLevel() used everywhere else — the property choice is
+  // recorded but never changes cost or income.
+
+  function openBusinessSetup(bizId) {
+    setupFlow = { bizId, step: 'country', countryId: null, city: null, tierId: null };
+    render();
+  }
+
+  function onSetupClick(e) {
+    const btn = e.target.closest('button');
+    if (!btn || btn.disabled) return;
+    const d = btn.dataset;
+
+    if (d.bizNav === 'closeSetup') { setupFlow = null; render(); return; }
+    if (d.setupBack !== undefined) {
+      if (setupFlow.step === 'city') setupFlow.step = 'country';
+      else if (setupFlow.step === 'tier') setupFlow.step = 'city';
+      else if (setupFlow.step === 'review') setupFlow.step = 'tier';
+      render();
+      return;
+    }
+    if (d.setupCountry) { setupFlow.countryId = d.setupCountry; setupFlow.step = 'city'; render(); return; }
+    if (d.setupCity) { setupFlow.city = d.setupCity; setupFlow.step = 'tier'; render(); return; }
+    if (d.setupTier) { setupFlow.tierId = d.setupTier; setupFlow.step = 'review'; render(); return; }
+    if (d.setupConfirm !== undefined) {
+      const { bizId, countryId, city, tierId } = setupFlow;
+      if (buyBusinessLevel(bizId)) {
+        const biz = getBiz(bizId);
+        biz.property = { countryId, city, tierId };
+        saveGame();
+        setupFlow = null;
+        UI.renderBalance();
+        render();
+        if (typeof Businesses !== 'undefined') Businesses.render();
+      }
+      return;
+    }
+  }
+
+  function setupHTML() {
+    const def = BUSINESS_BY_ID[setupFlow.bizId];
+    const stepLabels = { country: 'Choose a Country', city: 'Choose a City', tier: 'Choose a Property', review: 'Review & Confirm' };
+    const stepIndex = ['country', 'city', 'tier', 'review'].indexOf(setupFlow.step);
+    let body;
+    if (setupFlow.step === 'country') body = setupCountryHTML(def);
+    else if (setupFlow.step === 'city') body = setupCityHTML(def);
+    else if (setupFlow.step === 'tier') body = setupTierHTML(def);
+    else body = setupReviewHTML(def);
+
+    const closeOrBackBtn = stepIndex === 0
+      ? `<button class="icon-btn" data-biz-nav="closeSetup" type="button" aria-label="Close">✕</button>`
+      : `<button class="icon-btn" data-setup-back type="button" aria-label="Back">‹</button>`;
+
+    return `
+      <div class="bizd-screen">
+        <div class="bizd-head">
+          ${closeOrBackBtn}
+          <div class="bizd-id">
+            <div class="bizd-co-name">${def.name} — Setup</div>
+            <div class="bizd-co-sub">${stepLabels[setupFlow.step]} · Step ${stepIndex + 1} of 4</div>
+          </div>
+        </div>
+        <div class="progress"><div class="progress-fill" style="width:${((stepIndex + 1) / 4) * 100}%"></div></div>
+        ${body}
+      </div>`;
+  }
+
+  function setupCountryHTML(def) {
+    const catalog = BUSINESS_PROPERTIES[def.id];
+    return `
+      <div class="section-head" style="margin-top:14px"><h2>Where do you want to open your first store?</h2></div>
+      <div class="biz-list">
+        ${catalog.countries.map((c) => `
+          <button class="card hub-card" data-setup-country="${c.id}" type="button">
+            <span class="hub-text">
+              <span class="hub-title">${c.name}</span>
+              <span class="hub-sub">${c.cities.length} cities available</span>
+            </span>
+            <span class="hub-arrow">›</span>
+          </button>`).join('')}
+      </div>`;
+  }
+
+  function setupCityHTML(def) {
+    const catalog = BUSINESS_PROPERTIES[def.id];
+    const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
+    return `
+      <div class="section-head" style="margin-top:14px"><h2>Which city in ${country.name}?</h2></div>
+      <div class="biz-list">
+        ${country.cities.map((city) => `
+          <button class="card hub-card" data-setup-city="${city}" type="button">
+            <span class="hub-text">
+              <span class="hub-title">${city}</span>
+              <span class="hub-sub">${PROPERTY_TIERS.length} properties available</span>
+            </span>
+            <span class="hub-arrow">›</span>
+          </button>`).join('')}
+      </div>`;
+  }
+
+  function setupTierHTML(def) {
+    return `
+      <div class="section-head" style="margin-top:14px"><h2>Which property in ${setupFlow.city}?</h2></div>
+      <div class="biz-list">
+        ${PROPERTY_TIERS.map((t) => `
+          <button class="card hub-card" data-setup-tier="${t.id}" type="button">
+            <span class="hub-text">
+              <span class="hub-title">${setupFlow.city} ${t.name}</span>
+              <span class="hub-sub">${t.blurb}</span>
+            </span>
+            <span class="hub-arrow">›</span>
+          </button>`).join('')}
+      </div>`;
+  }
+
+  function setupReviewHTML(def) {
+    const catalog = BUSINESS_PROPERTIES[def.id];
+    const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
+    const tier = PROPERTY_TIERS.find((t) => t.id === setupFlow.tierId);
+    const cost = businessNextCost(def);
+    const canBuy = state.balance >= cost;
+    return `
+      <div class="card" style="margin-top:14px">
+        <div class="card-title">${def.name}</div>
+        <div class="biz-stats">
+          <div><span class="muted">Location</span><b>${setupFlow.city}, ${country.name}</b></div>
+          <div><span class="muted">Property</span><b>${tier.name}</b></div>
+        </div>
+        <div class="progress-caption">${tier.blurb}</div>
+      </div>
+      <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-confirm type="button" ${canBuy ? '' : 'disabled'}>
+        Start Business · ${formatMoney(cost)}</button>`;
   }
 
   /** Fetch the real world map once and cache it in memory; the browser's
@@ -689,7 +860,7 @@ const Businesses = (() => {
           <div><span class="muted">Startup</span><b>${formatMoney(cost)}</b></div>
         </div>
         <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy="${def.id}" ${canBuy ? '' : 'disabled'}>
-          Start Business · ${formatMoney(cost)}</button>
+          Start Business</button>
         ${slotFree ? '' : '<div class="progress-caption">⚠️ No free business slot — level up or sell a business.</div>'}
       </div>`;
   }
