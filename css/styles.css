@@ -734,9 +734,34 @@ html, body {
 .biz-worldmap-info-stat span { color: var(--muted); }
 .biz-worldmap-info-stat b { color: var(--text); font-variant-numeric: tabular-nums; }
 
-/* Business setup (js/businesses.js) — the horizontally-scrollable city bar
-   on the Property stage's browse screen. Same active-state language as the
-   shared Tab bar component (--surface fill + --accent-bg outline). */
+/* Business setup (js/businesses.js) — the country selector (flag + name,
+   opens a dropdown of the other 3) and the horizontally-scrollable city bar
+   below it on the Property stage's browse screen. Same active-state
+   language as the shared Tab bar component (--surface fill + --accent-bg
+   outline). Flags are a deliberate small exception to the monochrome
+   system, same spirit as the World Map's colors — there's no meaningful
+   monochrome way to draw "a picture of a flag". */
+.biz-setup-country { position: relative; margin: 14px 0 10px; }
+.biz-setup-country-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 14px;
+  padding: 12px 14px; cursor: pointer; font-family: inherit;
+}
+.biz-setup-flag { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.biz-setup-country-name { flex: 1; font-size: 17px; font-weight: 800; color: var(--text); }
+.biz-setup-country-chevron { color: var(--muted); font-size: 13px; flex-shrink: 0; }
+.biz-setup-country-dropdown {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 5;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 8px 24px var(--shadow); overflow: hidden;
+}
+.biz-setup-country-option {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 12px 14px; background: none; border: none; font-family: inherit; cursor: pointer;
+  font-size: 15px; font-weight: 700; color: var(--text);
+}
+.biz-setup-country-option:active { background: var(--bg-elev-2); }
+
 .biz-setup-scroller {
   display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
   padding: 2px 2px 10px; margin-bottom: 4px;

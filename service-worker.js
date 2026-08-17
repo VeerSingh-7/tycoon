@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v95'; // v95: 96 real named properties, Property as wizard stage 1, browse UI with city scroller
+const CACHE_NAME = 'tycoon-v96'; // v96: merged country+city+property browse screen with flag dropdown; property taps open Coming Soon
 
 const ASSETS = [
   'index.html',

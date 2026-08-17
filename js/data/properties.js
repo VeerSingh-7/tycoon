@@ -14,7 +14,7 @@ const BUSINESS_PROPERTIES = {
   supermarket: {
     countries: [
       {
-        id: 'uk', name: 'United Kingdom',
+        id: 'uk', name: 'United Kingdom', flag: '🇬🇧',
         cities: [
           { name: 'London', properties: [
             { name: 'Riverside Market',        sqft: 2500, desc: 'Waterfront location, high street position' },
@@ -51,7 +51,7 @@ const BUSINESS_PROPERTIES = {
         ],
       },
       {
-        id: 'ca', name: 'Canada',
+        id: 'ca', name: 'Canada', flag: '🇨🇦',
         cities: [
           { name: 'Toronto', properties: [
             { name: 'Downtown Core Market',      sqft: 4500, desc: 'Financial district, high earners' },
@@ -88,7 +88,7 @@ const BUSINESS_PROPERTIES = {
         ],
       },
       {
-        id: 'au', name: 'Australia',
+        id: 'au', name: 'Australia', flag: '🇦🇺',
         cities: [
           { name: 'Sydney', properties: [
             { name: 'Circular Quay Market',   sqft: 4100, desc: 'Iconic harbour, tourism magnet' },
@@ -125,7 +125,7 @@ const BUSINESS_PROPERTIES = {
         ],
       },
       {
-        id: 'jp', name: 'Japan',
+        id: 'jp', name: 'Japan', flag: '🇯🇵',
         cities: [
           { name: 'Tokyo', properties: [
             { name: 'Shibuya Crossing Market', sqft: 4600, desc: "World's busiest intersection, peak traffic" },

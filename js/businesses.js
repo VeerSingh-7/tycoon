@@ -41,12 +41,13 @@
  * Starting a business with a property catalog (js/data/properties.js — for
  * now just the Supermarket Chain) opens a staged setup wizard instead of
  * buying instantly (SETUP_STAGES — just "Property" for now, more can be
- * appended later). That one stage is itself 3 screens: pick a country,
- * then browse (country name heading + a horizontally-scrollable city bar
- * + that city's real properties listed below it, all one screen), then
- * review/confirm once a specific property is tapped. The choice is
- * recorded on the business (engine.js getBiz's .property) but is purely
- * flavor for now — it doesn't change the business's real cost or income.
+ * appended later). That one stage is ONE screen: a country selector (flag
+ * + name, tap for a dropdown of the other 3) at the top, a horizontally-
+ * scrollable city bar below it, and the selected city's real properties
+ * listed underneath — switching country or city updates that same screen
+ * in place. Tapping a property opens a "Coming Soon" page (every
+ * property, for now — the actual per-property purchase flow isn't wired
+ * up yet, on purpose, while this browsing UI is still being built).
  *
  * Events use DELEGATION on the container so the 2x/sec re-render (needed for
  * mechanic countdowns) never orphans listeners.
@@ -314,7 +315,7 @@ const Businesses = (() => {
       return;
     }
     if (setupFlow) {
-      const desired = 'setup:' + setupFlow.step + ':' + setupFlow.countryId + ':' + setupFlow.city + ':' + setupFlow.propertyId;
+      const desired = 'setup:' + setupFlow.step + ':' + setupFlow.countryId + ':' + setupFlow.city + ':' + setupFlow.propertyId + ':' + setupFlow.countryDropdownOpen;
       if (lastRenderKey !== desired) container.innerHTML = setupHTML();
       lastRenderKey = desired;
       return;
@@ -348,21 +349,30 @@ const Businesses = (() => {
   // A multi-STAGE wizard for a business with its own property catalog
   // (js/data/properties.js) — SETUP_STAGES lists the stages, "Property" is
   // stage 1 of however many exist (just the one for now; more can be
-  // appended later without changing how the header counts them). Purely a
-  // UI flow over the SAME buyBusinessLevel() used everywhere else — the
-  // property choice is recorded but never changes cost or income.
+  // appended later without changing how the header counts them).
   //
-  // Stage 1 (Property) is itself 3 screens: pick a country (full list),
-  // then browse — country name as a heading, a horizontally-scrollable
-  // city bar, and that city's 6 real properties listed below it, all on
-  // one screen — then review/confirm once a specific property is tapped.
+  // Stage 1 (Property) is ONE screen: a country selector (flag + name,
+  // tap to open a dropdown of the other 3) at the top, a horizontally-
+  // scrollable city bar below it, and the selected city's 6 real
+  // properties listed underneath — switching country or city just updates
+  // that same screen in place, never a separate screen per country/city.
+  // Tapping a specific property opens a "Coming Soon" page for it (every
+  // property, for now) instead of actually buying — the purchase flow
+  // for a business with its own property catalog isn't wired up yet, on
+  // purpose, while this browsing UI is still being built out. Businesses
+  // WITHOUT a catalog are completely unaffected — still buy instantly.
 
   const SETUP_STAGES = [
     { id: 'property', label: 'Property' },
   ];
 
   function openBusinessSetup(bizId) {
-    setupFlow = { bizId, stage: 0, step: 'country', countryId: null, city: null, propertyId: null };
+    const firstCountry = BUSINESS_PROPERTIES[bizId].countries[0];
+    setupFlow = {
+      bizId, stage: 0, step: 'browse',
+      countryId: firstCountry.id, city: firstCountry.cities[0].name,
+      propertyId: null, countryDropdownOpen: false,
+    };
     render();
   }
 
@@ -372,47 +382,26 @@ const Businesses = (() => {
     const d = btn.dataset;
 
     if (d.bizNav === 'closeSetup') { setupFlow = null; render(); return; }
-    if (d.setupBack !== undefined) {
-      if (setupFlow.step === 'browse') setupFlow.step = 'country';
-      else if (setupFlow.step === 'review') setupFlow.step = 'browse';
-      render();
-      return;
-    }
+    if (d.setupBack !== undefined) { setupFlow.step = 'browse'; render(); return; }
+    if (d.setupCountryToggle !== undefined) { setupFlow.countryDropdownOpen = !setupFlow.countryDropdownOpen; render(); return; }
     if (d.setupCountry) {
-      const def = BUSINESS_BY_ID[setupFlow.bizId];
-      const country = BUSINESS_PROPERTIES[def.id].countries.find((c) => c.id === d.setupCountry);
+      const country = BUSINESS_PROPERTIES[setupFlow.bizId].countries.find((c) => c.id === d.setupCountry);
       setupFlow.countryId = d.setupCountry;
       setupFlow.city = country.cities[0].name; // land on the first city so properties show immediately
-      setupFlow.step = 'browse';
+      setupFlow.countryDropdownOpen = false;
       render();
       return;
     }
-    if (d.setupCity) { setupFlow.city = d.setupCity; render(); return; } // stays on 'browse', just swaps the list below
-    if (d.setupProperty) { setupFlow.propertyId = d.setupProperty; setupFlow.step = 'review'; render(); return; }
-    if (d.setupConfirm !== undefined) {
-      const { bizId, countryId, city, propertyId } = setupFlow;
-      if (buyBusinessLevel(bizId)) {
-        const biz = getBiz(bizId);
-        biz.property = { countryId, city, propertyId };
-        saveGame();
-        setupFlow = null;
-        UI.renderBalance();
-        render();
-        if (typeof Businesses !== 'undefined') Businesses.render();
-      }
-      return;
-    }
+    if (d.setupCity) { setupFlow.city = d.setupCity; setupFlow.countryDropdownOpen = false; render(); return; }
+    if (d.setupProperty) { setupFlow.propertyId = d.setupProperty; setupFlow.step = 'comingSoon'; render(); return; }
   }
 
   function setupHTML() {
     const def = BUSINESS_BY_ID[setupFlow.bizId];
     const stage = SETUP_STAGES[setupFlow.stage];
-    let body;
-    if (setupFlow.step === 'country') body = setupCountryHTML(def);
-    else if (setupFlow.step === 'browse') body = setupBrowseHTML(def);
-    else body = setupReviewHTML(def);
+    const body = setupFlow.step === 'comingSoon' ? setupPropertyComingSoonHTML(def) : setupBrowseHTML(def);
 
-    const closeOrBackBtn = setupFlow.step === 'country'
+    const closeOrBackBtn = setupFlow.step === 'browse'
       ? `<button class="icon-btn" data-biz-nav="closeSetup" type="button" aria-label="Close">✕</button>`
       : `<button class="icon-btn" data-setup-back type="button" aria-label="Back">‹</button>`;
 
@@ -429,31 +418,29 @@ const Businesses = (() => {
       </div>`;
   }
 
-  function setupCountryHTML(def) {
-    const catalog = BUSINESS_PROPERTIES[def.id];
-    return `
-      <div class="section-head" style="margin-top:14px"><h2>Where do you want to open your first store?</h2></div>
-      <div class="biz-list">
-        ${catalog.countries.map((c) => `
-          <button class="card hub-card" data-setup-country="${c.id}" type="button">
-            <span class="hub-text">
-              <span class="hub-title">${c.name}</span>
-              <span class="hub-sub">${c.cities.length} cities available</span>
-            </span>
-            <span class="hub-arrow">›</span>
-          </button>`).join('')}
-      </div>`;
-  }
-
-  /** Country name as a heading, a horizontally-scrollable city bar, and the
-   *  selected city's properties listed below it — switching cities just
-   *  swaps that list in place, no separate screen per city. */
+  /** Country selector (flag + name, tap for a dropdown of the other 3) +
+   *  horizontally-scrollable city bar + the selected city's properties,
+   *  all one screen — switching country or city updates it in place. */
   function setupBrowseHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
     const cityObj = country.cities.find((c) => c.name === setupFlow.city) || country.cities[0];
+    const otherCountries = catalog.countries.filter((c) => c.id !== country.id);
     return `
-      <div class="section-head" style="margin-top:14px"><h2>${country.name}</h2></div>
+      <div class="biz-setup-country">
+        <button class="biz-setup-country-btn" data-setup-country-toggle type="button" aria-label="Change country">
+          <span class="biz-setup-flag">${country.flag}</span>
+          <span class="biz-setup-country-name">${country.name}</span>
+          <span class="biz-setup-country-chevron">${setupFlow.countryDropdownOpen ? '︿' : '⌄'}</span>
+        </button>
+        ${setupFlow.countryDropdownOpen ? `
+          <div class="biz-setup-country-dropdown">
+            ${otherCountries.map((c) => `
+              <button class="biz-setup-country-option" data-setup-country="${c.id}" type="button">
+                <span class="biz-setup-flag">${c.flag}</span>${c.name}
+              </button>`).join('')}
+          </div>` : ''}
+      </div>
       <div class="biz-setup-scroller">
         ${country.cities.map((c) => `
           <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
@@ -470,24 +457,22 @@ const Businesses = (() => {
       </div>`;
   }
 
-  function setupReviewHTML(def) {
+  /** Every property opens the same "Coming Soon" page for now — the actual
+   *  per-property setup/purchase isn't built yet, this is just the front
+   *  end of it while that gets wired up. */
+  function setupPropertyComingSoonHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
     const cityObj = country.cities.find((c) => c.name === setupFlow.city);
     const property = cityObj.properties.find((p) => propertySlug(p.name) === setupFlow.propertyId);
-    const cost = businessNextCost(def);
-    const canBuy = state.balance >= cost;
     return `
-      <div class="card" style="margin-top:14px">
-        <div class="card-title">${property.name}</div>
-        <div class="biz-stats">
-          <div><span class="muted">Location</span><b>${setupFlow.city}, ${country.name}</b></div>
-          <div><span class="muted">Size</span><b>${property.sqft.toLocaleString()} sq ft</b></div>
-        </div>
-        <div class="progress-caption">${property.desc}</div>
-      </div>
-      <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-confirm type="button" ${canBuy ? '' : 'disabled'}>
-        Start Business · ${formatMoney(cost)}</button>`;
+      <div class="coming-soon">
+        <div class="cs-badge">COMING SOON</div>
+        <h2>${property.name}</h2>
+        <p>${property.sqft.toLocaleString()} sq ft · ${cityObj.name}, ${country.name}</p>
+        <p class="muted">${property.desc}</p>
+        <p class="muted">Setting up and buying ${property.name} is on the way — every property opens this same page for now.</p>
+      </div>`;
   }
 
   /** Fetch the real world map once and cache it in memory; the browser's
