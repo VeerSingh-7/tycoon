@@ -402,6 +402,16 @@ html, body {
 .coming-soon h2 { font-size: 24px; }
 .coming-soon p { color: var(--muted); font-size: 14px; max-width: 300px; line-height: 1.5; }
 
+/* ---------------------------------------------------------- Signature pad */
+.biz-sig-wrap {
+  margin-top: 14px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--bg-elev); overflow: hidden;
+}
+.biz-sig-canvas { display: block; width: 100%; height: 220px; touch-action: none; }
+.biz-sig-hint { text-align: center; font-size: 11px; color: var(--muted); margin-top: 8px; }
+.biz-sig-actions { display: flex; gap: 10px; margin-top: 14px; }
+.biz-sig-actions .btn { flex: 1; }
+
 /* ------------------------------------------------ Premium property listing */
 /* Real-estate-style listing page: full-bleed hero, About paragraph, a
    label/value details grid, a key-stats pill bar, then actions. Shared by

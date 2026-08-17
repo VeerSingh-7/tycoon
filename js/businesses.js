@@ -101,6 +101,15 @@ const Businesses = (() => {
   let selectedCountryEl = null;   // the <g> currently highlighted, or null
   let selectedCountryCode = null; // its ISO code, or null
 
+  // Setup wizard Step 3's signature pad: pointer-driven freehand drawing on
+  // a <canvas>, wired once at container mount (delegated, like the zoom-hold
+  // above) rather than re-wired on every render — the canvas element only
+  // gets created once per visit to the signature screen (render()'s
+  // lastRenderKey doesn't change while drawing), so the strokes persist.
+  let sigDrawing = false;
+  let sigLastX = 0;
+  let sigLastY = 0;
+
   // Set this to an image URL/path later to show a real photo behind the
   // World Map hero card. Left null for now — the card falls back to a
   // solid --bg-mid fill with a centered icon so it never looks broken.
@@ -326,6 +335,11 @@ const Businesses = (() => {
     container.addEventListener('pointerup', stopZoomHold);
     container.addEventListener('pointercancel', stopZoomHold);
     container.addEventListener('pointerleave', stopZoomHold);
+    container.addEventListener('pointerdown', onSignaturePointerDown);
+    container.addEventListener('pointermove', onSignaturePointerMove);
+    container.addEventListener('pointerup', onSignaturePointerUp);
+    container.addEventListener('pointercancel', onSignaturePointerUp);
+    container.addEventListener('pointerleave', onSignaturePointerUp);
     listMode = 'all';
     mapOpen = false;
     propertiesOpen = false;
@@ -439,6 +453,11 @@ const Businesses = (() => {
       if (lastRenderKey !== desired) {
         container.innerHTML = setupHTML();
         lastRenderKey = desired;
+        // Size the signature canvas's pixel buffer once, right after it's
+        // created — never again while the player is still on this screen,
+        // or their strokes would be wiped (see the section header comment
+        // on the signature helpers below).
+        if (setupFlow.step === 'signature') setupSignatureCanvas();
       }
       return;
     }
@@ -562,9 +581,10 @@ const Businesses = (() => {
   /* ------------------------- Business setup flow ------------------------ */
   // A multi-STAGE wizard for a business with its own property catalog
   // (js/data/properties.js) — SETUP_STAGES lists the stages: "Business
-  // Details" (stage 1 — store type, company name, suppliers) then
-  // "Property" (stage 2). Only stage indices show in the header ("Step 1
-  // of 2"); each stage internally walks through its own sequence of steps.
+  // Details" (stage 1 — store type, company name, suppliers), "Property"
+  // (stage 2), then "Signature" (stage 3). Only stage indices show in the
+  // header ("Step 1 of 3"); each stage internally walks through its own
+  // sequence of steps.
   //
   // Stage 1 (Business Details) is ONE scrollable page — pick a store type,
   // name the company, and a suppliers placeholder — all on the same
@@ -579,9 +599,13 @@ const Businesses = (() => {
   // listing (js/data/properties.js propertyDetails — description, key
   // stats, amenities, financials) with Rent/Purchase actions. Either one
   // starts the business for real (same buyBusinessLevel() + cost as every
-  // other business — the property is flavor, not a separate charge),
-  // saves the store type + company name collected in Stage 1 onto
-  // biz.brand, and closes the wizard — it's the last step.
+  // other business — the property is flavor, not a separate charge) and
+  // unlocks "Continue to Step 3".
+  //
+  // Stage 3 (Signature) is a canvas the player draws on with a finger —
+  // "Finish Setup" (enabled once a stroke has been drawn) saves the store
+  // type + company name collected in Stage 1 plus the signature onto
+  // biz.brand and closes the wizard — it's the last step.
   //
   // Businesses WITHOUT a catalog are completely unaffected — still buy
   // instantly, no wizard at all.
@@ -589,6 +613,7 @@ const Businesses = (() => {
   const SETUP_STAGES = [
     { id: 'details', label: 'Business Details' },
     { id: 'property', label: 'Property' },
+    { id: 'signature', label: 'Signature' },
   ];
 
   const STORE_TYPES = [
@@ -622,7 +647,8 @@ const Businesses = (() => {
     if (d.bizNav === 'closeSetup') { setupFlow = null; render(); return; }
     if (d.setupFavorite) { toggleFavoriteClick(btn); return; }
     if (d.setupBack !== undefined) {
-      if (setupFlow.step === 'property') setupFlow.step = 'browse';
+      if (setupFlow.step === 'signature') { setupFlow.stage = 1; setupFlow.step = 'property'; }
+      else if (setupFlow.step === 'property') setupFlow.step = 'browse';
       else if (setupFlow.step === 'browse') { setupFlow.stage = 0; setupFlow.step = 'details'; }
       render();
       return;
@@ -644,35 +670,39 @@ const Businesses = (() => {
       return;
     }
     if (d.setupRent !== undefined || d.setupPurchase !== undefined) {
-      // Guard against a double-charge: harmless now that this is the last
-      // step (a successful rent/purchase closes the wizard immediately),
-      // but cheap insurance if that ever changes.
+      // Guard against a double-charge: if the player backs out to the
+      // property page after already renting/buying (it keeps showing a
+      // "Continue to Step 3" confirmation, not the actions, but this is
+      // cheap insurance regardless), don't let a second buyBusinessLevel()
+      // fire.
       if (getBiz(setupFlow.bizId).level > 0) return;
       const tenure = d.setupRent !== undefined ? 'rent' : 'purchase';
       if (buyBusinessLevel(setupFlow.bizId)) {
         const biz = getBiz(setupFlow.bizId);
         biz.property = { countryId: setupFlow.countryId, city: setupFlow.city, propertyId: setupFlow.propertyId, tenure };
-        // Store type + company name were collected back in Stage 1 — this
-        // is the last step, so save them onto the business now and close.
-        biz.brand = { storeType: setupFlow.storeType, companyName: setupFlow.companyName || BUSINESS_BY_ID[setupFlow.bizId].name };
         saveGame();
+        setupFlow.tenure = tenure;
         UI.renderBalance();
-        setupFlow = null;
         render();
         if (typeof Businesses !== 'undefined') Businesses.render();
       }
       return;
     }
     if (d.setupContinueStage !== undefined) {
-      // Leaving the details page for good — snapshot whatever's currently
-      // typed in the name field, since that input won't exist once we're
-      // on the Property stage (see d.setupType's comment for why this
-      // snapshot pattern is needed at all).
-      const input = container && container.querySelector ? container.querySelector('[data-company-name-input]') : null;
-      const typed = input && typeof input.value === 'string' ? input.value.trim() : '';
-      setupFlow.companyName = typed || BUSINESS_BY_ID[setupFlow.bizId].name;
-      setupFlow.stage = 1;
-      setupFlow.step = 'browse';
+      if (setupFlow.step === 'details') {
+        // Leaving the details page for good — snapshot whatever's
+        // currently typed in the name field, since that input won't exist
+        // once we're on the Property stage (see d.setupType's comment for
+        // why this snapshot pattern is needed at all).
+        const input = container && container.querySelector ? container.querySelector('[data-company-name-input]') : null;
+        const typed = input && typeof input.value === 'string' ? input.value.trim() : '';
+        setupFlow.companyName = typed || BUSINESS_BY_ID[setupFlow.bizId].name;
+        setupFlow.stage = 1;
+        setupFlow.step = 'browse';
+      } else if (setupFlow.step === 'property') {
+        setupFlow.stage = 2;
+        setupFlow.step = 'signature';
+      }
       render();
       return;
     }
@@ -688,6 +718,21 @@ const Businesses = (() => {
       render();
       return;
     }
+    if (d.setupSignatureClear !== undefined) { clearSignatureCanvas(); disableFinishButton(); return; }
+    if (d.setupFinish !== undefined) {
+      const canvas = signatureCanvasEl();
+      const biz = getBiz(setupFlow.bizId);
+      biz.brand = {
+        storeType: setupFlow.storeType,
+        companyName: setupFlow.companyName || BUSINESS_BY_ID[setupFlow.bizId].name,
+        signature: canvas && typeof canvas.toDataURL === 'function' ? canvas.toDataURL() : null,
+      };
+      saveGame();
+      setupFlow = null;
+      render();
+      if (typeof Businesses !== 'undefined') Businesses.render();
+      return;
+    }
   }
 
   function setupHTML() {
@@ -696,6 +741,7 @@ const Businesses = (() => {
     let body;
     if (setupFlow.step === 'property') body = setupPropertyHTML(def);
     else if (setupFlow.step === 'details') body = setupDetailsHTML(def);
+    else if (setupFlow.step === 'signature') body = setupSignatureHTML(def);
     else body = setupBrowseHTML(def);
 
     const closeOrBackBtn = setupFlow.step === 'details'
@@ -799,13 +845,11 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /** Stage 2's property screen (the last step): the shared listing, plus
-   *  Rent/Purchase. Both actions start the business the same way every
-   *  other business starts (buyBusinessLevel, same baseCost) — the
-   *  property is flavor and a chosen tenure, not a separate charge — and,
-   *  since this is the final step, also save the store type + company
-   *  name collected in Stage 1 and close the wizard (see onSetupClick's
-   *  d.setupRent/d.setupPurchase handler). */
+  /** Stage 2's property screen: the shared listing, plus Rent/Purchase (or,
+   *  once started, a confirmation card + "Continue to Step 3"). Both
+   *  actions start the business the same way every other business starts
+   *  (buyBusinessLevel, same baseCost) — the property is flavor and a
+   *  chosen tenure, not a separate charge. */
   function setupPropertyHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
@@ -814,8 +858,15 @@ const Businesses = (() => {
     const property = cityObj.properties[storeIndex];
     const cost = businessNextCost(def);
     const canBuy = state.balance >= cost;
+    const started = getBiz(def.id).level > 0;
 
-    const actionsHTML = `
+    const actionsHTML = started ? `
+        <div class="card" style="margin-top:6px">
+          <div class="card-title">${setupFlow.tenure === 'purchase' ? 'Purchased' : 'Deposit Paid'}</div>
+          <div class="progress-caption" style="text-align:left;margin-top:4px">${property.name} is now open for business.</div>
+        </div>
+        <button class="btn btn-wide btn-gold" data-setup-continue-stage type="button">Continue to Step 3 ›</button>`
+      : `
         <button class="btn btn-wide ${canBuy ? 'btn-deposit' : ''}" data-setup-rent type="button" ${canBuy ? '' : 'disabled'}>
           Pay Deposit · ${formatMoney(cost)}</button>
         <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-purchase type="button" ${canBuy ? '' : 'disabled'}>
@@ -888,6 +939,30 @@ const Businesses = (() => {
       </div>
 
       <button class="btn btn-wide btn-gold" data-setup-continue-stage type="button" ${typeDone ? '' : 'disabled'}>Continue to Step 2 ›</button>`;
+  }
+
+  /** Stage 3 (the last step): draw a signature on the canvas to finish.
+   *  Drawing itself is wired via delegated pointer listeners at mount time
+   *  (onSignaturePointerDown/Move/Up — see the section below) rather than
+   *  re-wired on every render, since the canvas element is only created
+   *  once per visit to this screen (render()'s lastRenderKey doesn't
+   *  change while drawing), so strokes persist. "Finish Setup" starts
+   *  disabled — the first stroke enables it directly via the DOM (see
+   *  onSignaturePointerDown), not through a full re-render, which would
+   *  wipe the canvas. */
+  function setupSignatureHTML(def) {
+    const name = setupFlow.companyName || def.name;
+    return `
+      <div class="section-head" style="margin-top:14px"><h2>Sign to Confirm</h2></div>
+      <div class="progress-caption" style="text-align:left;margin:0 2px 18px">Draw your signature below to officially open ${escapeHtml(name)}.</div>
+      <div class="biz-sig-wrap">
+        <canvas class="biz-sig-canvas" data-signature-canvas></canvas>
+      </div>
+      <div class="biz-sig-hint">Sign with your finger above</div>
+      <div class="biz-sig-actions">
+        <button class="btn" data-setup-signature-clear type="button">Clear</button>
+        <button class="btn btn-wide btn-gold" data-setup-finish type="button" disabled>Finish Setup</button>
+      </div>`;
   }
 
   /** Fetch the real world map once and cache it in memory; the browser's
@@ -1023,6 +1098,105 @@ const Businesses = (() => {
   function stopZoomHold() {
     if (zoomHoldTimer) { clearTimeout(zoomHoldTimer); zoomHoldTimer = null; }
     zoomHoldActive = false;
+  }
+
+  /* ------------------------- Signature pad (Step 3) ---------------------- */
+
+  function signatureCanvasEl() {
+    return container && container.querySelector ? container.querySelector('[data-signature-canvas]') : null;
+  }
+
+  function finishButtonEl() {
+    return container && container.querySelector ? container.querySelector('[data-setup-finish]') : null;
+  }
+
+  /** The first stroke unlocks Finish Setup — a direct DOM patch (not a
+   *  render()) so it doesn't touch/recreate the canvas mid-draw. */
+  function enableFinishButton() {
+    const btn = finishButtonEl();
+    if (!btn) return;
+    btn.disabled = false;
+    if (btn.removeAttribute) btn.removeAttribute('disabled');
+  }
+
+  function disableFinishButton() {
+    const btn = finishButtonEl();
+    if (!btn) return;
+    btn.disabled = true;
+    if (btn.setAttribute) btn.setAttribute('disabled', '');
+  }
+
+  /** Sizes the canvas's backing pixel buffer to match its on-screen box,
+   *  devicePixelRatio-aware so strokes stay crisp on phones — same approach
+   *  as chart.js's canvas. Called once right after the signature screen's
+   *  HTML is created. */
+  function setupSignatureCanvas() {
+    const canvas = signatureCanvasEl();
+    if (!canvas || typeof canvas.getContext !== 'function') return;
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    const w = canvas.clientWidth || 300;
+    const h = canvas.clientHeight || 200;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }
+
+  function signatureStrokeColor() {
+    if (typeof getComputedStyle !== 'function' || typeof document === 'undefined') return '#F4F4F3';
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--text');
+    return (v && v.trim()) || '#F4F4F3';
+  }
+
+  function signaturePoint(canvas, e) {
+    const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function onSignaturePointerDown(e) {
+    if (!setupFlow || setupFlow.step !== 'signature') return;
+    const canvas = e.target.closest && e.target.closest('[data-signature-canvas]');
+    if (!canvas) return;
+    e.preventDefault();
+    sigDrawing = true;
+    const p = signaturePoint(canvas, e);
+    sigLastX = p.x; sigLastY = p.y;
+    drawSignatureSegment(canvas, p.x, p.y, p.x + 0.01, p.y + 0.01); // a tap still leaves a dot
+    enableFinishButton();
+  }
+
+  function onSignaturePointerMove(e) {
+    if (!sigDrawing) return;
+    const canvas = e.target.closest && e.target.closest('[data-signature-canvas]');
+    if (!canvas) return;
+    e.preventDefault();
+    const p = signaturePoint(canvas, e);
+    drawSignatureSegment(canvas, sigLastX, sigLastY, p.x, p.y);
+    sigLastX = p.x; sigLastY = p.y;
+  }
+
+  function onSignaturePointerUp() {
+    sigDrawing = false;
+  }
+
+  function drawSignatureSegment(canvas, x0, y0, x1, y1) {
+    if (typeof canvas.getContext !== 'function') return;
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = signatureStrokeColor();
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+
+  function clearSignatureCanvas() {
+    const canvas = signatureCanvasEl();
+    if (!canvas || typeof canvas.getContext !== 'function') return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
   function touchDist(a, b) {

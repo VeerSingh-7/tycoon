@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v106'; // v106: swap setup wizard step order (Business Details is now Step 1, Property is Step 2); remove the signature pad
+const CACHE_NAME = 'tycoon-v107'; // v107: add Step 3 (Signature) to business setup — draw a signature to finish, after Business Details and Property
 
 const ASSETS = [
   'index.html',

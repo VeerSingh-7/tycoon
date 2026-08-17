@@ -51,7 +51,7 @@ function getBiz(id) {
   if (biz.staff == null) biz.staff = 0;
   if (!biz.mech) biz.mech = {};
   if (biz.property === undefined) biz.property = null; // { countryId, city, propertyId, tenure } chosen at setup, or null
-  if (biz.brand === undefined) biz.brand = null; // { storeType, companyName } chosen at setup, or null
+  if (biz.brand === undefined) biz.brand = null; // { storeType, companyName, signature } chosen at setup, or null
   return biz;
 }
 
