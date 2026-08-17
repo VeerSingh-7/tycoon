@@ -203,6 +203,63 @@ const Businesses = (() => {
     return { property: cityObj.properties[storeIndex], cityObj, country, storeIndex };
   }
 
+  /** "Buy It Outright" — converts a deposit-paying tenant into a full
+   *  owner. Charges the business's own next-level cost (the SAME lever
+   *  every other purchase in this game uses) and bumps biz.level along
+   *  with it — buying outright is a bigger commitment than the initial
+   *  deposit, so a further real cost + income bump feels earned; staying
+   *  a renter costs nothing further, same as the property has always been
+   *  flavor rather than its own separate charge. */
+  function buyPropertyOutright(bizId) {
+    const biz = getBiz(bizId);
+    if (!biz.property || biz.property.tenure === 'purchase') return false;
+    if (!buyBusinessLevel(bizId)) return false;
+    biz.property.tenure = 'purchase';
+    saveGame();
+    return true;
+  }
+
+  /** The Property card shown on a business's dedicated page (js/bizdash.js
+   *  Overview tab) once it's actually open — a compact recap (reusing the
+   *  exact same thumb/name/type/location markup as the "My Businesses"
+   *  list card, for visual consistency) plus, while still just renting,
+   *  the "Buy It Outright" action. Once purchased, the card is read-only —
+   *  there's nothing further to decide. */
+  function propertyOverviewHTML(def, biz) {
+    const owned = resolveOwnedProperty(def.id);
+    if (!owned) return '';
+    const isPurchased = biz.property.tenure === 'purchase';
+    const cost = businessNextCost(def);
+    const canBuy = state.balance >= cost;
+    const companyName = (biz.brand && biz.brand.companyName) || def.name;
+    const typeLabel = biz.brand && biz.brand.storeType
+      ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || 'General')
+      : 'General';
+
+    return `
+      <div class="card">
+        <div class="card-title">Property</div>
+        <div class="biz-owned-strip" style="margin-top:10px">
+          <span class="biz-owned-thumb">
+            <span class="biz-owned-thumb-fallback" aria-hidden="true">🏪</span>
+            <img class="biz-owned-thumb-img" src="${propertyImagePath(owned.cityObj.name, owned.storeIndex)}" alt=""
+              loading="lazy" onerror="this.style.opacity='0'">
+          </span>
+          <span class="biz-owned-info">
+            <span class="biz-owned-name">${escapeHtml(companyName)}</span>
+            <span class="biz-owned-meta">${escapeHtml(typeLabel)} · ${escapeHtml(def.name)}</span>
+            <span class="biz-owned-loc">${escapeHtml(owned.property.name)} · ${escapeHtml(owned.cityObj.name)}, ${escapeHtml(owned.country.name)}</span>
+          </span>
+          <span class="biz-owned-tenure">${isPurchased ? 'Owned' : 'Rented'}</span>
+        </div>
+        ${isPurchased ? `
+          <div class="progress-caption" style="text-align:left;margin-top:10px">Fully paid off — this property is yours outright.</div>` : `
+          <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy-outright="${def.id}" type="button" ${canBuy ? '' : 'disabled'}>
+            Buy It Outright · ${formatMoney(cost)}</button>
+          <div class="progress-caption" style="text-align:left;margin-top:6px">Or keep renting — there's no ongoing cost either way for now.</div>`}
+      </div>`;
+  }
+
   /** Toggles the favorite flag and patches the DOM directly instead of
    *  going through render() — matches this file's established pattern
    *  (handleCountryClick does the same) for state changes that shouldn't
@@ -257,11 +314,11 @@ const Businesses = (() => {
    *  colors) — that's reserved for the detail page this card opens into.
    *  Every figure comes from this property's own generated stats
    *  (propertyDetails), same as the detail page — never hardcoded. */
-  function propertyRowHTML(p, cityName, storeIndex) {
+  function propertyRowHTML(p, cityName, storeIndex, isPending) {
     const d = propertyDetails(p, cityName, storeIndex);
     const monthlyRent = Math.round(d.financials.monthlyRent);
     return `
-      <button class="card biz-prop-card" data-setup-property="${propertySlug(p.name)}" type="button">
+      <button class="card biz-prop-card ${isPending ? 'biz-prop-pending' : ''}" data-setup-property="${propertySlug(p.name)}" type="button">
         <span class="biz-prop-thumb">
           <span class="biz-prop-thumb-fallback" aria-hidden="true">🏪</span>
           <img class="biz-prop-thumb-img" src="${propertyImagePath(cityName, storeIndex)}" alt=""
@@ -270,6 +327,7 @@ const Businesses = (() => {
         <span class="biz-prop-content">
           <span class="biz-prop-top">
             <span class="biz-prop-name">${escapeHtml(p.name)}</span>
+            ${isPending ? '<span class="biz-prop-pending-badge">Deposit Paid</span>' : ''}
             <span class="biz-prop-chevron">›</span>
           </span>
           <span class="biz-prop-meta">
@@ -503,8 +561,8 @@ const Businesses = (() => {
    *  game right now (every business with a catalog; today that's just
    *  Supermarket Chain's 96). Same country/city browse UI as the setup
    *  wizard's Step 1, and tapping a property opens the exact same premium
-   *  listing page — just without Rent/Purchase, since there's no specific
-   *  "business being started" context out here. */
+   *  listing page — just without the Pay Deposit action, since there's no
+   *  specific "business being started" context out here. */
   function openPropertiesBrowse() {
     const catalogBizId = BUSINESS_DEFS.find((d) => hasPropertyCatalog(d.id)).id;
     const firstCountry = BUSINESS_PROPERTIES[catalogBizId].countries[0];
@@ -579,26 +637,35 @@ const Businesses = (() => {
    *  scrolling down a longer list scrolled the only way to change city
    *  out of view too. Shared by the setup wizard's browse screen and the
    *  read-only Properties browser (identical markup, different state). */
-  function propertyBrowseHeaderHTML(country, otherCountries, cityObj, dropdownOpen) {
+  function propertyBrowseHeaderHTML(country, otherCountries, cityObj, dropdownOpen, pending) {
+    // pending = { countryId, city } for a property this business has a
+    // live deposit on, or null/undefined outside the setup wizard (the
+    // read-only Properties browser never passes this) — highlights the
+    // country button/option and the matching city chip green, so the
+    // player can find their way back to it after clicking off Step 2.
+    const pendingHereCountry = !!(pending && pending.countryId === country.id);
+    const pendingHereCity = !!(pending && pendingHereCountry && pending.city === cityObj.name);
     return `
       <div class="biz-browse-sticky">
         <div class="biz-setup-country">
-          <button class="biz-setup-country-btn" data-setup-country-toggle type="button" aria-label="Change country">
+          <button class="biz-setup-country-btn ${pendingHereCountry ? 'biz-setup-country-pending' : ''}" data-setup-country-toggle type="button" aria-label="Change country">
             <span class="biz-setup-flag">${country.flag}</span>
             <span class="biz-setup-country-name">${country.name}</span>
+            ${pendingHereCountry ? '<span class="biz-prop-pending-dot" aria-hidden="true"></span>' : ''}
             <span class="biz-setup-country-chevron">${dropdownOpen ? '︿' : '⌄'}</span>
           </button>
           ${dropdownOpen ? `
             <div class="biz-setup-country-dropdown">
               ${otherCountries.map((c) => `
-                <button class="biz-setup-country-option" data-setup-country="${c.id}" type="button">
+                <button class="biz-setup-country-option ${pending && pending.countryId === c.id ? 'biz-setup-country-pending' : ''}" data-setup-country="${c.id}" type="button">
                   <span class="biz-setup-flag">${c.flag}</span>${c.name}
+                  ${pending && pending.countryId === c.id ? '<span class="biz-prop-pending-dot" aria-hidden="true"></span>' : ''}
                 </button>`).join('')}
             </div>` : ''}
         </div>
         <div class="biz-setup-scroller">
           ${country.cities.map((c) => `
-            <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
+            <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''} ${pendingHereCountry && c.name === pending.city ? 'biz-setup-chip-pending' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
         </div>
       </div>`;
   }
@@ -631,10 +698,12 @@ const Businesses = (() => {
   // properties listed underneath — switching country or city just updates
   // that same screen in place. Tapping a property opens ITS real generated
   // listing (js/data/properties.js propertyDetails — description, key
-  // stats, amenities, financials) with Rent/Purchase actions. Either one
-  // starts the business for real (same buyBusinessLevel() + cost as every
-  // other business — the property is flavor, not a separate charge) and
-  // unlocks "Continue to Step 3".
+  // stats, amenities, financials) with a Pay Deposit action, which starts
+  // the business for real (same buyBusinessLevel() + cost as every other
+  // business — the property is flavor, not a separate charge) and unlocks
+  // "Continue to Step 3". Paying the property off in full (vs. staying a
+  // renter) is a decision that happens later, from the business's own
+  // dedicated page once it's actually open (see buyPropertyOutright).
   //
   // Stage 3 (Signature) is a canvas the player draws on with a finger —
   // "Finish Setup" (enabled once a stroke has been drawn) saves the store
@@ -770,19 +839,25 @@ const Businesses = (() => {
       render();
       return;
     }
-    if (d.setupRent !== undefined || d.setupPurchase !== undefined) {
+    if (d.setupRent !== undefined) {
+      // Setup only ever takes a deposit now — "Buy It Outright" (full
+      // purchase) moved to the business's own management page (BizDash),
+      // reachable once it's actually open (see propertyOverviewHTML /
+      // buyPropertyOutright). tenure starts as 'rent' here regardless;
+      // buyPropertyOutright is the only thing that ever flips it to
+      // 'purchase'.
+      //
       // Guard against a double-charge: if the player backs out to the
-      // property page after already renting/buying (it keeps showing a
-      // confirmation, not the actions, but this is cheap insurance
+      // property page after already paying a deposit (it keeps showing a
+      // confirmation, not the action, but this is cheap insurance
       // regardless), don't let a second buyBusinessLevel() fire.
       if (getBiz(setupFlow.bizId).level > 0) return;
-      const tenure = d.setupRent !== undefined ? 'rent' : 'purchase';
       const cost = businessNextCost(BUSINESS_BY_ID[setupFlow.bizId]); // capture BEFORE buying — the level-0 cost is what's actually charged
       if (buyBusinessLevel(setupFlow.bizId)) {
         const biz = getBiz(setupFlow.bizId);
-        biz.property = { countryId: setupFlow.countryId, city: setupFlow.city, propertyId: setupFlow.propertyId, tenure };
+        biz.property = { countryId: setupFlow.countryId, city: setupFlow.city, propertyId: setupFlow.propertyId, tenure: 'rent' };
         saveGame();
-        setupFlow.tenure = tenure;
+        setupFlow.tenure = 'rent';
         setupFlow.amountSpent = cost; // shown as the setup cost on the Review page — businessNextCost(def) would return a different (higher) number once level > 0
         UI.renderBalance();
         render();
@@ -883,10 +958,16 @@ const Businesses = (() => {
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
     const cityObj = country.cities.find((c) => c.name === setupFlow.city) || country.cities[0];
     const otherCountries = catalog.countries.filter((c) => c.id !== country.id);
+    // A deposit already paid this session (biz.property set, wizard still
+    // open) — highlight its row/city/country green so backing out to browse
+    // doesn't lose track of which property still needs Step 3.
+    const biz = getBiz(def.id);
+    const pending = biz.property ? { countryId: biz.property.countryId, city: biz.property.city } : null;
     return `
-      ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, setupFlow.countryDropdownOpen)}
+      ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, setupFlow.countryDropdownOpen, pending)}
       <div class="biz-list">
-        ${cityObj.properties.map((p, i) => propertyRowHTML(p, cityObj.name, i)).join('')}
+        ${cityObj.properties.map((p, i) => propertyRowHTML(p, cityObj.name, i,
+          !!(pending && pending.countryId === country.id && pending.city === cityObj.name && biz.property.propertyId === propertySlug(p.name)))).join('')}
       </div>`;
   }
 
@@ -894,7 +975,7 @@ const Businesses = (() => {
    *  full-bleed hero, a key-stats pill bar, an "About This Property"
    *  paragraph (the generated narrative description), a label/value
    *  details grid, and the amenities list — used both by the setup
-   *  wizard's property screen (actionsHTML = Rent/Purchase buttons) and
+   *  wizard's property screen (actionsHTML = Pay Deposit button) and
    *  the read-only Properties browser (actionsHTML = ''). Every number is
    *  this property's own generated figure (js/data/properties.js
    *  propertyDetails) — nothing here is shared/generic across properties. */
@@ -959,11 +1040,10 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /** Stage 2's property screen: the shared listing, plus Rent/Purchase (or,
-   *  once started, a confirmation card + "Continue to Step 3"). Both
-   *  actions start the business the same way every other business starts
-   *  (buyBusinessLevel, same baseCost) — the property is flavor and a
-   *  chosen tenure, not a separate charge. */
+  /** Stage 2's property screen: the shared listing, plus Pay Deposit (or,
+   *  once started, a confirmation card + "Continue to Step 3"). Starts the
+   *  business the same way every other business starts (buyBusinessLevel,
+   *  same baseCost) — the property is flavor, not a separate charge. */
   function setupPropertyHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
@@ -994,11 +1074,13 @@ const Businesses = (() => {
           <div class="progress-caption" style="text-align:left;margin-top:4px">${escapeHtml(def.name)} already operates out of a different property — only one location is supported for now.</div>
         </div>`;
     } else {
+      // Only a deposit at setup time now — Buy Now/full purchase moved to
+      // the business's own management page (BizDash), reachable once it's
+      // actually open, so the choice between paying it off and renting
+      // long-term happens after the player has seen the business running.
       actionsHTML = `
         <button class="btn btn-wide ${canBuy ? 'btn-deposit' : ''}" data-setup-rent type="button" ${canBuy ? '' : 'disabled'}>
-          Pay Deposit · ${formatMoney(cost)}</button>
-        <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-purchase type="button" ${canBuy ? '' : 'disabled'}>
-          Buy Now · ${formatMoney(cost)}</button>`;
+          Pay Deposit · ${formatMoney(cost)}</button>`;
     }
 
     return propertyListingHTML(def, property, cityObj, country, storeIndex, actionsHTML);
@@ -1099,13 +1181,12 @@ const Businesses = (() => {
    *  Stages 1-3 — business/store type, company name, suppliers (still
    *  just a placeholder), the picked property, the signature drawn on the
    *  previous screen, and the total amount actually spent to set up
-   *  (setupFlow.amountSpent, captured at the moment of Rent/Purchase —
+   *  (setupFlow.amountSpent, captured at the moment the deposit was paid —
    *  businessNextCost(def) can't be re-read here since the level has
    *  already moved on to the NEXT cost by this point). "Start Business"
    *  is the actual biz.brand save + wizard close (see onSetupClick's
    *  d.setupStartBusiness) — the business itself already exists from
-   *  Stage 2's Rent/Purchase; this just finalizes the branding on top
-   *  of it. */
+   *  Stage 2's deposit; this just finalizes the branding on top of it. */
   function setupReviewHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
@@ -1749,5 +1830,5 @@ const Businesses = (() => {
 
   // staffHTML/upgradesHTML are exported so the dedicated business page
   // (js/bizdash.js) can reuse them exactly as-is — no re-derived logic.
-  return { mount, render, staffHTML, upgradesHTML };
+  return { mount, render, staffHTML, upgradesHTML, propertyOverviewHTML, buyPropertyOutright };
 })();

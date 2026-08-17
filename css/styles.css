@@ -1046,6 +1046,22 @@ html, body {
 }
 .biz-setup-chip.is-active { background: var(--surface); border-color: var(--accent-bg); color: var(--text); }
 
+/* "You have a deposit pending here" markers — a deliberate green exception
+   (the app's own money-positive color), explicitly requested so a player
+   who clicks off Step 2 can find their way back to the property they put
+   a deposit on before finishing Step 3. Scoped to the setup wizard's own
+   browse screen only (js/businesses.js setupBrowseHTML) — the read-only
+   Properties browser never passes a `pending` value, so none of this ever
+   shows there. */
+.biz-prop-pending-badge {
+  flex-shrink: 0; font-size: 9px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--green); background: var(--green-soft); border: 1px solid var(--green);
+  padding: 3px 7px; border-radius: 999px; white-space: nowrap;
+}
+.biz-prop-pending-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.biz-setup-country-btn.biz-setup-country-pending { border-color: var(--green); }
+.biz-setup-chip.biz-setup-chip-pending { border-color: var(--green); color: var(--green); }
+
 /* -------------------------------------------------- Compact property card */
 /* Horizontal, ~140px card: a 120px square photo thumbnail on the left,
    name/meta/price/stats on the right. Shared by the setup wizard's browse
@@ -1065,6 +1081,7 @@ html, body {
   box-shadow: 0 10px 24px var(--shadow);
   border-color: var(--muted);
 }
+.biz-prop-card.biz-prop-pending { border-color: var(--green); background: var(--green-soft); }
 @keyframes bizPropCardIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }

@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v110'; // v110: add Step 4 (Review & Confirm) to business setup; fix bottom-nav flash when picking a store type
+const CACHE_NAME = 'tycoon-v111'; // v111: setup only takes a deposit now (Buy It Outright moved to the business's own page); green "deposit pending" highlighting
 
 const ASSETS = [
   'index.html',

@@ -199,6 +199,60 @@ for (const def of BUSINESS_DEFS) {
   check('document.body.style.overflow is restored on close', document.body.style.overflow === '');
 })();
 
+/* ===================== C2) Overview's Property card + "Buy It Outright" ===================== */
+(function () {
+  const created = [];
+  globalThis.document = {
+    createElement: (tag) => {
+      const el = { tagName: tag, className: '', innerHTML: '', _listeners: {},
+        addEventListener(type, fn) { this._listeners[type] = fn; },
+        remove() { this._removed = true; } };
+      created.push(el);
+      return el;
+    },
+    body: { children: [], appendChild(el) { this.children.push(el); }, style: {} },
+  };
+  function fakeBtn(dataset) { return { closest: () => ({ dataset, disabled: false }) }; }
+
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  buyBusinessLevel('supermarket');
+  const biz = getBiz('supermarket');
+  const uk = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'uk');
+  const london = uk.cities.find((c) => c.name === 'London');
+  const riverside = london.properties[0]; // "Riverside Market"
+  biz.property = { countryId: 'uk', city: 'London', propertyId: propertySlug(riverside.name), tenure: 'rent' };
+  biz.brand = { storeType: 'grocery', companyName: 'Fresh Co' };
+
+  BizDash.open('supermarket');
+  const el = created[created.length - 1];
+  check('Overview shows a Property card once biz.property is set', el.innerHTML.includes('Riverside Market') && el.innerHTML.includes('Fresh Co'));
+  check('the Property card shows the store type and business type', el.innerHTML.includes('Grocery') && el.innerHTML.includes('Supermarket Chain'));
+  check('while renting, the card offers Buy It Outright with a real cost', /data-buy-outright="supermarket"/.test(el.innerHTML) && el.innerHTML.includes('Buy It Outright'));
+  check('tenure reads Rented before buying outright', el.innerHTML.includes('>Rented<'));
+
+  const balBefore = state.balance;
+  const levelBefore = biz.level;
+  el._listeners.click({ target: fakeBtn({ buyOutright: 'supermarket' }) });
+  check('Buy It Outright charges real money', state.balance < balBefore);
+  check('Buy It Outright bumps the business level (same lever as every other purchase)', biz.level === levelBefore + 1);
+  check('the property record now reads purchase, not rent', biz.property.tenure === 'purchase');
+
+  const rerendered = created[created.length - 1];
+  check('Overview re-renders showing Owned instead of Rented, with no further action offered', rerendered.innerHTML.includes('>Owned<')
+    && !rerendered.innerHTML.includes('Buy It Outright') && rerendered.innerHTML.includes('Fully paid off'));
+
+  BizDash.close();
+
+  // A business with no property catalog gets no Property card at all.
+  buyBusinessLevel('hotels');
+  BizDash.open('hotels');
+  const hotelsEl = created[created.length - 1];
+  check('a business without a property catalog shows no Property card', !hotelsEl.innerHTML.includes('class="card-title">Property<'));
+  BizDash.close();
+})();
+
 /* ===================== D) Invest tab: Real Estate "Coming Soon" placeholder ===================== */
 // A minimal DOM stub good enough to drive Invest's real internal click
 // handler (captured via addEventListener) through: mount -> tap "Finances"

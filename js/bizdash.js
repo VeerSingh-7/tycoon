@@ -61,6 +61,7 @@ const BizDash = (() => {
     let changed = false;
     if (d.upgrade) changed = buyBusinessUpgrade(d.biz, d.upgrade);
     else if (d.hire) changed = hireStaff(d.hire);
+    else if (d.buyOutright) changed = Businesses.buyPropertyOutright(d.buyOutright);
     else if (d.mechAction) { changed = Mechanics.action(d.biz, d.mechAction, d.arg); if (changed) saveGame(); }
     else if (d.sell) {
       const def = BUSINESS_BY_ID[d.sell];
@@ -77,7 +78,7 @@ const BizDash = (() => {
     }
 
     if (changed) {
-      UI.renderBalance();
+      if (typeof UI !== 'undefined') UI.renderBalance();
       render();
       if (typeof Businesses !== 'undefined') Businesses.render(); // keep the list card's numbers in sync underneath
     }
@@ -135,6 +136,7 @@ const BizDash = (() => {
           <div><span class="muted">Net income</span><b class="gold">${formatRate(net)}</b></div>
         </div>
       </div>
+      ${Businesses.propertyOverviewHTML(def, biz)}
       <button class="sell-link" data-sell="${def.id}">Sell business — ${formatMoney(refund)} refund (25%), frees slot</button>
     `;
   }
