@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v97'; // v97: real generated property listings (desc/stats/amenities/financials) replace Coming Soon; Rent/Purchase actions; Step 2 placeholder
+const CACHE_NAME = 'tycoon-v98'; // v98: Step 2 wizard — store type, company name, suppliers placeholder, draw-to-sign canvas
 
 const ASSETS = [
   'index.html',

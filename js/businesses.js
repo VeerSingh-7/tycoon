@@ -100,6 +100,15 @@ const Businesses = (() => {
   let selectedCountryEl = null;   // the <g> currently highlighted, or null
   let selectedCountryCode = null; // its ISO code, or null
 
+  // Setup wizard Step 2's signature pad: pointer-driven freehand drawing on
+  // a <canvas>, wired once at container mount (delegated, like the zoom-hold
+  // above) rather than re-wired on every render — the canvas element only
+  // gets created once per visit to the signature screen (render()'s
+  // lastRenderKey doesn't change while drawing), so the strokes persist.
+  let sigDrawing = false;
+  let sigLastX = 0;
+  let sigLastY = 0;
+
   // Set this to an image URL/path later to show a real photo behind the
   // World Map hero card. Left null for now — the card falls back to a
   // solid --bg-mid fill with a centered icon so it never looks broken.
@@ -209,6 +218,11 @@ const Businesses = (() => {
     container.addEventListener('pointerup', stopZoomHold);
     container.addEventListener('pointercancel', stopZoomHold);
     container.addEventListener('pointerleave', stopZoomHold);
+    container.addEventListener('pointerdown', onSignaturePointerDown);
+    container.addEventListener('pointermove', onSignaturePointerMove);
+    container.addEventListener('pointerup', onSignaturePointerUp);
+    container.addEventListener('pointercancel', onSignaturePointerUp);
+    container.addEventListener('pointerleave', onSignaturePointerUp);
     listMode = 'all';
     mapOpen = false;
     propertiesOpen = false;
@@ -315,9 +329,15 @@ const Businesses = (() => {
       return;
     }
     if (setupFlow) {
-      const desired = 'setup:' + setupFlow.stage + ':' + setupFlow.step + ':' + setupFlow.countryId + ':' + setupFlow.city + ':' + setupFlow.propertyId + ':' + setupFlow.countryDropdownOpen + ':' + setupFlow.tenure;
-      if (lastRenderKey !== desired) container.innerHTML = setupHTML();
-      lastRenderKey = desired;
+      const desired = 'setup:' + setupFlow.stage + ':' + setupFlow.step + ':' + setupFlow.countryId + ':' + setupFlow.city + ':' + setupFlow.propertyId + ':' + setupFlow.countryDropdownOpen + ':' + setupFlow.tenure + ':' + setupFlow.storeType;
+      if (lastRenderKey !== desired) {
+        container.innerHTML = setupHTML();
+        lastRenderKey = desired;
+        // Size the signature canvas's pixel buffer once, right after it's
+        // created — never again while the player is still on this screen,
+        // or their strokes would be wiped (see the section header comment).
+        if (setupFlow.step === 'signature') setupSignatureCanvas();
+      }
       return;
     }
     lastRenderKey = null;
@@ -348,8 +368,9 @@ const Businesses = (() => {
   /* ------------------------- Business setup flow ------------------------ */
   // A multi-STAGE wizard for a business with its own property catalog
   // (js/data/properties.js) — SETUP_STAGES lists the stages: "Property"
-  // (stage 1) then "Next Steps" (stage 2, a placeholder — more real
-  // content lands here later without changing how the header counts them).
+  // (stage 1) then "Business Details" (stage 2 — store type, company name,
+  // suppliers, signature). Only stage indices show in the header ("Step 1
+  // of 2"); each stage internally walks through its own sequence of steps.
   //
   // Stage 1 (Property) starts on ONE browse screen: a country selector
   // (flag + name, tap for a dropdown of the other 3) at the top, a
@@ -360,14 +381,33 @@ const Businesses = (() => {
   // key stats, amenities, financials) with Rent/Purchase actions. Either
   // one starts the business for real (same buyBusinessLevel() + cost as
   // every other business — the property is flavor, not a separate charge)
-  // and unlocks "Continue to Step 2", which is just a Coming Soon page for
-  // now. Businesses WITHOUT a catalog are completely unaffected — still
-  // buy instantly, no wizard at all.
+  // and unlocks "Continue to Step 2".
+  //
+  // Stage 2 (Business Details) is 4 screens in sequence: pick a store type
+  // (type) -> name the company (name) -> suppliers, a placeholder for now
+  // (suppliers) -> draw a signature to finish (signature). "Finish Setup"
+  // on the last screen saves it all onto the business (biz.brand) and
+  // closes the wizard — there's nothing after it yet.
+  //
+  // Businesses WITHOUT a catalog are completely unaffected — still buy
+  // instantly, no wizard at all.
 
   const SETUP_STAGES = [
     { id: 'property', label: 'Property' },
-    { id: 'next', label: 'Next Steps' },
+    { id: 'details', label: 'Business Details' },
   ];
+
+  const STORE_TYPES = [
+    { id: 'jewellery', label: 'Jewellery' },
+    { id: 'grocery', label: 'Grocery' },
+    { id: 'electronics', label: 'Electronics & Tech' },
+    { id: 'fashion', label: 'Clothing & Fashion' },
+    { id: 'home', label: 'Home & Furniture' },
+    { id: 'pharmacy', label: 'Pharmacy & Health' },
+  ];
+
+  const escapeHtml = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escapeAttr = (v) => escapeHtml(v).replace(/"/g, '&quot;');
 
   function openBusinessSetup(bizId) {
     const firstCountry = BUSINESS_PROPERTIES[bizId].countries[0];
@@ -375,6 +415,7 @@ const Businesses = (() => {
       bizId, stage: 0, step: 'browse',
       countryId: firstCountry.id, city: firstCountry.cities[0].name,
       propertyId: null, countryDropdownOpen: false, tenure: null,
+      storeType: null, companyName: '',
     };
     render();
   }
@@ -387,7 +428,10 @@ const Businesses = (() => {
     if (d.bizNav === 'closeSetup') { setupFlow = null; render(); return; }
     if (d.setupBack !== undefined) {
       if (setupFlow.step === 'property') setupFlow.step = 'browse';
-      else if (setupFlow.step === 'stage2') { setupFlow.stage = 0; setupFlow.step = 'property'; }
+      else if (setupFlow.step === 'type') { setupFlow.stage = 0; setupFlow.step = 'property'; }
+      else if (setupFlow.step === 'name') setupFlow.step = 'type';
+      else if (setupFlow.step === 'suppliers') setupFlow.step = 'name';
+      else if (setupFlow.step === 'signature') setupFlow.step = 'suppliers';
       render();
       return;
     }
@@ -425,7 +469,32 @@ const Businesses = (() => {
       }
       return;
     }
-    if (d.setupContinueStage !== undefined) { setupFlow.stage = 1; setupFlow.step = 'stage2'; render(); return; }
+    if (d.setupContinueStage !== undefined) { setupFlow.stage = 1; setupFlow.step = 'type'; render(); return; }
+    if (d.setupType) { setupFlow.storeType = d.setupType; setupFlow.step = 'name'; render(); return; }
+    if (d.setupNameNext !== undefined) {
+      const input = container && container.querySelector ? container.querySelector('[data-company-name-input]') : null;
+      const typed = input && typeof input.value === 'string' ? input.value.trim() : '';
+      setupFlow.companyName = typed || BUSINESS_BY_ID[setupFlow.bizId].name;
+      setupFlow.step = 'suppliers';
+      render();
+      return;
+    }
+    if (d.setupSuppliersNext !== undefined) { setupFlow.step = 'signature'; render(); return; }
+    if (d.setupSignatureClear !== undefined) { clearSignatureCanvas(); return; }
+    if (d.setupFinish !== undefined) {
+      const canvas = signatureCanvasEl();
+      const biz = getBiz(setupFlow.bizId);
+      biz.brand = {
+        storeType: setupFlow.storeType,
+        companyName: setupFlow.companyName,
+        signature: canvas && typeof canvas.toDataURL === 'function' ? canvas.toDataURL() : null,
+      };
+      saveGame();
+      setupFlow = null;
+      render();
+      if (typeof Businesses !== 'undefined') Businesses.render();
+      return;
+    }
   }
 
   function setupHTML() {
@@ -433,7 +502,10 @@ const Businesses = (() => {
     const stage = SETUP_STAGES[setupFlow.stage];
     let body;
     if (setupFlow.step === 'property') body = setupPropertyHTML(def);
-    else if (setupFlow.step === 'stage2') body = setupStage2HTML();
+    else if (setupFlow.step === 'type') body = setupTypeHTML(def);
+    else if (setupFlow.step === 'name') body = setupNameHTML(def);
+    else if (setupFlow.step === 'suppliers') body = setupSuppliersHTML(def);
+    else if (setupFlow.step === 'signature') body = setupSignatureHTML(def);
     else body = setupBrowseHTML(def);
 
     const closeOrBackBtn = setupFlow.step === 'browse'
@@ -557,14 +629,66 @@ const Businesses = (() => {
       ${actionsOrContinue}`;
   }
 
-  /** Stage 2 doesn't exist yet — reached only after a property has been
-   *  rented or purchased. */
-  function setupStage2HTML() {
+  /** Stage 2, screen 1: pick what the store actually sells. Tapping a type
+   *  selects it and moves straight on to naming the company. */
+  function setupTypeHTML(def) {
     return `
-      <div class="coming-soon">
+      <div class="section-head" style="margin-top:14px"><h2>Choose Your Store Type</h2></div>
+      <div class="progress-caption" style="text-align:left;margin:0 2px 14px">What will ${escapeHtml(def.name)} primarily sell?</div>
+      <div class="biz-list">
+        ${STORE_TYPES.map((t) => `
+          <button class="card hub-card" data-setup-type="${t.id}" type="button">
+            <span class="hub-text"><span class="hub-title">${t.label}</span></span>
+            <span class="hub-arrow">›</span>
+          </button>`).join('')}
+      </div>`;
+  }
+
+  /** Stage 2, screen 2: name the company. The input's live value is only
+   *  read from the DOM when Next is tapped — companyName deliberately isn't
+   *  part of render()'s lastRenderKey, so keystrokes never trigger a
+   *  full re-render that would blow away focus/cursor position. */
+  function setupNameHTML(def) {
+    const val = setupFlow.companyName || def.name;
+    return `
+      <div class="section-head" style="margin-top:14px"><h2>Name Your Company</h2></div>
+      <div class="progress-caption" style="text-align:left;margin:0 2px 14px">This is the name customers will see above the door.</div>
+      <div class="card">
+        <input class="mk-text-input" data-company-name-input type="text" maxlength="40"
+          value="${escapeAttr(val)}" placeholder="${escapeAttr(def.name)}" autocomplete="off">
+      </div>
+      <button class="btn btn-wide btn-gold" data-setup-name-next type="button">Next ›</button>`;
+  }
+
+  /** Stage 2, screen 3: suppliers — deliberately empty, no supplier system
+   *  exists yet. Just a placeholder on the way to the signature screen. */
+  function setupSuppliersHTML(def) {
+    const name = setupFlow.companyName || def.name;
+    return `
+      <div class="section-head" style="margin-top:14px"><h2>Suppliers</h2></div>
+      <div class="coming-soon" style="padding:40px 24px">
         <div class="cs-badge">COMING SOON</div>
-        <h2>Step 2</h2>
-        <p class="muted">The next stage of setting up your business is on the way.</p>
+        <h2>No Suppliers Yet</h2>
+        <p class="muted">Sourcing deals and supplier contracts for ${escapeHtml(name)} are on the way.</p>
+      </div>
+      <button class="btn btn-wide btn-gold" data-setup-suppliers-next type="button">Next ›</button>`;
+  }
+
+  /** Stage 2, screen 4 (last): draw a signature on the canvas to finish.
+   *  Drawing itself is wired via delegated pointer listeners at mount time
+   *  (onSignaturePointerDown/Move/Up) — see the section header comment. */
+  function setupSignatureHTML(def) {
+    const name = setupFlow.companyName || def.name;
+    return `
+      <div class="section-head" style="margin-top:14px"><h2>Sign to Confirm</h2></div>
+      <div class="progress-caption" style="text-align:left;margin:0 2px 14px">Draw your signature below to officially open ${escapeHtml(name)}.</div>
+      <div class="biz-sig-wrap">
+        <canvas class="biz-sig-canvas" data-signature-canvas></canvas>
+      </div>
+      <div class="biz-sig-hint">Sign with your finger above</div>
+      <div class="biz-sig-actions">
+        <button class="btn" data-setup-signature-clear type="button">Clear</button>
+        <button class="btn btn-wide btn-gold" data-setup-finish type="button">Finish Setup</button>
       </div>`;
   }
 
@@ -701,6 +825,84 @@ const Businesses = (() => {
   function stopZoomHold() {
     if (zoomHoldTimer) { clearTimeout(zoomHoldTimer); zoomHoldTimer = null; }
     zoomHoldActive = false;
+  }
+
+  /* ------------------------- Signature pad (Step 2) ---------------------- */
+
+  function signatureCanvasEl() {
+    return container && container.querySelector ? container.querySelector('[data-signature-canvas]') : null;
+  }
+
+  /** Sizes the canvas's backing pixel buffer to match its on-screen box,
+   *  devicePixelRatio-aware so strokes stay crisp on phones — same approach
+   *  as chart.js's canvas. Called once right after the signature screen's
+   *  HTML is created. */
+  function setupSignatureCanvas() {
+    const canvas = signatureCanvasEl();
+    if (!canvas || typeof canvas.getContext !== 'function') return;
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    const w = canvas.clientWidth || 300;
+    const h = canvas.clientHeight || 200;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }
+
+  function signatureStrokeColor() {
+    if (typeof getComputedStyle !== 'function' || typeof document === 'undefined') return '#F4F4F3';
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--text');
+    return (v && v.trim()) || '#F4F4F3';
+  }
+
+  function signaturePoint(canvas, e) {
+    const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function onSignaturePointerDown(e) {
+    if (!setupFlow || setupFlow.step !== 'signature') return;
+    const canvas = e.target.closest && e.target.closest('[data-signature-canvas]');
+    if (!canvas) return;
+    e.preventDefault();
+    sigDrawing = true;
+    const p = signaturePoint(canvas, e);
+    sigLastX = p.x; sigLastY = p.y;
+    drawSignatureSegment(canvas, p.x, p.y, p.x + 0.01, p.y + 0.01); // a tap still leaves a dot
+  }
+
+  function onSignaturePointerMove(e) {
+    if (!sigDrawing) return;
+    const canvas = e.target.closest && e.target.closest('[data-signature-canvas]');
+    if (!canvas) return;
+    e.preventDefault();
+    const p = signaturePoint(canvas, e);
+    drawSignatureSegment(canvas, sigLastX, sigLastY, p.x, p.y);
+    sigLastX = p.x; sigLastY = p.y;
+  }
+
+  function onSignaturePointerUp() {
+    sigDrawing = false;
+  }
+
+  function drawSignatureSegment(canvas, x0, y0, x1, y1) {
+    if (typeof canvas.getContext !== 'function') return;
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = signatureStrokeColor();
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+
+  function clearSignatureCanvas() {
+    const canvas = signatureCanvasEl();
+    if (!canvas || typeof canvas.getContext !== 'function') return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
   function touchDist(a, b) {
