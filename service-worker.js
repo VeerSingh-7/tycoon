@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v99'; // v99: premium real-estate listing template for all 96 properties; read-only Properties browser; Step 2 collapsed to one scrollable page
+const CACHE_NAME = 'tycoon-v100'; // v100: colored icon per property row, solid red hero placeholder, colorful pill/section accents
 
 const ASSETS = [
   'index.html',

@@ -146,6 +146,47 @@ const Businesses = (() => {
         <path d="M8 20 L20 9 L32 20 V32 H8 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
         <path d="M16 32 V22 H24 V32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
 
+  // Storefront glyph shown next to every property row — a scalloped awning
+  // over a door, the classic "shop" mark. One shape for every listing; the
+  // colour is what varies (see PROPERTY_ACCENTS below), so the list still
+  // reads as colourful/varied at a glance without needing a distinct icon
+  // per property.
+  const PROPERTY_ROW_ICON = `<svg viewBox="0 0 24 24" class="hub-logo-svg" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 9.5 L5 4 H19 L20 9.5"/>
+        <path d="M4 9.5 A2.5 2.5 0 0 0 9 9.5 A2.5 2.5 0 0 0 14 9.5 A2.5 2.5 0 0 0 19 9.5"/>
+        <path d="M5 9.5 V20 H19 V9.5"/>
+        <path d="M9.5 20 V14 H14.5 V20"/></svg>`;
+
+  // A deliberate, EXPLICIT colour exception (like the World Map) — the
+  // player asked for the property listings to feel "colourful" and for
+  // each row to carry its own icon accent. Deterministically seeded per
+  // property (js/data/properties.js seededFraction) so the same property
+  // always gets the same colour across reloads, but the list as a whole
+  // reads as varied. Fixed hex values (not theme tokens) on purpose —
+  // these are meant to look the same, vividly colourful, in both themes.
+  const PROPERTY_ACCENTS = ['#FF6B6B', '#4F86F7', '#2EC4B6', '#F5A623', '#A66DFF', '#FF8C42', '#5FD98A', '#E056FD'];
+
+  function propertyAccentColor(property) {
+    const f = seededFraction(propertySlug(property.name) + '_accent');
+    return PROPERTY_ACCENTS[Math.floor(f * PROPERTY_ACCENTS.length) % PROPERTY_ACCENTS.length];
+  }
+
+  /** One property row, shared by the setup wizard's browse screen and the
+   *  read-only Properties browser — colour-accented icon on the left,
+   *  name/size/blurb in the middle, arrow on the right. */
+  function propertyRowHTML(p) {
+    const color = propertyAccentColor(p);
+    return `
+      <button class="card hub-card" data-setup-property="${propertySlug(p.name)}" type="button">
+        <span class="hub-logo" style="background:${color}26;border-color:${color}66;color:${color}">${PROPERTY_ROW_ICON}</span>
+        <span class="hub-text">
+          <span class="hub-title">${p.name}</span>
+          <span class="hub-sub">${p.sqft.toLocaleString()} sq ft · ${p.desc}</span>
+        </span>
+        <span class="hub-arrow">›</span>
+      </button>`;
+  }
+
   /** Hidden gradient defs (never rendered visibly on their own) that the real
    *  map's country paths reference via fill="url(#bizMapLand)". A DELIBERATE
    *  exception to the app's monochrome system, at explicit request: a
@@ -443,14 +484,7 @@ const Businesses = (() => {
           <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
       </div>
       <div class="biz-list">
-        ${cityObj.properties.map((p) => `
-          <button class="card hub-card" data-setup-property="${propertySlug(p.name)}" type="button">
-            <span class="hub-text">
-              <span class="hub-title">${p.name}</span>
-              <span class="hub-sub">${p.sqft.toLocaleString()} sq ft · ${p.desc}</span>
-            </span>
-            <span class="hub-arrow">›</span>
-          </button>`).join('')}
+        ${cityObj.properties.map(propertyRowHTML).join('')}
       </div>`;
   }
 
@@ -640,14 +674,7 @@ const Businesses = (() => {
           <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
       </div>
       <div class="biz-list">
-        ${cityObj.properties.map((p) => `
-          <button class="card hub-card" data-setup-property="${propertySlug(p.name)}" type="button">
-            <span class="hub-text">
-              <span class="hub-title">${p.name}</span>
-              <span class="hub-sub">${p.sqft.toLocaleString()} sq ft · ${p.desc}</span>
-            </span>
-            <span class="hub-arrow">›</span>
-          </button>`).join('')}
+        ${cityObj.properties.map(propertyRowHTML).join('')}
       </div>`;
   }
 
@@ -670,6 +697,8 @@ const Businesses = (() => {
     const capacity = Math.round(property.sqft / 100);
     const trafficIndex = Math.round(d.stats.dailyTraffic / 50);
     const dailyRent = d.financials.monthlyRent / 30;
+    const accentColor = propertyAccentColor(property);
+    const titleStyle = `style="--accent-color:${accentColor}"`;
 
     return `
       <div class="biz-listing-hero">
@@ -682,16 +711,16 @@ const Businesses = (() => {
       </div>
       <div class="biz-listing-body">
         <div class="biz-pills">
-          <div class="biz-pill"><span class="biz-pill-label">Capacity</span><span class="biz-pill-value">${capacity}</span></div>
-          <div class="biz-pill"><span class="biz-pill-label">Traffic</span><span class="biz-pill-value">${trafficIndex}</span></div>
-          <div class="biz-pill"><span class="biz-pill-label">Amenities</span><span class="biz-pill-value">${d.amenities.length}</span></div>
-          <div class="biz-pill"><span class="biz-pill-label">Value</span><span class="biz-pill-value">${formatMoney(d.financials.purchasePrice)}</span></div>
+          <div class="biz-pill"><span class="biz-pill-label">Capacity</span><span class="biz-pill-value capacity">${capacity}</span></div>
+          <div class="biz-pill"><span class="biz-pill-label">Traffic</span><span class="biz-pill-value traffic">${trafficIndex}</span></div>
+          <div class="biz-pill"><span class="biz-pill-label">Amenities</span><span class="biz-pill-value amenities">${d.amenities.length}</span></div>
+          <div class="biz-pill"><span class="biz-pill-label">Value</span><span class="biz-pill-value value">${formatMoney(d.financials.purchasePrice)}</span></div>
         </div>
 
-        <div class="biz-listing-section-title">About This Property</div>
+        <div class="biz-listing-section-title" ${titleStyle}>About This Property</div>
         <p class="biz-listing-desc">${escapeHtml(d.description)}</p>
 
-        <div class="biz-listing-section-title">Property Details</div>
+        <div class="biz-listing-section-title" ${titleStyle}>Property Details</div>
         <div class="biz-detail-grid">
           <div class="biz-detail-row"><span class="biz-detail-label">Owned By</span><span class="biz-detail-value">${escapeHtml(ownedBy)}</span></div>
           <div class="biz-detail-row"><span class="biz-detail-label">Type</span><span class="biz-detail-value">${escapeHtml(typeLabel)}</span></div>
@@ -706,7 +735,7 @@ const Businesses = (() => {
           <div class="biz-detail-row"><span class="biz-detail-label">Est. Annual Revenue</span><span class="biz-detail-value mono">${formatMoney(d.financials.expectedAnnualRevenue)}</span></div>
         </div>
 
-        <div class="biz-listing-section-title">Amenities</div>
+        <div class="biz-listing-section-title" ${titleStyle}>Amenities</div>
         <div class="upgrade-list">
           ${d.amenities.map((a) => `<div class="upgrade-row"><div class="upgrade-info"><span class="upgrade-name">${escapeHtml(a)}</span></div></div>`).join('')}
         </div>
