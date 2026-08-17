@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v109'; // v109: fix buying one property marking every property as purchased; add a property/company/type strip to owned business cards
+const CACHE_NAME = 'tycoon-v110'; // v110: add Step 4 (Review & Confirm) to business setup; fix bottom-nav flash when picking a store type
 
 const ASSETS = [
   'index.html',
