@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v98'; // v98: Step 2 wizard — store type, company name, suppliers placeholder, draw-to-sign canvas
+const CACHE_NAME = 'tycoon-v99'; // v99: premium real-estate listing template for all 96 properties; read-only Properties browser; Step 2 collapsed to one scrollable page
 
 const ASSETS = [
   'index.html',

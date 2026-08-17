@@ -389,6 +389,78 @@ html, body {
 .biz-sig-actions { display: flex; gap: 10px; margin-top: 14px; }
 .biz-sig-actions .btn { flex: 1; }
 
+/* ------------------------------------------------ Premium property listing */
+/* Real-estate-style listing page: full-bleed hero, About paragraph, a
+   label/value details grid, a key-stats pill bar, then actions. Shared by
+   the setup wizard's property screen and the read-only Properties browser
+   (js/businesses.js propertyListingHTML) — same markup, different actions. */
+.biz-listing-hero {
+  position: relative; height: 280px; margin: 0 -14px; overflow: hidden;
+  background: var(--bg-mid);
+  display: flex; align-items: center; justify-content: center;
+}
+.biz-listing-hero-icon { opacity: 0.14; color: var(--text); }
+.biz-listing-hero-icon svg { width: 110px; height: 110px; display: block; }
+.biz-listing-hero-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.65) 100%);
+}
+.biz-listing-hero-text { position: absolute; left: 16px; right: 16px; bottom: 16px; }
+.biz-listing-hero-name { color: #FFFFFF; font-size: 24px; font-weight: 800; line-height: 1.15; }
+.biz-listing-hero-loc { color: rgba(255, 255, 255, 0.75); font-size: 13px; font-weight: 600; margin-top: 3px; }
+
+.biz-listing-body { padding-top: 18px; }
+
+.biz-pills {
+  display: flex; gap: 8px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 10px; margin-bottom: 20px;
+  box-shadow: 0 6px 20px var(--shadow);
+}
+.biz-pill { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.biz-pill-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.6px; color: var(--muted); text-transform: uppercase; }
+.biz-pill-value { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+.biz-listing-section-title { font-size: 16px; font-weight: 800; margin: 22px 2px 10px; }
+.biz-listing-body > .biz-listing-section-title:first-of-type { margin-top: 0; }
+.biz-listing-desc { color: var(--text); font-size: 14px; line-height: 1.65; margin: 0 2px; }
+
+.biz-detail-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px;
+}
+.biz-detail-row { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.biz-detail-label { font-size: 11px; color: var(--muted); }
+.biz-detail-value { font-size: 14px; font-weight: 700; color: var(--text); overflow-wrap: break-word; }
+.biz-detail-value.mono { font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------- Numbered step cards */
+.biz-step-card {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 14px; opacity: 0.72; transition: opacity 0.15s;
+}
+.biz-step-card.is-done { opacity: 1; }
+.biz-step-head { display: flex; align-items: center; gap: 12px; }
+.biz-step-badge {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--bg-elev-2); color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.biz-step-card.is-done .biz-step-badge { background: var(--gold); color: var(--accent-ink); }
+.biz-step-titles { flex: 1; min-width: 0; }
+.biz-step-title { font-size: 15px; font-weight: 800; }
+.biz-step-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.biz-step-check { flex-shrink: 0; font-size: 16px; font-weight: 800; color: var(--gold); width: 18px; text-align: center; }
+.biz-step-body { margin-top: 14px; }
+
+.biz-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.biz-type-chip {
+  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 10px; font-size: 13px; font-weight: 700; color: var(--text); text-align: center;
+}
+.biz-type-chip.is-active { background: var(--gold); color: var(--accent-ink); border-color: var(--gold-deep); }
+
 /* ---------------------------------------------------------- Modal / overlay */
 .overlay {
   position: fixed; inset: 0; z-index: 200;

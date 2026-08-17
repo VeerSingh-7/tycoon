@@ -57,7 +57,8 @@ const Businesses = (() => {
   let container;
   let listMode = 'all'; // 'all' | 'mine' — which businesses the list below shows
   let mapOpen = false;  // World Map overlay
-  let propertiesOpen = false; // Properties "Coming Soon" overlay
+  let propertiesOpen = false; // Properties overlay — a read-only browser of every property in the game
+  let propertiesBrowse = null; // { countryId, city, countryDropdownOpen, viewPropertyId } while Properties is open
   let setupFlow = null; // { bizId, step, countryId, city, tierId } — Start Business property-picker, or null when closed
   // A single signature for "what's actually in the DOM right now" across every
   // overlay (map/properties/setup) — render() only touches innerHTML when
@@ -226,6 +227,7 @@ const Businesses = (() => {
     listMode = 'all';
     mapOpen = false;
     propertiesOpen = false;
+    propertiesBrowse = null;
     setupFlow = null;
     lastRenderKey = null;
     openMenuId = null;
@@ -249,6 +251,7 @@ const Businesses = (() => {
     }
 
     if (setupFlow) { onSetupClick(e); return; }
+    if (propertiesOpen) { onPropertiesClick(e); return; }
 
     const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
@@ -265,8 +268,8 @@ const Businesses = (() => {
       render();
       return;
     }
-    if (d.bizNav === 'properties') { propertiesOpen = true; render(); return; }
-    if (d.bizNav === 'closeProperties') { propertiesOpen = false; render(); return; }
+    if (d.bizNav === 'properties') { openPropertiesBrowse(); return; }
+    if (d.bizNav === 'closeProperties') { propertiesOpen = false; propertiesBrowse = null; render(); return; }
     if (d.bizNav === 'all' || d.bizNav === 'mine') { listMode = d.bizNav; render(); return; }
     if (d.bizMenu !== undefined) { openMenuId = openMenuId === d.bizMenu ? null : d.bizMenu; render(); return; }
 
@@ -324,8 +327,9 @@ const Businesses = (() => {
       return;
     }
     if (propertiesOpen) {
-      if (lastRenderKey !== 'properties') container.innerHTML = propertiesHTML();
-      lastRenderKey = 'properties';
+      const desired = 'props:' + propertiesBrowse.countryId + ':' + propertiesBrowse.city + ':' + propertiesBrowse.countryDropdownOpen + ':' + propertiesBrowse.viewPropertyId;
+      if (lastRenderKey !== desired) container.innerHTML = propertiesHTML();
+      lastRenderKey = desired;
       return;
     }
     if (setupFlow) {
@@ -336,7 +340,7 @@ const Businesses = (() => {
         // Size the signature canvas's pixel buffer once, right after it's
         // created — never again while the player is still on this screen,
         // or their strokes would be wiped (see the section header comment).
-        if (setupFlow.step === 'signature') setupSignatureCanvas();
+        if (setupFlow.step === 'details') setupSignatureCanvas();
       }
       return;
     }
@@ -344,24 +348,109 @@ const Businesses = (() => {
     container.innerHTML = bizTabHTML();
   }
 
-  /** Properties — placeholder teaser, same "Coming Soon" pattern as the
-   *  Services placeholders (js/banking.js etc). Each business will
-   *  eventually have its own purchasable property; none of that exists yet. */
+  /** Properties — a read-only browser of every property that exists in the
+   *  game right now (every business with a catalog; today that's just
+   *  Supermarket Chain's 96). Same country/city browse UI as the setup
+   *  wizard's Step 1, and tapping a property opens the exact same premium
+   *  listing page — just without Rent/Purchase, since there's no specific
+   *  "business being started" context out here. */
+  function openPropertiesBrowse() {
+    const catalogBizId = BUSINESS_DEFS.find((d) => hasPropertyCatalog(d.id)).id;
+    const firstCountry = BUSINESS_PROPERTIES[catalogBizId].countries[0];
+    propertiesOpen = true;
+    propertiesBrowse = {
+      bizId: catalogBizId,
+      countryId: firstCountry.id, city: firstCountry.cities[0].name,
+      countryDropdownOpen: false, viewPropertyId: null,
+    };
+    render();
+  }
+
+  function onPropertiesClick(e) {
+    const btn = e.target.closest('button');
+    if (!btn || btn.disabled) return;
+    const d = btn.dataset;
+
+    if (d.bizNav === 'closeProperties') { propertiesOpen = false; propertiesBrowse = null; render(); return; }
+    if (d.setupBack !== undefined) { propertiesBrowse.viewPropertyId = null; render(); return; }
+    if (d.setupCountryToggle !== undefined) { propertiesBrowse.countryDropdownOpen = !propertiesBrowse.countryDropdownOpen; render(); return; }
+    if (d.setupCountry) {
+      const country = BUSINESS_PROPERTIES[propertiesBrowse.bizId].countries.find((c) => c.id === d.setupCountry);
+      propertiesBrowse.countryId = d.setupCountry;
+      propertiesBrowse.city = country.cities[0].name;
+      propertiesBrowse.countryDropdownOpen = false;
+      render();
+      return;
+    }
+    if (d.setupCity) { propertiesBrowse.city = d.setupCity; propertiesBrowse.countryDropdownOpen = false; render(); return; }
+    if (d.setupProperty) { propertiesBrowse.viewPropertyId = d.setupProperty; render(); return; }
+  }
+
   function propertiesHTML() {
+    const def = BUSINESS_BY_ID[propertiesBrowse.bizId];
+    const catalog = BUSINESS_PROPERTIES[def.id];
+    const country = catalog.countries.find((c) => c.id === propertiesBrowse.countryId);
+    const cityObj = country.cities.find((c) => c.name === propertiesBrowse.city) || country.cities[0];
+
+    let body;
+    if (propertiesBrowse.viewPropertyId) {
+      const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === propertiesBrowse.viewPropertyId);
+      const property = cityObj.properties[storeIndex];
+      body = propertyListingHTML(def, property, cityObj, country, storeIndex, '');
+    } else {
+      body = propertiesBrowseListHTML(def, catalog, country, cityObj, propertiesBrowse.countryDropdownOpen);
+    }
+
+    const closeOrBackBtn = propertiesBrowse.viewPropertyId
+      ? `<button class="icon-btn" data-setup-back type="button" aria-label="Back">‹</button>`
+      : `<button class="icon-btn" data-biz-nav="closeProperties" type="button" aria-label="Close">✕</button>`;
+
     return `
       <div class="bizd-screen">
         <div class="bizd-head">
-          <button class="icon-btn" data-biz-nav="closeProperties" type="button" aria-label="Close">✕</button>
+          ${closeOrBackBtn}
           <div class="bizd-id">
             <div class="bizd-co-name">Properties</div>
+            <div class="bizd-co-sub">Every property in the game — browse only</div>
           </div>
         </div>
-        <div class="coming-soon">
-          <div class="cs-badge">COMING SOON</div>
-          <h2>Properties</h2>
-          <p>Every business will have its own property you can purchase — this is where you'll see everything you own across your whole portfolio.</p>
-          <p class="muted">Keep growing — your businesses will show up here once this is built.</p>
-        </div>
+        ${body}
+      </div>`;
+  }
+
+  /** Country selector + city scroller + property list — identical structure
+   *  to setupBrowseHTML, just reading propertiesBrowse instead of setupFlow
+   *  (the two screens are only ever open one at a time). */
+  function propertiesBrowseListHTML(def, catalog, country, cityObj, dropdownOpen) {
+    const otherCountries = catalog.countries.filter((c) => c.id !== country.id);
+    return `
+      <div class="biz-setup-country">
+        <button class="biz-setup-country-btn" data-setup-country-toggle type="button" aria-label="Change country">
+          <span class="biz-setup-flag">${country.flag}</span>
+          <span class="biz-setup-country-name">${country.name}</span>
+          <span class="biz-setup-country-chevron">${dropdownOpen ? '︿' : '⌄'}</span>
+        </button>
+        ${dropdownOpen ? `
+          <div class="biz-setup-country-dropdown">
+            ${otherCountries.map((c) => `
+              <button class="biz-setup-country-option" data-setup-country="${c.id}" type="button">
+                <span class="biz-setup-flag">${c.flag}</span>${c.name}
+              </button>`).join('')}
+          </div>` : ''}
+      </div>
+      <div class="biz-setup-scroller">
+        ${country.cities.map((c) => `
+          <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
+      </div>
+      <div class="biz-list">
+        ${cityObj.properties.map((p) => `
+          <button class="card hub-card" data-setup-property="${propertySlug(p.name)}" type="button">
+            <span class="hub-text">
+              <span class="hub-title">${p.name}</span>
+              <span class="hub-sub">${p.sqft.toLocaleString()} sq ft · ${p.desc}</span>
+            </span>
+            <span class="hub-arrow">›</span>
+          </button>`).join('')}
       </div>`;
   }
 
@@ -428,10 +517,7 @@ const Businesses = (() => {
     if (d.bizNav === 'closeSetup') { setupFlow = null; render(); return; }
     if (d.setupBack !== undefined) {
       if (setupFlow.step === 'property') setupFlow.step = 'browse';
-      else if (setupFlow.step === 'type') { setupFlow.stage = 0; setupFlow.step = 'property'; }
-      else if (setupFlow.step === 'name') setupFlow.step = 'type';
-      else if (setupFlow.step === 'suppliers') setupFlow.step = 'name';
-      else if (setupFlow.step === 'signature') setupFlow.step = 'suppliers';
+      else if (setupFlow.step === 'details') { setupFlow.stage = 0; setupFlow.step = 'property'; }
       render();
       return;
     }
@@ -469,24 +555,28 @@ const Businesses = (() => {
       }
       return;
     }
-    if (d.setupContinueStage !== undefined) { setupFlow.stage = 1; setupFlow.step = 'type'; render(); return; }
-    if (d.setupType) { setupFlow.storeType = d.setupType; setupFlow.step = 'name'; render(); return; }
-    if (d.setupNameNext !== undefined) {
+    if (d.setupContinueStage !== undefined) { setupFlow.stage = 1; setupFlow.step = 'details'; render(); return; }
+    if (d.setupType) {
+      // The details page is one long scroll with no per-field "Next" — a
+      // type tap re-renders in place (storeType is part of lastRenderKey)
+      // to update the chip highlight/checkmark, so snapshot whatever's
+      // currently typed in the name field first or that re-render would
+      // wipe it back to its last-saved value.
       const input = container && container.querySelector ? container.querySelector('[data-company-name-input]') : null;
-      const typed = input && typeof input.value === 'string' ? input.value.trim() : '';
-      setupFlow.companyName = typed || BUSINESS_BY_ID[setupFlow.bizId].name;
-      setupFlow.step = 'suppliers';
+      if (input && typeof input.value === 'string') setupFlow.companyName = input.value;
+      setupFlow.storeType = d.setupType;
       render();
       return;
     }
-    if (d.setupSuppliersNext !== undefined) { setupFlow.step = 'signature'; render(); return; }
     if (d.setupSignatureClear !== undefined) { clearSignatureCanvas(); return; }
     if (d.setupFinish !== undefined) {
+      const input = container && container.querySelector ? container.querySelector('[data-company-name-input]') : null;
+      const typed = input && typeof input.value === 'string' ? input.value.trim() : '';
       const canvas = signatureCanvasEl();
       const biz = getBiz(setupFlow.bizId);
       biz.brand = {
         storeType: setupFlow.storeType,
-        companyName: setupFlow.companyName,
+        companyName: typed || BUSINESS_BY_ID[setupFlow.bizId].name,
         signature: canvas && typeof canvas.toDataURL === 'function' ? canvas.toDataURL() : null,
       };
       saveGame();
@@ -502,10 +592,7 @@ const Businesses = (() => {
     const stage = SETUP_STAGES[setupFlow.stage];
     let body;
     if (setupFlow.step === 'property') body = setupPropertyHTML(def);
-    else if (setupFlow.step === 'type') body = setupTypeHTML(def);
-    else if (setupFlow.step === 'name') body = setupNameHTML(def);
-    else if (setupFlow.step === 'suppliers') body = setupSuppliersHTML(def);
-    else if (setupFlow.step === 'signature') body = setupSignatureHTML(def);
+    else if (setupFlow.step === 'details') body = setupDetailsHTML(def);
     else body = setupBrowseHTML(def);
 
     const closeOrBackBtn = setupFlow.step === 'browse'
@@ -564,132 +651,181 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /** The real per-property listing: generated description, key stats,
-   *  amenities and financials (js/data/properties.js propertyDetails),
-   *  with Rent/Purchase actions. Both actions start the business the same
-   *  way every other business starts (buyBusinessLevel, same baseCost) —
-   *  the property is flavor and a chosen tenure, not a separate charge.
-   *  Once started, the actions are replaced with "Continue to Step 2". */
+  /** The shared premium listing template — a real-estate-style page: a
+   *  full-bleed hero, a key-stats pill bar, an "About This Property"
+   *  paragraph (the generated narrative description), a label/value
+   *  details grid, and the amenities list — used both by the setup
+   *  wizard's property screen (actionsHTML = Rent/Purchase buttons) and
+   *  the read-only Properties browser (actionsHTML = ''). Every number is
+   *  this property's own generated figure (js/data/properties.js
+   *  propertyDetails) — nothing here is shared/generic across properties. */
+  function propertyListingHTML(def, property, cityObj, country, storeIndex, actionsHTML) {
+    const d = propertyDetails(property, cityObj.name, storeIndex);
+    const biz = getBiz(def.id);
+    const isActive = !!(biz.property && biz.property.propertyId === propertySlug(property.name));
+    const ownedBy = isActive ? ((biz.brand && biz.brand.companyName) || def.name) : 'Available';
+    const typeLabel = isActive && biz.brand && biz.brand.storeType
+      ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || def.name)
+      : def.name;
+    const capacity = Math.round(property.sqft / 100);
+    const trafficIndex = Math.round(d.stats.dailyTraffic / 50);
+    const dailyRent = d.financials.monthlyRent / 30;
+
+    return `
+      <div class="biz-listing-hero">
+        <div class="biz-listing-hero-icon">${PROPERTY_ICON}</div>
+        <div class="biz-listing-hero-scrim"></div>
+        <div class="biz-listing-hero-text">
+          <div class="biz-listing-hero-name">${escapeHtml(property.name)}</div>
+          <div class="biz-listing-hero-loc">${escapeHtml(cityObj.name)}, ${escapeHtml(country.name)}</div>
+        </div>
+      </div>
+      <div class="biz-listing-body">
+        <div class="biz-pills">
+          <div class="biz-pill"><span class="biz-pill-label">Capacity</span><span class="biz-pill-value">${capacity}</span></div>
+          <div class="biz-pill"><span class="biz-pill-label">Traffic</span><span class="biz-pill-value">${trafficIndex}</span></div>
+          <div class="biz-pill"><span class="biz-pill-label">Amenities</span><span class="biz-pill-value">${d.amenities.length}</span></div>
+          <div class="biz-pill"><span class="biz-pill-label">Value</span><span class="biz-pill-value">${formatMoney(d.financials.purchasePrice)}</span></div>
+        </div>
+
+        <div class="biz-listing-section-title">About This Property</div>
+        <p class="biz-listing-desc">${escapeHtml(d.description)}</p>
+
+        <div class="biz-listing-section-title">Property Details</div>
+        <div class="biz-detail-grid">
+          <div class="biz-detail-row"><span class="biz-detail-label">Owned By</span><span class="biz-detail-value">${escapeHtml(ownedBy)}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Type</span><span class="biz-detail-value">${escapeHtml(typeLabel)}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Condition</span><span class="biz-detail-value">${escapeHtml(d.stats.condition)}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Customer Capacity</span><span class="biz-detail-value mono">${capacity}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Traffic Index</span><span class="biz-detail-value mono">${trafficIndex}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Parking Spaces</span><span class="biz-detail-value mono">${d.stats.parking}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Hours Approved</span><span class="biz-detail-value">${escapeHtml(d.stats.hours)}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Daily Rent</span><span class="biz-detail-value mono">${formatMoney(dailyRent)}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Monthly Rent</span><span class="biz-detail-value mono">${formatMoney(d.financials.monthlyRent)}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Purchase Price</span><span class="biz-detail-value mono">${formatMoney(d.financials.purchasePrice)}</span></div>
+          <div class="biz-detail-row"><span class="biz-detail-label">Est. Annual Revenue</span><span class="biz-detail-value mono">${formatMoney(d.financials.expectedAnnualRevenue)}</span></div>
+        </div>
+
+        <div class="biz-listing-section-title">Amenities</div>
+        <div class="upgrade-list">
+          ${d.amenities.map((a) => `<div class="upgrade-row"><div class="upgrade-info"><span class="upgrade-name">${escapeHtml(a)}</span></div></div>`).join('')}
+        </div>
+
+        ${actionsHTML}
+      </div>`;
+  }
+
+  /** Stage 1's property screen: the shared listing, plus Rent/Purchase (or,
+   *  once started, a "Continue to Step 2" button). Both actions start the
+   *  business the same way every other business starts (buyBusinessLevel,
+   *  same baseCost) — the property is flavor and a chosen tenure, not a
+   *  separate charge; PRESERVE means that mechanic stays exactly as-is
+   *  under the new visual template. */
   function setupPropertyHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
     const cityObj = country.cities.find((c) => c.name === setupFlow.city);
     const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === setupFlow.propertyId);
     const property = cityObj.properties[storeIndex];
-    const d = propertyDetails(property, cityObj.name, storeIndex);
     const cost = businessNextCost(def);
     const canBuy = state.balance >= cost;
     const started = getBiz(def.id).level > 0;
 
-    const actionsOrContinue = started ? `
-        <div class="card">
-          <div class="card-title">${setupFlow.tenure === 'purchase' ? 'Purchased' : 'Rented'}</div>
+    const actionsHTML = started ? `
+        <div class="card" style="margin-top:6px">
+          <div class="card-title">${setupFlow.tenure === 'purchase' ? 'Purchased' : 'Deposit Paid'}</div>
           <div class="progress-caption" style="text-align:left;margin-top:4px">${property.name} is now open for business.</div>
         </div>
         <button class="btn btn-wide btn-gold" data-setup-continue-stage type="button">Continue to Step 2 ›</button>`
       : `
-        <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-rent type="button" ${canBuy ? '' : 'disabled'}>
-          Rent This Property · ${formatMoney(cost)}</button>
-        <button class="btn btn-wide" data-setup-purchase type="button" ${canBuy ? '' : 'disabled'}>
-          Purchase This Property · ${formatMoney(cost)}</button>`;
+        <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-purchase type="button" ${canBuy ? '' : 'disabled'}>
+          Buy Now · ${formatMoney(cost)}</button>
+        <button class="btn btn-wide" data-setup-rent type="button" ${canBuy ? '' : 'disabled'}>
+          Pay Deposit · ${formatMoney(cost)}</button>`;
 
-    return `
-      <h2 style="margin:14px 2px 4px">${property.name}</h2>
-      <div class="progress-caption" style="text-align:left;margin:0 2px 14px">${cityObj.name}, ${country.name}</div>
-      <p class="muted" style="margin:0 2px 14px;line-height:1.5;font-size:13.5px">${d.description}</p>
-      <div class="card">
-        <div class="card-title">Key Stats</div>
-        <div class="biz-stats">
-          <div><span class="muted">Size</span><b>${d.stats.sqft.toLocaleString()} sq ft</b></div>
-          <div><span class="muted">Daily Foot Traffic</span><b>${d.stats.dailyTraffic.toLocaleString()}</b></div>
-        </div>
-        <div class="biz-stats">
-          <div><span class="muted">Condition</span><b>${d.stats.condition}</b></div>
-          <div><span class="muted">Parking</span><b>${d.stats.parking} spaces</b></div>
-        </div>
-        <div class="progress-caption">Operating Hours Approved: ${d.stats.hours}</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Amenities</div>
-        <div class="upgrade-list">
-          ${d.amenities.map((a) => `<div class="upgrade-row"><div class="upgrade-info"><span class="upgrade-name">${a}</span></div></div>`).join('')}
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">Financials</div>
-        <div class="biz-stats">
-          <div><span class="muted">Monthly Rent</span><b>${formatMoney(d.financials.monthlyRent)}</b></div>
-          <div><span class="muted">Annual Rent</span><b>${formatMoney(d.financials.annualRent)}</b></div>
-        </div>
-        <div class="biz-stats">
-          <div><span class="muted">Purchase Price</span><b>${formatMoney(d.financials.purchasePrice)}</b></div>
-          <div><span class="muted">Est. Annual Revenue</span><b>${formatMoney(d.financials.expectedAnnualRevenue)}</b></div>
-        </div>
-      </div>
-      ${actionsOrContinue}`;
+    return propertyListingHTML(def, property, cityObj, country, storeIndex, actionsHTML);
   }
 
-  /** Stage 2, screen 1: pick what the store actually sells. Tapping a type
-   *  selects it and moves straight on to naming the company. */
-  function setupTypeHTML(def) {
+  /** Stage 2, ONE scrollable page: numbered step cards for store type,
+   *  company name, suppliers (placeholder), and a sign-to-finish canvas.
+   *  Selecting a type re-renders in place (storeType is part of
+   *  render()'s lastRenderKey) — the name field is snapshotted into
+   *  setupFlow.companyName first so a still-unsaved typed name survives
+   *  that re-render (see onSetupClick's d.setupType handler). */
+  function setupDetailsHTML(def) {
+    const nameVal = setupFlow.companyName || def.name;
+    const typeDone = !!setupFlow.storeType;
     return `
-      <div class="section-head" style="margin-top:14px"><h2>Choose Your Store Type</h2></div>
-      <div class="progress-caption" style="text-align:left;margin:0 2px 14px">What will ${escapeHtml(def.name)} primarily sell?</div>
-      <div class="biz-list">
-        ${STORE_TYPES.map((t) => `
-          <button class="card hub-card" data-setup-type="${t.id}" type="button">
-            <span class="hub-text"><span class="hub-title">${t.label}</span></span>
-            <span class="hub-arrow">›</span>
-          </button>`).join('')}
-      </div>`;
-  }
+      <div class="section-head" style="margin-top:14px"><h2>Business Details</h2></div>
+      <div class="progress-caption" style="text-align:left;margin:0 2px 18px">Everything ${escapeHtml(def.name)} needs to open its doors — one page, no rush.</div>
 
-  /** Stage 2, screen 2: name the company. The input's live value is only
-   *  read from the DOM when Next is tapped — companyName deliberately isn't
-   *  part of render()'s lastRenderKey, so keystrokes never trigger a
-   *  full re-render that would blow away focus/cursor position. */
-  function setupNameHTML(def) {
-    const val = setupFlow.companyName || def.name;
-    return `
-      <div class="section-head" style="margin-top:14px"><h2>Name Your Company</h2></div>
-      <div class="progress-caption" style="text-align:left;margin:0 2px 14px">This is the name customers will see above the door.</div>
-      <div class="card">
-        <input class="mk-text-input" data-company-name-input type="text" maxlength="40"
-          value="${escapeAttr(val)}" placeholder="${escapeAttr(def.name)}" autocomplete="off">
+      <div class="biz-step-card ${typeDone ? 'is-done' : ''}">
+        <div class="biz-step-head">
+          <span class="biz-step-badge">01</span>
+          <div class="biz-step-titles">
+            <div class="biz-step-title">Store Type</div>
+            <div class="biz-step-sub">What will it primarily sell?</div>
+          </div>
+          <span class="biz-step-check">${typeDone ? '✓' : ''}</span>
+        </div>
+        <div class="biz-step-body">
+          <div class="biz-type-grid">
+            ${STORE_TYPES.map((t) => `
+              <button class="biz-type-chip ${setupFlow.storeType === t.id ? 'is-active' : ''}" data-setup-type="${t.id}" type="button">${t.label}</button>`).join('')}
+          </div>
+        </div>
       </div>
-      <button class="btn btn-wide btn-gold" data-setup-name-next type="button">Next ›</button>`;
-  }
 
-  /** Stage 2, screen 3: suppliers — deliberately empty, no supplier system
-   *  exists yet. Just a placeholder on the way to the signature screen. */
-  function setupSuppliersHTML(def) {
-    const name = setupFlow.companyName || def.name;
-    return `
-      <div class="section-head" style="margin-top:14px"><h2>Suppliers</h2></div>
-      <div class="coming-soon" style="padding:40px 24px">
-        <div class="cs-badge">COMING SOON</div>
-        <h2>No Suppliers Yet</h2>
-        <p class="muted">Sourcing deals and supplier contracts for ${escapeHtml(name)} are on the way.</p>
+      <div class="biz-step-card is-done">
+        <div class="biz-step-head">
+          <span class="biz-step-badge">02</span>
+          <div class="biz-step-titles">
+            <div class="biz-step-title">Company Name</div>
+            <div class="biz-step-sub">Shown to customers above the door.</div>
+          </div>
+          <span class="biz-step-check">✓</span>
+        </div>
+        <div class="biz-step-body">
+          <input class="mk-text-input" data-company-name-input type="text" maxlength="40"
+            value="${escapeAttr(nameVal)}" placeholder="${escapeAttr(def.name)}" autocomplete="off">
+        </div>
       </div>
-      <button class="btn btn-wide btn-gold" data-setup-suppliers-next type="button">Next ›</button>`;
-  }
 
-  /** Stage 2, screen 4 (last): draw a signature on the canvas to finish.
-   *  Drawing itself is wired via delegated pointer listeners at mount time
-   *  (onSignaturePointerDown/Move/Up) — see the section header comment. */
-  function setupSignatureHTML(def) {
-    const name = setupFlow.companyName || def.name;
-    return `
-      <div class="section-head" style="margin-top:14px"><h2>Sign to Confirm</h2></div>
-      <div class="progress-caption" style="text-align:left;margin:0 2px 14px">Draw your signature below to officially open ${escapeHtml(name)}.</div>
-      <div class="biz-sig-wrap">
-        <canvas class="biz-sig-canvas" data-signature-canvas></canvas>
+      <div class="biz-step-card">
+        <div class="biz-step-head">
+          <span class="biz-step-badge">03</span>
+          <div class="biz-step-titles">
+            <div class="biz-step-title">Suppliers</div>
+            <div class="biz-step-sub">Sourcing deals and contracts.</div>
+          </div>
+        </div>
+        <div class="biz-step-body">
+          <div class="coming-soon" style="padding:26px 12px">
+            <div class="cs-badge">COMING SOON</div>
+            <p class="muted">No suppliers hooked up yet — on the way.</p>
+          </div>
+        </div>
       </div>
-      <div class="biz-sig-hint">Sign with your finger above</div>
-      <div class="biz-sig-actions">
-        <button class="btn" data-setup-signature-clear type="button">Clear</button>
-        <button class="btn btn-wide btn-gold" data-setup-finish type="button">Finish Setup</button>
-      </div>`;
+
+      <div class="biz-step-card">
+        <div class="biz-step-head">
+          <span class="biz-step-badge">04</span>
+          <div class="biz-step-titles">
+            <div class="biz-step-title">Sign to Confirm</div>
+            <div class="biz-step-sub">Draw your signature with your finger.</div>
+          </div>
+        </div>
+        <div class="biz-step-body">
+          <div class="biz-sig-wrap">
+            <canvas class="biz-sig-canvas" data-signature-canvas></canvas>
+          </div>
+          <div class="biz-sig-actions">
+            <button class="btn" data-setup-signature-clear type="button">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-wide btn-gold" data-setup-finish type="button" ${typeDone ? '' : 'disabled'}>Finish Setup</button>`;
   }
 
   /** Fetch the real world map once and cache it in memory; the browser's
