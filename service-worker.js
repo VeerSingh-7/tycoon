@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v102'; // v102: unique procedurally-generated storefront illustration (inline SVG) for every one of the 96 listings
+const CACHE_NAME = 'tycoon-v103'; // v103: colored property-listing design system (fixed --color-1..4 tokens), favorite heart, BizDash tab accents
 
 const ASSETS = [
   'index.html',

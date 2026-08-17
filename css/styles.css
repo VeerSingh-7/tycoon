@@ -31,6 +31,20 @@
   --red:       #E2665A;
   --green-soft: rgba(95, 217, 138, 0.15);
 
+  /* ---- Property listing accent palette — a DELIBERATE, requested color
+     exception (like the World Map), fixed identically across both themes
+     on purpose so a property's accent never shifts when the player toggles
+     theme. Scoped strictly to property listings + BizDash's tab bar; every
+     other button/stat in the app stays on the monochrome system above. ---- */
+  --color-1: #FF6B6B; /* red/coral */
+  --color-2: #4ECDC4; /* teal */
+  --color-3: #FFE66D; /* yellow/gold */
+  --color-4: #95E1D3; /* mint green */
+  /* --color-3 as a background/border tint reads fine, but as plain TEXT its
+     contrast fails badly on light surfaces — this darker variant is used
+     anywhere --color-3 needs to be legible body text. */
+  --color-3-text: #B8960B;
+
   /* ---- Back-compat aliases — every existing var(--X) call site below
      keeps working unchanged, now resolving to the new monochrome values. ---- */
   --bg-elev:   var(--surface);
@@ -213,6 +227,15 @@ html, body {
   color: var(--accent-ink);
   border-color: var(--gold-deep);
   box-shadow: 0 4px 16px var(--gold-glow);
+}
+/* Property listing's primary action (Pay Deposit) ONLY — a dedicated class,
+   not a change to .btn-gold, so this coral gradient stays scoped to the
+   property listing page and never bleeds into the app's other buttons. */
+.btn-deposit {
+  background: linear-gradient(135deg, var(--color-1), #FF9966);
+  color: #FFFFFF;
+  border-color: transparent;
+  box-shadow: 0 4px 18px rgba(255, 107, 107, 0.4);
 }
 .btn-sm { padding: 7px 12px; font-size: 13px; border-radius: 10px; }
 .btn-wide { width: 100%; margin-top: 12px; }
@@ -403,6 +426,15 @@ html, body {
    zero asset weight, since it's inline markup, not an image file. */
 .biz-listing-hero-art { position: absolute; inset: 0; }
 .biz-listing-hero-art svg { width: 100%; height: 100%; display: block; }
+.biz-listing-hero-wash {
+  /* A faint colorful color-wash over the storefront art, underneath the
+     dark legibility scrim — the "colorful, aesthetic" accent requested for
+     the hero, kept subtle enough that it never fights the storefront
+     illustration or the name/location text on top of it. */
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.15), rgba(78, 205, 196, 0.15));
+  mix-blend-mode: soft-light;
+}
 .biz-listing-hero-scrim {
   position: absolute; inset: 0;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.65) 100%);
@@ -410,6 +442,29 @@ html, body {
 .biz-listing-hero-text { position: absolute; left: 16px; right: 16px; bottom: 16px; }
 .biz-listing-hero-name { color: #FFFFFF; font-size: 24px; font-weight: 800; line-height: 1.15; }
 .biz-listing-hero-loc { color: rgba(255, 255, 255, 0.75); font-size: 13px; font-weight: 600; margin-top: 3px; }
+
+/* Favorite heart — top-right of the hero, idle neutral, active = coral fill
+   + glow. Purely cosmetic (js/businesses.js getFavorites()); a "fav-pop"
+   class replays a quick scale animation on every toggle. */
+.biz-fav-btn {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(20, 20, 22, 0.55); border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #FFFFFF; backdrop-filter: blur(3px);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.biz-fav-btn svg { width: 19px; height: 19px; display: block; }
+.biz-fav-btn.is-fav {
+  background: var(--color-1); border-color: var(--color-1); color: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.25), 0 4px 14px rgba(255, 107, 107, 0.45);
+}
+.biz-fav-btn.is-fav svg { fill: currentColor; }
+.biz-fav-btn.fav-pop { animation: favPop 0.32s ease; }
+@keyframes favPop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
 
 .biz-listing-body { padding-top: 18px; }
 
@@ -421,22 +476,29 @@ html, body {
 .biz-pill { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 .biz-pill-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.6px; color: var(--muted); text-transform: uppercase; }
 .biz-pill-value { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
-/* Each metric type keeps its own color across every listing — a deliberate
-   colorful accent (like the World Map/property icons), not the app's usual
-   monochrome text. */
-.biz-pill-value.capacity { color: #4F86F7; }
-.biz-pill-value.traffic { color: #A66DFF; }
-.biz-pill-value.amenities { color: #2EC4B6; }
-.biz-pill-value.value { color: #F5A623; }
+/* Each metric type keeps its own fixed color across every listing, from the
+   shared property-listing accent palette (--color-1..4) — a deliberate
+   colorful accent (like the World Map), not the app's usual monochrome
+   text. Amenities uses the darker text-safe variant of --color-3 since the
+   raw yellow fails contrast as plain text. */
+.biz-pill-value.capacity { color: var(--color-1); }
+.biz-pill-value.traffic { color: var(--color-2); }
+.biz-pill-value.amenities { color: var(--color-3-text); }
+.biz-pill-value.value { color: var(--color-4); }
 
 .biz-listing-section-title {
   font-size: 16px; font-weight: 800; margin: 22px 2px 10px;
   display: flex; align-items: center; gap: 8px;
 }
 .biz-listing-section-title::before {
-  content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-color, var(--gold));
+  content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--gold);
   flex-shrink: 0;
 }
+/* Fixed per-section accent, not per-property — About/Details/Amenities
+   always carry the same dot color across every one of the 96 listings. */
+.biz-listing-section-title.about::before { background: var(--color-1); }
+.biz-listing-section-title.details::before { background: var(--color-2); }
+.biz-listing-section-title.amenities::before { background: var(--color-4); }
 .biz-listing-body > .biz-listing-section-title:first-of-type { margin-top: 0; }
 .biz-listing-desc { color: var(--text); font-size: 14px; line-height: 1.65; margin: 0 2px; }
 
@@ -449,6 +511,25 @@ html, body {
 .biz-detail-label { font-size: 11px; color: var(--muted); }
 .biz-detail-value { font-size: 14px; font-weight: 700; color: var(--text); overflow-wrap: break-word; }
 .biz-detail-value.mono { font-variant-numeric: tabular-nums; }
+/* Cycles the 4-color palette through every detail row in reading order. */
+.biz-detail-row:nth-child(4n+1) .biz-detail-value { color: var(--color-1); }
+.biz-detail-row:nth-child(4n+2) .biz-detail-value { color: var(--color-2); }
+.biz-detail-row:nth-child(4n+3) .biz-detail-value { color: var(--color-3-text); }
+.biz-detail-row:nth-child(4n+4) .biz-detail-value { color: var(--color-4); }
+
+/* Amenity pills — deliberately their OWN classes, not the shared
+   .upgrade-list/.upgrade-row used by BizDash's real Upgrades tab, so this
+   colorful pill treatment never bleeds into that unrelated, purely
+   informational component. */
+.biz-amenity-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.biz-amenity-pill {
+  font-size: 12px; font-weight: 700; color: var(--text);
+  padding: 7px 12px; border-radius: 999px; border: 1px solid; line-height: 1.2;
+}
+.biz-amenity-pill:nth-child(4n+1) { border-color: rgba(255, 107, 107, 0.45); background: rgba(255, 107, 107, 0.1); }
+.biz-amenity-pill:nth-child(4n+2) { border-color: rgba(78, 205, 196, 0.45); background: rgba(78, 205, 196, 0.1); }
+.biz-amenity-pill:nth-child(4n+3) { border-color: rgba(255, 230, 109, 0.55); background: rgba(255, 230, 109, 0.12); }
+.biz-amenity-pill:nth-child(4n+4) { border-color: rgba(149, 225, 211, 0.5); background: rgba(149, 225, 211, 0.12); }
 
 /* ------------------------------------------------------- Numbered step cards */
 .biz-step-card {
@@ -579,7 +660,11 @@ html, body {
   border: 1px solid var(--line); border-radius: 16px; padding: 15px 16px; margin-bottom: 14px;
   box-shadow: 0 2px 10px var(--shadow);
 }
-.bizd-hero-label { font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); }
+.bizd-hero-label {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.bizd-hero-label::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--color-1); flex-shrink: 0; }
 .bizd-hero-value { font-size: 30px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; line-height: 1.1; margin: 3px 0 5px; }
 .bizd-hero-sub { font-size: 11.5px; color: var(--muted); }
 
@@ -592,7 +677,17 @@ html, body {
   font-family: inherit; font-size: 12px; font-weight: 700; padding: 8px 2px;
   border-radius: 9px; cursor: pointer;
 }
-.bizd-tab.on { background: var(--gold); color: var(--accent-ink); }
+/* Each of BizDash's 4 tabs keeps its own fixed accent from the property
+   listing palette (--color-1..4) when active, instead of always gold —
+   scoped to this tab bar only; every other business-detail element (buttons,
+   stats) stays on the app's monochrome system, per the narrower scope of
+   this color pass. Dark text throughout for reliable contrast against every
+   one of the four bright fills, in both themes. */
+.bizd-tab.on { color: #16161A; box-shadow: 0 3px 10px var(--tab-glow, transparent); }
+.bizd-tab:nth-child(4n+1).on { background: var(--color-1); --tab-glow: rgba(255, 107, 107, 0.35); }
+.bizd-tab:nth-child(4n+2).on { background: var(--color-2); --tab-glow: rgba(78, 205, 196, 0.35); }
+.bizd-tab:nth-child(4n+3).on { background: var(--color-3); --tab-glow: rgba(255, 230, 109, 0.4); }
+.bizd-tab:nth-child(4n+4).on { background: var(--color-4); --tab-glow: rgba(149, 225, 211, 0.35); }
 .bizd-body { flex: 1; }
 .bizd-empty { color: var(--muted); text-align: center; padding: 26px 12px; font-size: 14px; }
 .biz-manage-btn { margin-top: 8px; }

@@ -171,6 +171,49 @@ const Businesses = (() => {
     return PROPERTY_ACCENTS[Math.floor(f * PROPERTY_ACCENTS.length) % PROPERTY_ACCENTS.length];
   }
 
+  const HEART_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20.5 C12 20.5 3 15 3 8.7 C3 5.7 5.35 3.5 8.1 3.5 C9.9 3.5 11.3 4.4 12 5.7 C12.7 4.4 14.1 3.5 15.9 3.5 C18.65 3.5 21 5.7 21 8.7 C21 15 12 20.5 12 20.5 Z"/></svg>`;
+
+  /** Favorite-property state: a pure-cosmetic, persisted flag per property
+   *  (no gameplay effect). Keyed on cityName + property slug — property
+   *  names alone aren't guaranteed unique across the whole 96-property
+   *  catalog, so this reuses the same composite key storefrontSVG's own
+   *  seed uses. Lazily created on first access (same pattern as engine.js's
+   *  getBiz()) rather than added to state.js's defaultState(), so no
+   *  SAVE_VERSION bump is needed — old saves just get it on first touch. */
+  function getFavorites() {
+    if (!state.favoriteProperties) state.favoriteProperties = {};
+    return state.favoriteProperties;
+  }
+
+  function favoriteKey(property, cityName) {
+    return cityName + '_' + propertySlug(property.name);
+  }
+
+  function isFavorite(property, cityName) {
+    return !!getFavorites()[favoriteKey(property, cityName)];
+  }
+
+  /** Toggles the favorite flag and patches the DOM directly instead of
+   *  going through render() — matches this file's established pattern
+   *  (handleCountryClick does the same) for state changes that shouldn't
+   *  wait on/be disrupted by the periodic re-render loop, and lets the
+   *  fav-pop animation replay cleanly on every tap. */
+  function toggleFavoriteClick(btn) {
+    const key = btn.dataset.setupFavorite;
+    const favs = getFavorites();
+    if (favs[key]) delete favs[key]; else favs[key] = true;
+    saveGame();
+    const active = !!favs[key];
+    if (btn.classList) {
+      btn.classList.toggle('is-fav', active);
+      btn.classList.remove('fav-pop');
+      if (typeof btn.offsetWidth !== 'undefined') void btn.offsetWidth; // restart the CSS animation
+      btn.classList.add('fav-pop');
+    }
+    if (btn.setAttribute) btn.setAttribute('aria-pressed', String(active));
+  }
+
   /** One property row, shared by the setup wizard's browse screen and the
    *  read-only Properties browser — colour-accented icon on the left,
    *  name/size/blurb in the middle, arrow on the right. */
@@ -413,6 +456,7 @@ const Businesses = (() => {
     const d = btn.dataset;
 
     if (d.bizNav === 'closeProperties') { propertiesOpen = false; propertiesBrowse = null; render(); return; }
+    if (d.setupFavorite) { toggleFavoriteClick(btn); return; }
     if (d.setupBack !== undefined) { propertiesBrowse.viewPropertyId = null; render(); return; }
     if (d.setupCountryToggle !== undefined) { propertiesBrowse.countryDropdownOpen = !propertiesBrowse.countryDropdownOpen; render(); return; }
     if (d.setupCountry) {
@@ -562,6 +606,7 @@ const Businesses = (() => {
     const d = btn.dataset;
 
     if (d.bizNav === 'closeSetup') { setupFlow = null; render(); return; }
+    if (d.setupFavorite) { toggleFavoriteClick(btn); return; }
     if (d.setupBack !== undefined) {
       if (setupFlow.step === 'property') setupFlow.step = 'browse';
       else if (setupFlow.step === 'details') { setupFlow.stage = 0; setupFlow.step = 'property'; }
@@ -693,13 +738,16 @@ const Businesses = (() => {
     const capacity = Math.round(property.sqft / 100);
     const trafficIndex = Math.round(d.stats.dailyTraffic / 50);
     const dailyRent = d.financials.monthlyRent / 30;
-    const accentColor = propertyAccentColor(property);
-    const titleStyle = `style="--accent-color:${accentColor}"`;
+    const favKey = favoriteKey(property, cityObj.name);
+    const favActive = isFavorite(property, cityObj.name);
 
     return `
       <div class="biz-listing-hero">
         <div class="biz-listing-hero-art">${storefrontSVG(property, cityObj.name)}</div>
+        <div class="biz-listing-hero-wash"></div>
         <div class="biz-listing-hero-scrim"></div>
+        <button class="biz-fav-btn ${favActive ? 'is-fav' : ''}" data-setup-favorite="${favKey}" type="button"
+          aria-label="Favorite this property" aria-pressed="${favActive}">${HEART_ICON}</button>
         <div class="biz-listing-hero-text">
           <div class="biz-listing-hero-name">${escapeHtml(property.name)}</div>
           <div class="biz-listing-hero-loc">${escapeHtml(cityObj.name)}, ${escapeHtml(country.name)}</div>
@@ -713,10 +761,10 @@ const Businesses = (() => {
           <div class="biz-pill"><span class="biz-pill-label">Value</span><span class="biz-pill-value value">${formatMoney(d.financials.purchasePrice)}</span></div>
         </div>
 
-        <div class="biz-listing-section-title" ${titleStyle}>About This Property</div>
+        <div class="biz-listing-section-title about">About This Property</div>
         <p class="biz-listing-desc">${escapeHtml(d.description)}</p>
 
-        <div class="biz-listing-section-title" ${titleStyle}>Property Details</div>
+        <div class="biz-listing-section-title details">Property Details</div>
         <div class="biz-detail-grid">
           <div class="biz-detail-row"><span class="biz-detail-label">Owned By</span><span class="biz-detail-value">${escapeHtml(ownedBy)}</span></div>
           <div class="biz-detail-row"><span class="biz-detail-label">Type</span><span class="biz-detail-value">${escapeHtml(typeLabel)}</span></div>
@@ -731,9 +779,9 @@ const Businesses = (() => {
           <div class="biz-detail-row"><span class="biz-detail-label">Est. Annual Revenue</span><span class="biz-detail-value mono">${formatMoney(d.financials.expectedAnnualRevenue)}</span></div>
         </div>
 
-        <div class="biz-listing-section-title" ${titleStyle}>Amenities</div>
-        <div class="upgrade-list">
-          ${d.amenities.map((a) => `<div class="upgrade-row"><div class="upgrade-info"><span class="upgrade-name">${escapeHtml(a)}</span></div></div>`).join('')}
+        <div class="biz-listing-section-title amenities">Amenities</div>
+        <div class="biz-amenity-list">
+          ${d.amenities.map((a) => `<span class="biz-amenity-pill">${escapeHtml(a)}</span>`).join('')}
         </div>
 
         ${actionsHTML}
@@ -763,10 +811,10 @@ const Businesses = (() => {
         </div>
         <button class="btn btn-wide btn-gold" data-setup-continue-stage type="button">Continue to Step 2 ›</button>`
       : `
+        <button class="btn btn-wide ${canBuy ? 'btn-deposit' : ''}" data-setup-rent type="button" ${canBuy ? '' : 'disabled'}>
+          Pay Deposit · ${formatMoney(cost)}</button>
         <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-purchase type="button" ${canBuy ? '' : 'disabled'}>
-          Buy Now · ${formatMoney(cost)}</button>
-        <button class="btn btn-wide" data-setup-rent type="button" ${canBuy ? '' : 'disabled'}>
-          Pay Deposit · ${formatMoney(cost)}</button>`;
+          Buy Now · ${formatMoney(cost)}</button>`;
 
     return propertyListingHTML(def, property, cityObj, country, storeIndex, actionsHTML);
   }
