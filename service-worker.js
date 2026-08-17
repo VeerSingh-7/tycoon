@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v96'; // v96: merged country+city+property browse screen with flag dropdown; property taps open Coming Soon
+const CACHE_NAME = 'tycoon-v97'; // v97: real generated property listings (desc/stats/amenities/financials) replace Coming Soon; Rent/Purchase actions; Step 2 placeholder
 
 const ASSETS = [
   'index.html',

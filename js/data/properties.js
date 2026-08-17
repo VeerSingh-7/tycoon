@@ -175,3 +175,120 @@ function hasPropertyCatalog(bizId) {
 function propertySlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
+
+/* =========================================================================
+ * Per-property detail generator (description, stats, amenities, financials)
+ * -------------------------------------------------------------------------
+ * Rather than hand-authoring ~400 individual data points across 96
+ * properties, each store's position in its city's list (0-5, "Store 1"
+ * through "Store 6") maps to a tier in STORE_TIERS carrying the ranges/
+ * amenities/condition for that tier, and CITY_TIERS gives each city a
+ * prominence factor. propertyDetails() combines those with a seeded
+ * pseudo-random (seeded off the property's own name, so results are
+ * stable across reloads and renders) to land every number somewhere
+ * sensible within its tier's range, skewed toward the top for higher-tier
+ * cities and the bottom for lower-tier ones. All money is $ regardless of
+ * country, matching the rest of the game.
+ * ========================================================================= */
+
+const STORE_TIERS = [
+  { // Store 1 — modest start
+    rentMin: 1800, rentMax: 2200, buyMin: 185000, buyMax: 265000,
+    trafficMin: 400, trafficMax: 600, parkingMin: 4, parkingMax: 10,
+    condition: 'Good', hours: '7am – 10pm',
+    amenities: ['POS System', 'Stockroom', 'Customer Toilets'],
+  },
+  { // Store 2 — established
+    rentMin: 2200, rentMax: 2800, buyMin: 245000, buyMax: 340000,
+    trafficMin: 600, trafficMax: 800, parkingMin: 8, parkingMax: 16,
+    condition: 'Good', hours: '7am – 10pm',
+    amenities: ['POS System', 'Loading Dock', 'Expanded Storage', 'Customer Toilets'],
+  },
+  { // Store 3 — established, better run
+    rentMin: 2000, rentMax: 2600, buyMin: 225000, buyMax: 310000,
+    trafficMin: 800, trafficMax: 1000, parkingMin: 10, parkingMax: 20,
+    condition: 'Excellent', hours: '7am – 11pm',
+    amenities: ['POS System', 'Loading Dock', 'Expanded Storage', 'CCTV Security'],
+  },
+  { // Store 4 — maturing destination
+    rentMin: 3200, rentMax: 4000, buyMin: 370000, buyMax: 480000,
+    trafficMin: 1000, trafficMax: 1300, parkingMin: 20, parkingMax: 35,
+    condition: 'Excellent', hours: '6am – 11pm',
+    amenities: ['Modern POS & Inventory Systems', 'Loading Dock', '24/7 Operations Ready', 'Staff Break Room'],
+  },
+  { // Store 5 — high performer
+    rentMin: 4000, rentMax: 5200, buyMin: 480000, buyMax: 620000,
+    trafficMin: 1300, trafficMax: 1650, parkingMin: 30, parkingMax: 50,
+    condition: 'Premium', hours: '24/7 Approved',
+    amenities: ['Modern POS & Inventory Systems', 'Refrigerated Units', '24/7 Operations Ready', 'Staff Break Room'],
+  },
+  { // Store 6 — flagship
+    rentMin: 5600, rentMax: 7200, buyMin: 650000, buyMax: 950000,
+    trafficMin: 1650, trafficMax: 2000, parkingMin: 45, parkingMax: 80,
+    condition: 'Premium', hours: '24/7 Approved',
+    amenities: ['Basement Storage', 'Refrigerated Units', 'Premium Security Systems', '24/7 Operations Ready'],
+  },
+];
+
+// A simple prominence factor per city (0.85-1.15) — nudges generated numbers
+// toward the top of each store tier's range for bigger/more prominent
+// cities, the bottom for smaller ones, without hardcoding every number.
+const CITY_TIERS = {
+  London: 1.15, Tokyo: 1.15, Sydney: 1.15, Toronto: 1.15,
+  Manchester: 1.05, Osaka: 1.05, Melbourne: 1.05, Vancouver: 1.05,
+  Edinburgh: 0.95, Montreal: 0.95, Brisbane: 0.95, Yokohama: 0.95,
+  Liverpool: 0.85, Calgary: 0.85, Perth: 0.85, Kyoto: 0.85,
+};
+
+// One template per store tier — 2 sentences, increasing in sophistication
+// from "modest start" (tier 0) to "flagship" (tier 5), weaving in each
+// property's own short desc tag.
+const DESC_TEMPLATES = [
+  (p, city) => `${p.name} is a modest entry point into the ${city} market, with ${p.desc.toLowerCase()}. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.`,
+  (p, city) => `${p.name} has built a loyal local following since opening, offering ${p.desc.toLowerCase()}. Foot traffic has grown steadily, and the store now runs as a dependable part of the ${city} network.`,
+  (p, city) => `${p.name} is a well-regarded fixture in ${city}, known for ${p.desc.toLowerCase()}. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.`,
+  (p, city) => `${p.name} has grown into a genuine ${city} destination, benefiting from ${p.desc.toLowerCase()}. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.`,
+  (p, city) => `${p.name} ranks among the strongest performers in ${city}, combining ${p.desc.toLowerCase()} with premium fittings and extended hours. It's a genuine anchor location for the chain.`,
+  (p, city) => `${p.name} is the flagship of the ${city} portfolio, defined by ${p.desc.toLowerCase()}. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.`,
+];
+
+function seededFraction(seed) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (Math.imul(h, 31) + seed.charCodeAt(i)) >>> 0;
+  h = (Math.imul(h, 1664525) + 1013904223) >>> 0;
+  return h / 4294967296;
+}
+
+function scaleInRange(min, max, cityFactor, seed) {
+  const tierFrac = Math.max(0, Math.min(1, (cityFactor - 0.85) / 0.30));
+  const rand = seededFraction(seed);
+  const frac = Math.max(0, Math.min(1, tierFrac * 0.7 + rand * 0.3));
+  return Math.round(min + frac * (max - min));
+}
+
+/** Full generated listing for one property: description, key stats,
+ *  amenities, and financials. storeIndex is the property's 0-based
+ *  position within its city's 6-store list ("Store 1" = index 0). */
+function propertyDetails(property, cityName, storeIndex) {
+  const tier = STORE_TIERS[storeIndex];
+  const cityFactor = CITY_TIERS[cityName] || 1.0;
+  const seed = propertySlug(property.name);
+
+  const monthlyRent = scaleInRange(tier.rentMin, tier.rentMax, cityFactor, seed + '_rent');
+  const purchasePrice = scaleInRange(tier.buyMin, tier.buyMax, cityFactor, seed + '_buy');
+  const dailyTraffic = scaleInRange(tier.trafficMin, tier.trafficMax, cityFactor, seed + '_traffic');
+  const parking = scaleInRange(tier.parkingMin, tier.parkingMax, cityFactor, seed + '_park');
+  const annualRent = monthlyRent * 12;
+  // Expected annual revenue at capacity — a flavor real-estate-style yield
+  // estimate (daily footfall x an average basket x days/year), independent
+  // of the game's own business income formulas.
+  const avgSpend = 14 + seededFraction(seed + '_spend') * 8; // ~$14-22 average basket
+  const expectedAnnualRevenue = Math.round(dailyTraffic * avgSpend * 365);
+
+  return {
+    description: DESC_TEMPLATES[storeIndex](property, cityName),
+    stats: { sqft: property.sqft, dailyTraffic, condition: tier.condition, parking, hours: tier.hours },
+    amenities: tier.amenities,
+    financials: { monthlyRent, annualRent, purchasePrice, expectedAnnualRevenue },
+  };
+}

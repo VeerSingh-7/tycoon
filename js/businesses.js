@@ -315,7 +315,7 @@ const Businesses = (() => {
       return;
     }
     if (setupFlow) {
-      const desired = 'setup:' + setupFlow.step + ':' + setupFlow.countryId + ':' + setupFlow.city + ':' + setupFlow.propertyId + ':' + setupFlow.countryDropdownOpen;
+      const desired = 'setup:' + setupFlow.stage + ':' + setupFlow.step + ':' + setupFlow.countryId + ':' + setupFlow.city + ':' + setupFlow.propertyId + ':' + setupFlow.countryDropdownOpen + ':' + setupFlow.tenure;
       if (lastRenderKey !== desired) container.innerHTML = setupHTML();
       lastRenderKey = desired;
       return;
@@ -347,23 +347,26 @@ const Businesses = (() => {
 
   /* ------------------------- Business setup flow ------------------------ */
   // A multi-STAGE wizard for a business with its own property catalog
-  // (js/data/properties.js) — SETUP_STAGES lists the stages, "Property" is
-  // stage 1 of however many exist (just the one for now; more can be
-  // appended later without changing how the header counts them).
+  // (js/data/properties.js) — SETUP_STAGES lists the stages: "Property"
+  // (stage 1) then "Next Steps" (stage 2, a placeholder — more real
+  // content lands here later without changing how the header counts them).
   //
-  // Stage 1 (Property) is ONE screen: a country selector (flag + name,
-  // tap to open a dropdown of the other 3) at the top, a horizontally-
-  // scrollable city bar below it, and the selected city's 6 real
-  // properties listed underneath — switching country or city just updates
-  // that same screen in place, never a separate screen per country/city.
-  // Tapping a specific property opens a "Coming Soon" page for it (every
-  // property, for now) instead of actually buying — the purchase flow
-  // for a business with its own property catalog isn't wired up yet, on
-  // purpose, while this browsing UI is still being built out. Businesses
-  // WITHOUT a catalog are completely unaffected — still buy instantly.
+  // Stage 1 (Property) starts on ONE browse screen: a country selector
+  // (flag + name, tap for a dropdown of the other 3) at the top, a
+  // horizontally-scrollable city bar below it, and the selected city's 6
+  // real properties listed underneath — switching country or city just
+  // updates that same screen in place. Tapping a property opens ITS real
+  // generated listing (js/data/properties.js propertyDetails — description,
+  // key stats, amenities, financials) with Rent/Purchase actions. Either
+  // one starts the business for real (same buyBusinessLevel() + cost as
+  // every other business — the property is flavor, not a separate charge)
+  // and unlocks "Continue to Step 2", which is just a Coming Soon page for
+  // now. Businesses WITHOUT a catalog are completely unaffected — still
+  // buy instantly, no wizard at all.
 
   const SETUP_STAGES = [
     { id: 'property', label: 'Property' },
+    { id: 'next', label: 'Next Steps' },
   ];
 
   function openBusinessSetup(bizId) {
@@ -371,7 +374,7 @@ const Businesses = (() => {
     setupFlow = {
       bizId, stage: 0, step: 'browse',
       countryId: firstCountry.id, city: firstCountry.cities[0].name,
-      propertyId: null, countryDropdownOpen: false,
+      propertyId: null, countryDropdownOpen: false, tenure: null,
     };
     render();
   }
@@ -382,7 +385,12 @@ const Businesses = (() => {
     const d = btn.dataset;
 
     if (d.bizNav === 'closeSetup') { setupFlow = null; render(); return; }
-    if (d.setupBack !== undefined) { setupFlow.step = 'browse'; render(); return; }
+    if (d.setupBack !== undefined) {
+      if (setupFlow.step === 'property') setupFlow.step = 'browse';
+      else if (setupFlow.step === 'stage2') { setupFlow.stage = 0; setupFlow.step = 'property'; }
+      render();
+      return;
+    }
     if (d.setupCountryToggle !== undefined) { setupFlow.countryDropdownOpen = !setupFlow.countryDropdownOpen; render(); return; }
     if (d.setupCountry) {
       const country = BUSINESS_PROPERTIES[setupFlow.bizId].countries.find((c) => c.id === d.setupCountry);
@@ -393,13 +401,40 @@ const Businesses = (() => {
       return;
     }
     if (d.setupCity) { setupFlow.city = d.setupCity; setupFlow.countryDropdownOpen = false; render(); return; }
-    if (d.setupProperty) { setupFlow.propertyId = d.setupProperty; setupFlow.step = 'comingSoon'; render(); return; }
+    if (d.setupProperty) {
+      setupFlow.propertyId = d.setupProperty;
+      setupFlow.step = 'property';
+      render();
+      return;
+    }
+    if (d.setupRent !== undefined || d.setupPurchase !== undefined) {
+      // Guard against a double-charge: if this business somehow already
+      // got started earlier in this same setup session (e.g. the player
+      // went back and tried a different property after already renting/
+      // buying one), don't let a second buyBusinessLevel() fire.
+      if (getBiz(setupFlow.bizId).level > 0) return;
+      const tenure = d.setupRent !== undefined ? 'rent' : 'purchase';
+      if (buyBusinessLevel(setupFlow.bizId)) {
+        const biz = getBiz(setupFlow.bizId);
+        biz.property = { countryId: setupFlow.countryId, city: setupFlow.city, propertyId: setupFlow.propertyId, tenure };
+        saveGame();
+        setupFlow.tenure = tenure;
+        UI.renderBalance();
+        render();
+        if (typeof Businesses !== 'undefined') Businesses.render();
+      }
+      return;
+    }
+    if (d.setupContinueStage !== undefined) { setupFlow.stage = 1; setupFlow.step = 'stage2'; render(); return; }
   }
 
   function setupHTML() {
     const def = BUSINESS_BY_ID[setupFlow.bizId];
     const stage = SETUP_STAGES[setupFlow.stage];
-    const body = setupFlow.step === 'comingSoon' ? setupPropertyComingSoonHTML(def) : setupBrowseHTML(def);
+    let body;
+    if (setupFlow.step === 'property') body = setupPropertyHTML(def);
+    else if (setupFlow.step === 'stage2') body = setupStage2HTML();
+    else body = setupBrowseHTML(def);
 
     const closeOrBackBtn = setupFlow.step === 'browse'
       ? `<button class="icon-btn" data-biz-nav="closeSetup" type="button" aria-label="Close">✕</button>`
@@ -457,21 +492,79 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /** Every property opens the same "Coming Soon" page for now — the actual
-   *  per-property setup/purchase isn't built yet, this is just the front
-   *  end of it while that gets wired up. */
-  function setupPropertyComingSoonHTML(def) {
+  /** The real per-property listing: generated description, key stats,
+   *  amenities and financials (js/data/properties.js propertyDetails),
+   *  with Rent/Purchase actions. Both actions start the business the same
+   *  way every other business starts (buyBusinessLevel, same baseCost) —
+   *  the property is flavor and a chosen tenure, not a separate charge.
+   *  Once started, the actions are replaced with "Continue to Step 2". */
+  function setupPropertyHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
     const cityObj = country.cities.find((c) => c.name === setupFlow.city);
-    const property = cityObj.properties.find((p) => propertySlug(p.name) === setupFlow.propertyId);
+    const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === setupFlow.propertyId);
+    const property = cityObj.properties[storeIndex];
+    const d = propertyDetails(property, cityObj.name, storeIndex);
+    const cost = businessNextCost(def);
+    const canBuy = state.balance >= cost;
+    const started = getBiz(def.id).level > 0;
+
+    const actionsOrContinue = started ? `
+        <div class="card">
+          <div class="card-title">${setupFlow.tenure === 'purchase' ? 'Purchased' : 'Rented'}</div>
+          <div class="progress-caption" style="text-align:left;margin-top:4px">${property.name} is now open for business.</div>
+        </div>
+        <button class="btn btn-wide btn-gold" data-setup-continue-stage type="button">Continue to Step 2 ›</button>`
+      : `
+        <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-rent type="button" ${canBuy ? '' : 'disabled'}>
+          Rent This Property · ${formatMoney(cost)}</button>
+        <button class="btn btn-wide" data-setup-purchase type="button" ${canBuy ? '' : 'disabled'}>
+          Purchase This Property · ${formatMoney(cost)}</button>`;
+
+    return `
+      <h2 style="margin:14px 2px 4px">${property.name}</h2>
+      <div class="progress-caption" style="text-align:left;margin:0 2px 14px">${cityObj.name}, ${country.name}</div>
+      <p class="muted" style="margin:0 2px 14px;line-height:1.5;font-size:13.5px">${d.description}</p>
+      <div class="card">
+        <div class="card-title">Key Stats</div>
+        <div class="biz-stats">
+          <div><span class="muted">Size</span><b>${d.stats.sqft.toLocaleString()} sq ft</b></div>
+          <div><span class="muted">Daily Foot Traffic</span><b>${d.stats.dailyTraffic.toLocaleString()}</b></div>
+        </div>
+        <div class="biz-stats">
+          <div><span class="muted">Condition</span><b>${d.stats.condition}</b></div>
+          <div><span class="muted">Parking</span><b>${d.stats.parking} spaces</b></div>
+        </div>
+        <div class="progress-caption">Operating Hours Approved: ${d.stats.hours}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Amenities</div>
+        <div class="upgrade-list">
+          ${d.amenities.map((a) => `<div class="upgrade-row"><div class="upgrade-info"><span class="upgrade-name">${a}</span></div></div>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Financials</div>
+        <div class="biz-stats">
+          <div><span class="muted">Monthly Rent</span><b>${formatMoney(d.financials.monthlyRent)}</b></div>
+          <div><span class="muted">Annual Rent</span><b>${formatMoney(d.financials.annualRent)}</b></div>
+        </div>
+        <div class="biz-stats">
+          <div><span class="muted">Purchase Price</span><b>${formatMoney(d.financials.purchasePrice)}</b></div>
+          <div><span class="muted">Est. Annual Revenue</span><b>${formatMoney(d.financials.expectedAnnualRevenue)}</b></div>
+        </div>
+      </div>
+      ${actionsOrContinue}`;
+  }
+
+  /** Stage 2 doesn't exist yet — reached only after a property has been
+   *  rented or purchased. */
+  function setupStage2HTML() {
     return `
       <div class="coming-soon">
         <div class="cs-badge">COMING SOON</div>
-        <h2>${property.name}</h2>
-        <p>${property.sqft.toLocaleString()} sq ft · ${cityObj.name}, ${country.name}</p>
-        <p class="muted">${property.desc}</p>
-        <p class="muted">Setting up and buying ${property.name} is on the way — every property opens this same page for now.</p>
+        <h2>Step 2</h2>
+        <p class="muted">The next stage of setting up your business is on the way.</p>
       </div>`;
   }
 
