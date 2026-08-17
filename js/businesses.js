@@ -39,11 +39,14 @@
  * DOM writes for the same reason — none of them call render() either.
  *
  * Starting a business with a property catalog (js/data/properties.js — for
- * now just the Supermarket Chain) opens a staged setup flow instead of
- * buying instantly: pick a country, then a city, then a property tier,
- * then confirm. The choice is recorded on the business (engine.js getBiz's
- * .property) but is purely flavor for now — it doesn't change the
- * business's real cost or income.
+ * now just the Supermarket Chain) opens a staged setup wizard instead of
+ * buying instantly (SETUP_STAGES — just "Property" for now, more can be
+ * appended later). That one stage is itself 3 screens: pick a country,
+ * then browse (country name heading + a horizontally-scrollable city bar
+ * + that city's real properties listed below it, all one screen), then
+ * review/confirm once a specific property is tapped. The choice is
+ * recorded on the business (engine.js getBiz's .property) but is purely
+ * flavor for now — it doesn't change the business's real cost or income.
  *
  * Events use DELEGATION on the container so the 2x/sec re-render (needed for
  * mechanic countdowns) never orphans listeners.
@@ -311,7 +314,7 @@ const Businesses = (() => {
       return;
     }
     if (setupFlow) {
-      const desired = 'setup:' + setupFlow.step + ':' + setupFlow.countryId + ':' + setupFlow.city + ':' + setupFlow.tierId;
+      const desired = 'setup:' + setupFlow.step + ':' + setupFlow.countryId + ':' + setupFlow.city + ':' + setupFlow.propertyId;
       if (lastRenderKey !== desired) container.innerHTML = setupHTML();
       lastRenderKey = desired;
       return;
@@ -342,13 +345,24 @@ const Businesses = (() => {
   }
 
   /* ------------------------- Business setup flow ------------------------ */
-  // Country -> City -> Property tier -> Review, for a business with its own
-  // property catalog (js/data/properties.js). Purely a UI flow over the
-  // SAME buyBusinessLevel() used everywhere else — the property choice is
-  // recorded but never changes cost or income.
+  // A multi-STAGE wizard for a business with its own property catalog
+  // (js/data/properties.js) — SETUP_STAGES lists the stages, "Property" is
+  // stage 1 of however many exist (just the one for now; more can be
+  // appended later without changing how the header counts them). Purely a
+  // UI flow over the SAME buyBusinessLevel() used everywhere else — the
+  // property choice is recorded but never changes cost or income.
+  //
+  // Stage 1 (Property) is itself 3 screens: pick a country (full list),
+  // then browse — country name as a heading, a horizontally-scrollable
+  // city bar, and that city's 6 real properties listed below it, all on
+  // one screen — then review/confirm once a specific property is tapped.
+
+  const SETUP_STAGES = [
+    { id: 'property', label: 'Property' },
+  ];
 
   function openBusinessSetup(bizId) {
-    setupFlow = { bizId, step: 'country', countryId: null, city: null, tierId: null };
+    setupFlow = { bizId, stage: 0, step: 'country', countryId: null, city: null, propertyId: null };
     render();
   }
 
@@ -359,20 +373,27 @@ const Businesses = (() => {
 
     if (d.bizNav === 'closeSetup') { setupFlow = null; render(); return; }
     if (d.setupBack !== undefined) {
-      if (setupFlow.step === 'city') setupFlow.step = 'country';
-      else if (setupFlow.step === 'tier') setupFlow.step = 'city';
-      else if (setupFlow.step === 'review') setupFlow.step = 'tier';
+      if (setupFlow.step === 'browse') setupFlow.step = 'country';
+      else if (setupFlow.step === 'review') setupFlow.step = 'browse';
       render();
       return;
     }
-    if (d.setupCountry) { setupFlow.countryId = d.setupCountry; setupFlow.step = 'city'; render(); return; }
-    if (d.setupCity) { setupFlow.city = d.setupCity; setupFlow.step = 'tier'; render(); return; }
-    if (d.setupTier) { setupFlow.tierId = d.setupTier; setupFlow.step = 'review'; render(); return; }
+    if (d.setupCountry) {
+      const def = BUSINESS_BY_ID[setupFlow.bizId];
+      const country = BUSINESS_PROPERTIES[def.id].countries.find((c) => c.id === d.setupCountry);
+      setupFlow.countryId = d.setupCountry;
+      setupFlow.city = country.cities[0].name; // land on the first city so properties show immediately
+      setupFlow.step = 'browse';
+      render();
+      return;
+    }
+    if (d.setupCity) { setupFlow.city = d.setupCity; render(); return; } // stays on 'browse', just swaps the list below
+    if (d.setupProperty) { setupFlow.propertyId = d.setupProperty; setupFlow.step = 'review'; render(); return; }
     if (d.setupConfirm !== undefined) {
-      const { bizId, countryId, city, tierId } = setupFlow;
+      const { bizId, countryId, city, propertyId } = setupFlow;
       if (buyBusinessLevel(bizId)) {
         const biz = getBiz(bizId);
-        biz.property = { countryId, city, tierId };
+        biz.property = { countryId, city, propertyId };
         saveGame();
         setupFlow = null;
         UI.renderBalance();
@@ -385,15 +406,13 @@ const Businesses = (() => {
 
   function setupHTML() {
     const def = BUSINESS_BY_ID[setupFlow.bizId];
-    const stepLabels = { country: 'Choose a Country', city: 'Choose a City', tier: 'Choose a Property', review: 'Review & Confirm' };
-    const stepIndex = ['country', 'city', 'tier', 'review'].indexOf(setupFlow.step);
+    const stage = SETUP_STAGES[setupFlow.stage];
     let body;
     if (setupFlow.step === 'country') body = setupCountryHTML(def);
-    else if (setupFlow.step === 'city') body = setupCityHTML(def);
-    else if (setupFlow.step === 'tier') body = setupTierHTML(def);
+    else if (setupFlow.step === 'browse') body = setupBrowseHTML(def);
     else body = setupReviewHTML(def);
 
-    const closeOrBackBtn = stepIndex === 0
+    const closeOrBackBtn = setupFlow.step === 'country'
       ? `<button class="icon-btn" data-biz-nav="closeSetup" type="button" aria-label="Close">✕</button>`
       : `<button class="icon-btn" data-setup-back type="button" aria-label="Back">‹</button>`;
 
@@ -403,10 +422,9 @@ const Businesses = (() => {
           ${closeOrBackBtn}
           <div class="bizd-id">
             <div class="bizd-co-name">${def.name} — Setup</div>
-            <div class="bizd-co-sub">${stepLabels[setupFlow.step]} · Step ${stepIndex + 1} of 4</div>
+            <div class="bizd-co-sub">Step ${setupFlow.stage + 1} of ${SETUP_STAGES.length} · ${stage.label}</div>
           </div>
         </div>
-        <div class="progress"><div class="progress-fill" style="width:${((stepIndex + 1) / 4) * 100}%"></div></div>
         ${body}
       </div>`;
   }
@@ -427,32 +445,25 @@ const Businesses = (() => {
       </div>`;
   }
 
-  function setupCityHTML(def) {
+  /** Country name as a heading, a horizontally-scrollable city bar, and the
+   *  selected city's properties listed below it — switching cities just
+   *  swaps that list in place, no separate screen per city. */
+  function setupBrowseHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
+    const cityObj = country.cities.find((c) => c.name === setupFlow.city) || country.cities[0];
     return `
-      <div class="section-head" style="margin-top:14px"><h2>Which city in ${country.name}?</h2></div>
+      <div class="section-head" style="margin-top:14px"><h2>${country.name}</h2></div>
+      <div class="biz-setup-scroller">
+        ${country.cities.map((c) => `
+          <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
+      </div>
       <div class="biz-list">
-        ${country.cities.map((city) => `
-          <button class="card hub-card" data-setup-city="${city}" type="button">
+        ${cityObj.properties.map((p) => `
+          <button class="card hub-card" data-setup-property="${propertySlug(p.name)}" type="button">
             <span class="hub-text">
-              <span class="hub-title">${city}</span>
-              <span class="hub-sub">${PROPERTY_TIERS.length} properties available</span>
-            </span>
-            <span class="hub-arrow">›</span>
-          </button>`).join('')}
-      </div>`;
-  }
-
-  function setupTierHTML(def) {
-    return `
-      <div class="section-head" style="margin-top:14px"><h2>Which property in ${setupFlow.city}?</h2></div>
-      <div class="biz-list">
-        ${PROPERTY_TIERS.map((t) => `
-          <button class="card hub-card" data-setup-tier="${t.id}" type="button">
-            <span class="hub-text">
-              <span class="hub-title">${setupFlow.city} ${t.name}</span>
-              <span class="hub-sub">${t.blurb}</span>
+              <span class="hub-title">${p.name}</span>
+              <span class="hub-sub">${p.sqft.toLocaleString()} sq ft · ${p.desc}</span>
             </span>
             <span class="hub-arrow">›</span>
           </button>`).join('')}
@@ -462,17 +473,18 @@ const Businesses = (() => {
   function setupReviewHTML(def) {
     const catalog = BUSINESS_PROPERTIES[def.id];
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
-    const tier = PROPERTY_TIERS.find((t) => t.id === setupFlow.tierId);
+    const cityObj = country.cities.find((c) => c.name === setupFlow.city);
+    const property = cityObj.properties.find((p) => propertySlug(p.name) === setupFlow.propertyId);
     const cost = businessNextCost(def);
     const canBuy = state.balance >= cost;
     return `
       <div class="card" style="margin-top:14px">
-        <div class="card-title">${def.name}</div>
+        <div class="card-title">${property.name}</div>
         <div class="biz-stats">
           <div><span class="muted">Location</span><b>${setupFlow.city}, ${country.name}</b></div>
-          <div><span class="muted">Property</span><b>${tier.name}</b></div>
+          <div><span class="muted">Size</span><b>${property.sqft.toLocaleString()} sq ft</b></div>
         </div>
-        <div class="progress-caption">${tier.blurb}</div>
+        <div class="progress-caption">${property.desc}</div>
       </div>
       <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-setup-confirm type="button" ${canBuy ? '' : 'disabled'}>
         Start Business · ${formatMoney(cost)}</button>`;

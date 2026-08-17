@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v94'; // v94: Supermarket Start Business setup flow (property picker), fixed overlay-flicker regression
+const CACHE_NAME = 'tycoon-v95'; // v95: 96 real named properties, Property as wizard stage 1, browse UI with city scroller
 
 const ASSETS = [
   'index.html',
