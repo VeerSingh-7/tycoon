@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v92'; // v92: dead-code cleanup pass, business card emojis removed
+const CACHE_NAME = 'tycoon-v93'; // v93: world map colorized/smoother zoom/landscape contain-fit; Properties placeholder
 
 const ASSETS = [
   'index.html',

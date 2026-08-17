@@ -47,6 +47,7 @@ const Businesses = (() => {
   let container;
   let listMode = 'all'; // 'all' | 'mine' — which businesses the list below shows
   let mapOpen = false;  // World Map overlay
+  let propertiesOpen = false; // Properties "Coming Soon" overlay
   let mapRenderState = null; // null | 'loading' | 'loaded' — what's actually in the DOM for the map right now
   let openMenuId = null; // id of the owned business whose ⋮ menu is open (Sell), or null
   let worldMapSvg = null;    // fetched img/map/world-map.svg markup, cached once loaded
@@ -54,13 +55,23 @@ const Businesses = (() => {
   let countryNames = {};     // ISO code -> readable name, parsed from the fetched SVG's hidden label layer
 
   // The map's own aspect ratio (viewBox 1000 x 507.209 — a wide equirectangular
-  // projection) doesn't match a phone's tall portrait screen, so a naive
-  // "fit to width" zoomed-out state leaves a band of empty space above/below
-  // the map. mapZoomMinVw/mapZoomMaxVw are computed per-device (see
-  // computeMapZoomBounds) so "fully zoomed out" instead COVERS the whole
-  // screen (like CSS object-fit:cover) — no blank space on any edge, ever,
-  // at any zoom level from there up.
+  // projection) doesn't match a phone's tall portrait screen. mapZoomMinVw/
+  // mapZoomMaxVw are computed per-device (see computeMapZoomBounds) and
+  // depend on orientation: portrait COVERS the whole screen (no blank space,
+  // cropping width instead — the map is much wider than any portrait
+  // screen), landscape CONTAINS the whole map instead (its full scale stays
+  // visible, even if that means a slim letterbox margin) since a landscape
+  // screen is often close enough to the map's own wide aspect ratio that
+  // cropping it doesn't buy much and hiding part of the map does cost more.
   const MAP_ASPECT = 507.209 / 1000; // svg intrinsic height/width
+
+  // Continuous zoom-hold (the +/- buttons): a quick tap still does one
+  // discrete step (onClick's d.mapZoom, unchanged); holding past this delay
+  // starts a smooth per-frame zoom that runs until released.
+  const ZOOM_HOLD_DELAY_MS = 260;
+  const ZOOM_HOLD_STEP = 1.025;
+  let zoomHoldTimer = null;
+  let zoomHoldActive = false;
   let mapZoomMinVw = 350;  // recomputed by computeMapZoomBounds() every time the map opens
   let mapZoomMaxVw = 2200; // recomputed alongside it (a fixed multiple of the min, device-adaptive)
   let mapWidthVw = mapZoomMinVw; // current zoom level (the SVG's CSS width, in vw units)
@@ -102,6 +113,45 @@ const Businesses = (() => {
         <circle cx="2" cy="8" r="1.6" fill="currentColor"/>
         <circle cx="2" cy="14" r="1.6" fill="currentColor"/></svg>`;
 
+  // Properties: a small house/plot outline.
+  const PROPERTY_ICON = `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <path d="M8 20 L20 9 L32 20 V32 H8 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
+        <path d="M16 32 V22 H24 V32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
+
+  /** Hidden gradient defs (never rendered visibly on their own) that the real
+   *  map's country paths reference via fill="url(#bizMapLand)". A DELIBERATE
+   *  exception to the app's monochrome system, at explicit request: a
+   *  latitude-based stylized approximation of a natural-color satellite
+   *  view — polar ice near the top/bottom, green temperate/tropical bands,
+   *  a yellow desert band at roughly the real-world desert latitudes
+   *  (Sahara/Arabia/Gobi in the north, Kalahari/outback/Atacama in the
+   *  south) either side of a slightly richer equatorial green. It's not a
+   *  literal photo — no real satellite image shares this file's projection
+   *  closely enough to align coastlines pixel-for-pixel, so a gradient tied
+   *  to the SVG's own coordinate space (userSpaceOnUse) was the reliable
+   *  way to get real shading that still pans/zooms correctly with the map
+   *  instead of a mismatched image underneath it. The ocean's blue comes
+   *  from .biz-worldmap-scroll's own CSS background instead (see
+   *  css/styles.css) — it doesn't need geographic alignment. */
+  const MAP_COLOR_DEFS = `
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <defs>
+        <linearGradient id="bizMapLand" x1="0" y1="0" x2="0" y2="507.209" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#EAF2F2"/>
+          <stop offset="6%" stop-color="#CFE3D0"/>
+          <stop offset="18%" stop-color="#6FA96C"/>
+          <stop offset="30%" stop-color="#D9C36A"/>
+          <stop offset="42%" stop-color="#5FAE5E"/>
+          <stop offset="50%" stop-color="#3F9450"/>
+          <stop offset="58%" stop-color="#5FAE5E"/>
+          <stop offset="70%" stop-color="#D9C36A"/>
+          <stop offset="82%" stop-color="#6FA96C"/>
+          <stop offset="94%" stop-color="#CFE3D0"/>
+          <stop offset="100%" stop-color="#EAF2F2"/>
+        </linearGradient>
+      </defs>
+    </svg>`;
+
   /** A stylized (not survey-accurate) world map silhouette for the World Map
    *  placeholder page — hand-drawn continent blobs on a lat/long grid, all
    *  monochrome so it themes with dark/light like every other icon. */
@@ -137,8 +187,13 @@ const Businesses = (() => {
     container.addEventListener('touchstart', onTouchStart, { passive: true });
     container.addEventListener('touchmove', onTouchMove, { passive: false });
     container.addEventListener('touchend', onTouchEnd, { passive: true });
+    container.addEventListener('pointerdown', onZoomPointerDown);
+    container.addEventListener('pointerup', stopZoomHold);
+    container.addEventListener('pointercancel', stopZoomHold);
+    container.addEventListener('pointerleave', stopZoomHold);
     listMode = 'all';
     mapOpen = false;
+    propertiesOpen = false;
     mapRenderState = null;
     openMenuId = null;
     render();
@@ -168,13 +223,15 @@ const Businesses = (() => {
     if (d.bizNav === 'map') {
       mapOpen = true;
       computeMapZoomBounds();
-      mapWidthVw = mapZoomMinVw; // open fully zoomed out (covering the screen, no blank space)
+      mapWidthVw = mapZoomMinVw; // open fully zoomed out (covering/containing per orientation)
       selectedCountryEl = null;
       selectedCountryCode = null;
       fetchWorldMap();
       render();
       return;
     }
+    if (d.bizNav === 'properties') { propertiesOpen = true; render(); return; }
+    if (d.bizNav === 'closeProperties') { propertiesOpen = false; render(); return; }
     if (d.bizNav === 'all' || d.bizNav === 'mine') { listMode = d.bizNav; render(); return; }
     if (d.bizMenu !== undefined) { openMenuId = openMenuId === d.bizMenu ? null : d.bizMenu; render(); return; }
 
@@ -225,7 +282,29 @@ const Businesses = (() => {
       return;
     }
     mapRenderState = null;
+    if (propertiesOpen) { container.innerHTML = propertiesHTML(); return; }
     container.innerHTML = bizTabHTML();
+  }
+
+  /** Properties — placeholder teaser, same "Coming Soon" pattern as the
+   *  Services placeholders (js/banking.js etc). Each business will
+   *  eventually have its own purchasable property; none of that exists yet. */
+  function propertiesHTML() {
+    return `
+      <div class="bizd-screen">
+        <div class="bizd-head">
+          <button class="icon-btn" data-biz-nav="closeProperties" type="button" aria-label="Close">✕</button>
+          <div class="bizd-id">
+            <div class="bizd-co-name">Properties</div>
+          </div>
+        </div>
+        <div class="coming-soon">
+          <div class="cs-badge">COMING SOON</div>
+          <h2>Properties</h2>
+          <p>Every business will have its own property you can purchase — this is where you'll see everything you own across your whole portfolio.</p>
+          <p class="muted">Keep growing — your businesses will show up here once this is built.</p>
+        </div>
+      </div>`;
   }
 
   /** Fetch the real world map once and cache it in memory; the browser's
@@ -275,18 +354,27 @@ const Businesses = (() => {
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   const raf = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : (fn) => setTimeout(fn, 16);
 
-  /** "Cover" sizing (like CSS object-fit:cover), computed per-device: the
-   *  smallest width (in vw) at which the map's rendered height ALSO covers
-   *  the full viewport height, so the fully-zoomed-out state never shows a
-   *  strip of blank space above/below (the map is landscape, phones are
-   *  portrait — a plain "fit to width" leaves a big gap otherwise). Max is
-   *  a fixed multiple of that, so zoom depth scales with the device too —
-   *  enough to make even a tiny island nation (Mauritius) a real tap target. */
+  /** Computed per-device, per-orientation:
+   *   - Portrait (screen taller than wide, the common case): COVER sizing
+   *     (like CSS object-fit:cover) — the smallest width at which the map's
+   *     rendered height ALSO covers the full viewport height, so the
+   *     fully-zoomed-out state never shows blank space above/below (the map
+   *     is landscape-shaped, a plain "fit to width" would leave a big gap).
+   *   - Landscape (screen wider than tall): CONTAIN sizing instead — the
+   *     map's full scale stays visible (letterboxed on the sides if the
+   *     screen is proportionally even wider than the map) rather than
+   *     cropping any of it away, since a landscape screen is often already
+   *     close to the map's own wide aspect ratio.
+   *  Max is a fixed multiple of whichever minimum applies, so zoom depth
+   *  scales with the device too — enough to make even a tiny island nation
+   *  (Mauritius) a real tap target. */
   function computeMapZoomBounds() {
     const vw = (typeof window !== 'undefined' && window.innerWidth) || 400;
     const vh = (typeof window !== 'undefined' && window.innerHeight) || 800;
-    const widthForHeightCoverPx = vh / MAP_ASPECT;
-    const neededPx = Math.max(vw, widthForHeightCoverPx);
+    const heightMatchedWidthPx = vh / MAP_ASPECT;
+    const neededPx = vw > vh
+      ? Math.min(vw, heightMatchedWidthPx)  // landscape: contain (may letterbox)
+      : Math.max(vw, heightMatchedWidthPx); // portrait: cover (crops width)
     mapZoomMinVw = (neededPx / vw) * 100;
     mapZoomMaxVw = mapZoomMinVw * 6;
   }
@@ -326,6 +414,32 @@ const Businesses = (() => {
 
   function zoomStep(dir) {
     setMapWidth(mapWidthVw * (dir > 0 ? 1.6 : 1 / 1.6));
+  }
+
+  /** Pressing and holding a zoom button (past ZOOM_HOLD_DELAY_MS, so a quick
+   *  tap still just does the one discrete zoomStep above) zooms smoothly,
+   *  a small step every animation frame, until released. */
+  function onZoomPointerDown(e) {
+    if (!mapOpen) return;
+    const btn = e.target.closest && e.target.closest('.biz-worldmap-zoom-btn');
+    if (!btn) return;
+    const dir = btn.dataset.mapZoom === 'in' ? 1 : -1;
+    zoomHoldTimer = setTimeout(() => startZoomHold(dir), ZOOM_HOLD_DELAY_MS);
+  }
+
+  function startZoomHold(dir) {
+    zoomHoldActive = true;
+    const step = () => {
+      if (!zoomHoldActive) return;
+      setMapWidth(mapWidthVw * (dir > 0 ? ZOOM_HOLD_STEP : 1 / ZOOM_HOLD_STEP));
+      raf(step);
+    };
+    raf(step);
+  }
+
+  function stopZoomHold() {
+    if (zoomHoldTimer) { clearTimeout(zoomHoldTimer); zoomHoldTimer = null; }
+    zoomHoldActive = false;
   }
 
   function touchDist(a, b) {
@@ -473,6 +587,15 @@ const Businesses = (() => {
         </span>
       </button>
 
+      <button class="card hub-card" data-biz-nav="properties" type="button" aria-label="Open Properties">
+        <span class="hub-logo">${PROPERTY_ICON}</span>
+        <span class="hub-text">
+          <span class="hub-title">Properties</span>
+          <span class="hub-sub">The property you own for each of your businesses</span>
+        </span>
+        <span class="hub-arrow">›</span>
+      </button>
+
       <div class="biz-nav-grid">
         <button class="biz-nav-panel ${listMode === 'mine' ? 'is-active' : ''}" data-biz-nav="mine" type="button">
           <span class="biz-nav-top">
@@ -511,7 +634,7 @@ const Businesses = (() => {
    *  to reach them. */
   function mapHTML() {
     const body = worldMapSvg
-      ? `<div class="biz-worldmap-scroll">${worldMapSvg}</div>`
+      ? `${MAP_COLOR_DEFS}<div class="biz-worldmap-scroll">${worldMapSvg}</div>`
       : `<div class="biz-worldmap-scroll biz-worldmap-loading">${WORLD_MAP_SVG}</div>`;
     return `
       <div class="biz-worldmap-screen">

@@ -627,7 +627,12 @@ html, body {
 
 /* World Map page — full-bleed (no header row), a real 1:1 map
    (img/map/world-map.svg, fetched and inlined by js/businesses.js, see
-   CREDITS.md) with every country its own bordered, tappable path. The
+   CREDITS.md) with every country its own bordered, tappable path.
+   DELIBERATE EXCEPTION to the app's monochrome design system: this one
+   page uses real color — blue ocean, a latitude-based green/desert/ice
+   gradient for land (js/businesses.js MAP_COLOR_DEFS) — a stylized
+   approximation of a natural-color satellite view, not a literal photo
+   (no aligned imagery exists for this border data's projection). The
    source file bakes in its own gray/white fill+stroke per path; since SVG
    presentation attributes always lose to any matching CSS rule, these
    overrides apply without touching the file itself. */
@@ -636,51 +641,54 @@ html, body {
   animation: fadeIn 0.16s ease;
 }
 .biz-worldmap-close {
-  position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 14px; z-index: 4;
+  position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: 16px; z-index: 4;
 }
 
-/* Rendered wider than the viewport (js/businesses.js mapWidthVw — bounds are
-   computed per-device by computeMapZoomBounds so "fully zoomed out" covers
-   the whole screen with zero blank space, up to 6x that for zooming in) and
-   left to scroll/pan in both directions — that, plus pinch or the +/-
-   buttons to zoom further, is what makes even the smallest country (down to
-   Mauritius-sized microstates, see the circle-marker rule below) a big
-   enough tap target, without ever distorting the map's real proportions
-   (only width is ever set — height stays auto). The width transition makes
-   BUTTON zoom glide instead of snap; js/businesses.js turns it off during an
-   active pinch so direct finger-tracking never fights/lags behind it.
-   #Ocean/#World are fully transparent rather than just background-colored —
-   that's what makes the drop-shadow below outline each landmass/coastline
-   individually instead of one flat rectangle (a transparent shape doesn't
-   count as "painted" for shadow purposes, only the actual land does), which
-   is what gives the map a raised, embossed feel instead of a flat picture —
-   especially visible on islands like Greenland or Mauritius, whose entire
-   border is a coastline. */
-.biz-worldmap-scroll { position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+/* Rendered wider than the viewport (js/businesses.js mapWidthVw — bounds
+   are computed per-device by computeMapZoomBounds: portrait "covers" the
+   screen with zero blank space, landscape "contains" the whole map instead
+   so you can see its full scale even if that means a slim letterbox margin
+   — up to 6x either minimum for zooming in) and left to scroll/pan in both
+   directions — that, plus pinch or the +/- buttons to zoom further, is what
+   makes even the smallest country a big enough tap target, without ever
+   distorting the map's real proportions (only width is ever set — height
+   stays auto). The width transition makes BUTTON zoom glide instead of
+   snap; js/businesses.js turns it off during an active pinch so direct
+   finger-tracking never fights/lags behind it. #Ocean/#World are fully
+   transparent (the ocean color instead comes from this element's own
+   background gradient, behind the SVG) — that's what makes the drop-shadow
+   below outline each landmass/coastline individually instead of one flat
+   rectangle (transparent pixels don't count as "painted" for shadow
+   purposes, only actual land does), giving the map a raised, embossed feel
+   instead of a flat picture — especially visible on islands like Greenland
+   or Mauritius, whose entire border is a coastline. */
+.biz-worldmap-scroll {
+  position: absolute; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch;
+  background: linear-gradient(180deg, #AFD1E3 0%, #4C89AE 20%, #2E6E93 50%, #4C89AE 80%, #AFD1E3 100%);
+}
 .biz-worldmap-scroll svg {
   width: 350vw; height: auto; display: block; transition: width 0.22s ease-out;
-  filter: drop-shadow(1.5px 3px 2.5px var(--shadow));
+  filter: drop-shadow(1.5px 3px 3px rgba(20, 24, 20, 0.4));
 }
-.biz-worldmap-scroll svg path { fill: var(--bg-elev-2); stroke: var(--border); stroke-width: 0.6; }
+.biz-worldmap-scroll svg path { fill: url(#bizMapLand); stroke: rgba(30, 28, 20, 0.35); stroke-width: 0.6; }
 .biz-worldmap-scroll svg #Ocean { fill: none; stroke: none; }
 .biz-worldmap-scroll svg #World { fill: none; }
 .biz-worldmap-scroll svg #labels { display: none; }
+/* The hit-target circles the source file ships for ~100 tiny island
+   nations/microstates (id="xx_") stay functional (pointer-events: all
+   overrides the default that skips hit-testing a transparent fill) but are
+   never drawn — no visible dots scattered over the map, just a slightly
+   bigger invisible tap zone around genuinely sub-pixel countries. */
+.biz-worldmap-scroll svg circle[id$="_"] { fill: none; pointer-events: all; }
 .biz-worldmap-scroll svg g[id] { cursor: pointer; }
-.biz-worldmap-scroll svg g[id]:active path { fill: var(--surface); }
-/* Invisible-by-source hit-target circles the file ships for ~100 tiny
-   island nations/microstates (id="xx_") — without a visible fill they're
-   both unclickable (pointer-events skip fully transparent fills) and
-   invisible, so a country like Mauritius would have nothing to tap at any
-   zoom level. Styled to match the country paths so they read as small dots
-   at low zoom and grow into real tap targets as you zoom in. */
-.biz-worldmap-scroll svg circle[id$="_"] { fill: var(--bg-elev-2); fill-opacity: 1; stroke: var(--border); stroke-width: 0.6; cursor: pointer; }
-/* The tapped/selected country (js/businesses.js .is-selected) — a lighter
-   fill + a bold accent outline, not a solid color wash. Covers both the
-   normal path shapes and the microstate circle markers above. */
+.biz-worldmap-scroll svg g[id]:active path { filter: brightness(1.15); }
+/* The tapped/selected country — a crisp white outline that reads clearly
+   against any of the map's land/ocean colors, not a color-matched wash. */
 .biz-worldmap-scroll svg g.is-selected path,
 .biz-worldmap-scroll svg g.is-selected circle {
-  fill: var(--surface); fill-opacity: 1; stroke: var(--accent-bg); stroke-width: 1.4;
+  stroke: #FFFFFF; stroke-width: 2;
 }
+.biz-worldmap-scroll svg g.is-selected circle { fill: rgba(255, 255, 255, 0.9); }
 
 /* Lightweight placeholder (the old stylized continent illustration), shown
    centered and un-panned only while the real map is still being fetched
@@ -688,23 +696,28 @@ html, body {
    .biz-worldmap-scroll rules above regardless of stylesheet order. */
 .biz-worldmap-scroll.biz-worldmap-loading {
   overflow: hidden; display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
 }
 .biz-worldmap-scroll.biz-worldmap-loading svg {
-  width: 60%; max-width: 280px; min-width: 0; height: auto; color: var(--muted);
+  width: 60%; max-width: 280px; min-width: 0; height: auto; color: var(--muted); filter: none;
 }
 
-/* Floating +/- zoom controls (js/businesses.js zoomStep/setMapWidth). */
+/* Floating +/- zoom controls (js/businesses.js zoomStep/startZoomHold) — a
+   quick tap steps once; holding either button zooms continuously and
+   smoothly until released. Sized up and spaced off the corner a bit more
+   than before so the map screen reads less cramped. */
 .biz-worldmap-zoom {
-  position: absolute; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 14px); z-index: 4;
-  display: flex; flex-direction: column; gap: 6px;
+  position: absolute; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 20px); z-index: 4;
+  display: flex; flex-direction: column; gap: 10px;
 }
 .biz-worldmap-zoom-btn {
-  width: 38px; height: 38px; border-radius: 10px;
+  width: 46px; height: 46px; border-radius: 13px;
   background: var(--bg-elev); color: var(--text); border: 1px solid var(--line);
-  font-size: 20px; font-weight: 800; line-height: 1; cursor: pointer;
+  box-shadow: 0 3px 10px var(--shadow);
+  font-size: 22px; font-weight: 800; line-height: 1; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
-.biz-worldmap-zoom-btn:active { transform: scale(0.92); }
+.biz-worldmap-zoom-btn:active { transform: scale(0.92); background: var(--surface); }
 
 /* Info box (js/businesses.js showCountryInfo) — created/positioned/removed
    directly by JS next to wherever a country was tapped, never as part of
