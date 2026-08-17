@@ -396,14 +396,13 @@ html, body {
    (js/businesses.js propertyListingHTML) — same markup, different actions. */
 .biz-listing-hero {
   position: relative; height: 280px; margin: 0 -14px; overflow: hidden;
-  /* Solid placeholder fill until real property photos exist — deliberately
-     a plain color block, not a themed token, so it always reads as "an
-     image goes here" regardless of dark/light mode. */
-  background: #D8433A;
-  display: flex; align-items: center; justify-content: center;
+  background: #B7B7B1; /* sidewalk-grey fallback while the SVG loads/if it's ever empty */
 }
-.biz-listing-hero-icon { opacity: 0.32; color: #FFFFFF; }
-.biz-listing-hero-icon svg { width: 110px; height: 110px; display: block; }
+/* Every property's own generated storefront illustration (js/data/
+   properties.js storefrontSVG) — a genuine, unique-per-listing "photo" with
+   zero asset weight, since it's inline markup, not an image file. */
+.biz-listing-hero-art { position: absolute; inset: 0; }
+.biz-listing-hero-art svg { width: 100%; height: 100%; display: block; }
 .biz-listing-hero-scrim {
   position: absolute; inset: 0;
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.65) 100%);

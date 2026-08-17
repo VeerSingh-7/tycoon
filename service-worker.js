@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v101'; // v101: richer real-listing-style property descriptions; sticky city selector on browse screens
+const CACHE_NAME = 'tycoon-v102'; // v102: unique procedurally-generated storefront illustration (inline SVG) for every one of the 96 listings
 
 const ASSETS = [
   'index.html',

@@ -319,3 +319,104 @@ function propertyDetails(property, cityName, storeIndex) {
     financials: { monthlyRent, annualRent, purchasePrice, expectedAnnualRevenue },
   };
 }
+
+/* =========================================================================
+ * Procedural storefront illustration (storefrontSVG)
+ * -------------------------------------------------------------------------
+ * A genuine "image" for every one of the 96 listings without a single
+ * image FILE: a flat-design shopfront scene assembled entirely from inline
+ * SVG shapes, with the property's own name rendered as its signage.
+ * Every visual trait (sky, wall color, window count, door color, awning
+ * style, roofline, sign shape) is picked deterministically from this one
+ * property's seed, so the same property always looks the same across
+ * reloads, but the combinatorics (8 sky x 10 wall x 8 awning x 6 door x 2
+ * window-count x 3 roofline x 3 sign shape) comfortably cover all 96
+ * without visible repeats. Costs 0 KB of asset storage — it's markup, not
+ * a photo, generated at render time exactly like the World Map's gradient.
+ * ========================================================================= */
+
+const SKY_GRADIENTS = [
+  ['#FDEBD3', '#F6C6A0'], ['#CDE7F0', '#A9D6E5'], ['#F4E1D2', '#E8B4B8'],
+  ['#E0F4F4', '#B8E1DD'], ['#FFF3D6', '#FFD9A0'], ['#DCEEFB', '#BFDDF2'],
+  ['#F7E3EE', '#E9C6DD'], ['#EAF2E3', '#CFE3C0'],
+];
+const WALL_COLORS = ['#E8D5B7', '#D4A373', '#B08968', '#C89F6C', '#EDC9AF', '#DDBEA9', '#A98467', '#E3C7A6', '#CBB6A3', '#D9C2A3'];
+const AWNING_COLORS = ['#D64545', '#2E86AB', '#2EC4B6', '#F5A623', '#6C5CE7', '#E056FD', '#FF8C42', '#3E7C4A'];
+const DOOR_COLORS = ['#4A3728', '#1D3557', '#3D405B', '#264653', '#6B2737', '#2B2118'];
+
+function storefrontPick(list, seed) {
+  return list[Math.floor(seededFraction(seed) * list.length) % list.length];
+}
+
+/** One SVG window with a frame + crossbar, at (x, y), given width/height. */
+function storefrontWindow(x, y, w, h, frameColor) {
+  return `
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="#CFE8EE" stroke="${frameColor}" stroke-width="3"/>
+    <line x1="${x + w / 2}" y1="${y}" x2="${x + w / 2}" y2="${y + h}" stroke="${frameColor}" stroke-width="2"/>
+    <line x1="${x}" y1="${y + h / 2}" x2="${x + w}" y2="${y + h / 2}" stroke="${frameColor}" stroke-width="2"/>`;
+}
+
+/** Roofline sitting on top of the main building rect (x=40..360, top y=70). */
+function storefrontRoofline(style, wallColor) {
+  if (style === 'stepped') return `<rect x="150" y="52" width="100" height="20" fill="${wallColor}"/>`;
+  if (style === 'pediment') return `<polygon points="140,70 200,45 260,70" fill="${wallColor}"/>`;
+  return `<rect x="40" y="65" width="320" height="6" fill="${wallColor}"/>`; // flat cornice line
+}
+
+/** Full illustrated shopfront scene for one property — a self-contained
+ *  <svg> string (viewBox 0 0 400 280, matches the hero's aspect closely
+ *  enough with preserveAspectRatio="xMidYMid slice" doing the rest). */
+function storefrontSVG(property, cityName) {
+  const seed = cityName + '_' + propertySlug(property.name);
+  const sky = storefrontPick(SKY_GRADIENTS, seed + '_sky');
+  const wallColor = storefrontPick(WALL_COLORS, seed + '_wall');
+  const awningColor = storefrontPick(AWNING_COLORS, seed + '_awning');
+  const doorColor = storefrontPick(DOOR_COLORS, seed + '_door');
+  const roofStyle = storefrontPick(['flat', 'stepped', 'pediment'], seed + '_roof');
+  const striped = seededFraction(seed + '_stripe') > 0.5;
+  const windowsPerSide = 1 + Math.floor(seededFraction(seed + '_win') * 2); // 1 or 2
+
+  const doorW = 56, doorX = 200 - doorW / 2, doorY = 150, doorH = 80;
+  const winY = 96, winH = 54;
+  const sideSpan = (doorX - 46) / windowsPerSide;
+  let windows = '';
+  for (let i = 0; i < windowsPerSide; i++) {
+    const lw = 46 + i * sideSpan + (sideSpan - 40) / 2;
+    windows += storefrontWindow(lw, winY, 40, winH, doorColor);
+    const rx = doorX + doorW + i * sideSpan + (sideSpan - 40) / 2;
+    windows += storefrontWindow(rx, winY, 40, winH, doorColor);
+  }
+
+  const awningStripes = striped
+    ? [0, 1, 2, 3, 4].map((i) => `<rect x="${40 + i * 64}" y="128" width="32" height="14" fill="${i % 2 ? '#FFFFFF' : awningColor}"/>`).join('')
+    : `<rect x="40" y="128" width="320" height="14" fill="${awningColor}"/>`;
+
+  const name = property.name;
+  const signW = Math.max(120, Math.min(260, 60 + name.length * 9));
+  const signX = 200 - signW / 2;
+
+  return `<svg viewBox="0 0 400 280" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeHtml(name)} storefront">
+    <defs>
+      <linearGradient id="sky-${seed}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${sky[0]}"/><stop offset="100%" stop-color="${sky[1]}"/>
+      </linearGradient>
+    </defs>
+    <rect width="400" height="280" fill="url(#sky-${seed})"/>
+    <rect x="0" y="226" width="400" height="54" fill="#B7B7B1"/>
+    <rect x="0" y="223" width="400" height="4" fill="#94948E"/>
+    ${storefrontRoofline(roofStyle, wallColor)}
+    <rect x="40" y="70" width="320" height="160" fill="${wallColor}"/>
+    ${windows}
+    <rect x="${doorX}" y="${doorY}" width="${doorW}" height="${doorH}" rx="3" fill="${doorColor}"/>
+    <circle cx="${doorX + doorW - 9}" cy="${doorY + doorH / 2}" r="2.4" fill="#F5D67B"/>
+    ${awningStripes}
+    <path d="M40,142 L28,164 L372,164 L360,142 Z" fill="${awningColor}" fill-opacity="0.85"/>
+    <rect x="${signX}" y="92" width="${signW}" height="26" rx="5" fill="#FFFFFF" stroke="${doorColor}" stroke-width="2"/>
+    <text x="200" y="109" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="800"
+      font-size="13" fill="${doorColor}" textLength="${signW - 18}" lengthAdjust="spacingAndGlyphs">${escapeHtml(name)}</text>
+  </svg>`;
+}
+
+function escapeHtml(v) {
+  return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}

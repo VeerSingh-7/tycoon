@@ -698,7 +698,7 @@ const Businesses = (() => {
 
     return `
       <div class="biz-listing-hero">
-        <div class="biz-listing-hero-icon">${PROPERTY_ICON}</div>
+        <div class="biz-listing-hero-art">${storefrontSVG(property, cityObj.name)}</div>
         <div class="biz-listing-hero-scrim"></div>
         <div class="biz-listing-hero-text">
           <div class="biz-listing-hero-name">${escapeHtml(property.name)}</div>
