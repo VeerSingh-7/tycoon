@@ -10,7 +10,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Riverside Market
 
-*Riverside Market is a modest entry point into the London market, with waterfront location, high street position. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*A modest, no-frills entry point into the London market, Riverside Market offers waterfront location, high street position across a compact 2,500 sq ft footprint. The fit-out is basic and daily footfall — currently around 590 visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.*
 
 **Key Stats**
 - Size: 2,500 sq ft
@@ -34,7 +34,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Central Hub Supermarket
 
-*Central Hub Supermarket has built a loyal local following since opening, offering 2-storey, prime shopping district. Foot traffic has grown steadily, and the store now runs as a dependable part of the London network.*
+*Central Hub Supermarket has settled into a dependable rhythm since opening, offering 2-storey, prime shopping district across 4,200 sq ft in London. Daily footfall has climbed to roughly 772 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 4,200 sq ft
@@ -59,7 +59,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Westfield Express
 
-*Westfield Express is a well-regarded fixture in London, known for compact strip mall, ample parking. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Westfield Express is a well-regarded fixture of the London scene, prized for compact strip mall, ample parking and kept in excellent condition throughout its 1,800 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 982, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 1,800 sq ft
@@ -84,7 +84,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Thames Valley Store
 
-*Thames Valley Store has grown into a genuine London destination, benefiting from suburban, recently refurbished. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 6,000 sq ft, Thames Valley Store pairs suburban, recently refurbished with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,278 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 6,000 sq ft
@@ -109,7 +109,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Kensington Square Market
 
-*Kensington Square Market ranks among the strongest performers in London, combining upmarket area, modern facade with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*With upmarket area, modern facade and a premium fit-out across 3,500 sq ft, Kensington Square Market is built to run around the clock — refrigerated storage, full 24/7 approval, and 44 parking spaces all point to a serious, high-volume operation pulling in close to 1,554 shoppers a day.*
 
 **Key Stats**
 - Size: 3,500 sq ft
@@ -134,7 +134,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. East London Fresh
 
-*East London Fresh is the flagship of the London portfolio, defined by basement storage, loading dock. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*East London Fresh is the flagship of the entire London portfolio — basement storage, loading dock, basement storage, premium security, and full 24/7 trading across a commanding 5,500 sq ft. With 72 parking spaces and roughly 1,979 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 5,500 sq ft
@@ -161,7 +161,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Northern Star Supermarket
 
-*Northern Star Supermarket is a modest entry point into the Manchester market, with city centre, high foot traffic. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*Northern Star Supermarket is a lean, budget-conscious 3,200 sq ft store — city centre, high foot traffic — that's only just finding its rhythm in Manchester. Foot traffic sits around 516 a day for now, amenities are basic, and the condition reflects a property that hasn't seen much recent investment. It's an undervalued starting point rather than a finished product.*
 
 **Key Stats**
 - Size: 3,200 sq ft
@@ -185,7 +185,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Trafford Fresh
 
-*Trafford Fresh has built a loyal local following since opening, offering shopping centre anchor, 2 floors. Foot traffic has grown steadily, and the store now runs as a dependable part of the Manchester network.*
+*Trafford Fresh has settled into a dependable rhythm since opening, offering shopping centre anchor, 2 floors across 7,000 sq ft in Manchester. Daily footfall has climbed to roughly 694 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 7,000 sq ft
@@ -210,7 +210,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Market Street Deli
 
-*Market Street Deli is a well-regarded fixture in Manchester, known for compact, near transit hub. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Sitting in excellent condition, Market Street Deli combines compact, near transit hub with a security-conscious fit-out across 2,100 sq ft. Extended hours and around 945 daily visitors make it a genuinely solid, well-run store rather than a project — the kind of location that mostly looks after itself.*
 
 **Key Stats**
 - Size: 2,100 sq ft
@@ -235,7 +235,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Spinningfields Express
 
-*Spinningfields Express has grown into a genuine Manchester destination, benefiting from historic building, period charm. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 4,800 sq ft, Spinningfields Express pairs historic building, period charm with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,182 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 4,800 sq ft
@@ -260,7 +260,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Piccadilly Plaza Store
 
-*Piccadilly Plaza Store ranks among the strongest performers in Manchester, combining modern development, 24/7 approved with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*Piccadilly Plaza Store ranks among the strongest performers in Manchester, combining modern development, 24/7 approved with refrigerated units, 24/7 operating approval, and 42 on-site parking spaces across 5,200 sq ft. Daily footfall of roughly 1,558 visitors puts it firmly in the upper tier of the whole chain.*
 
 **Key Stats**
 - Size: 5,200 sq ft
@@ -285,7 +285,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. South Manchester Depot
 
-*South Manchester Depot is the flagship of the Manchester portfolio, defined by warehouse format, bulk storage. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Nothing about South Manchester Depot is understated: warehouse format, bulk storage sits alongside basement storage, premium security systems, and true 24/7 operations across 6,500 sq ft — the largest format in the Manchester lineup. At close to 1,908 shoppers a day and 70 parking spaces, this is the anchor location the rest of the portfolio is built around.*
 
 **Key Stats**
 - Size: 6,500 sq ft
@@ -312,7 +312,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Royal Mile Market
 
-*Royal Mile Market is a modest entry point into the Edinburgh market, with tourist district, high seasonal traffic. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*A modest, no-frills entry point into the Edinburgh market, Royal Mile Market offers tourist district, high seasonal traffic across a compact 2,800 sq ft footprint. The fit-out is basic and daily footfall — currently around 499 visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.*
 
 **Key Stats**
 - Size: 2,800 sq ft
@@ -336,7 +336,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Leith Harbour Store
 
-*Leith Harbour Store has built a loyal local following since opening, offering waterfront location, dock access. Foot traffic has grown steadily, and the store now runs as a dependable part of the Edinburgh network.*
+*A step up from a bare-bones starter, Leith Harbour Store pairs waterfront location, dock access with proper back-of-house facilities across 5,000 sq ft. With around 687 visitors a day and a loading dock now in place, it's a store that's clearly through its awkward early phase and into consistent, repeatable trading.*
 
 **Key Stats**
 - Size: 5,000 sq ft
@@ -361,7 +361,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Princes Street Express
 
-*Princes Street Express is a well-regarded fixture in Edinburgh, known for premium shopping street, compact. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Princes Street Express is a well-regarded fixture of the Edinburgh scene, prized for premium shopping street, compact and kept in excellent condition throughout its 3,600 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 891, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 3,600 sq ft
@@ -386,7 +386,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Holyrood Fresh
 
-*Holyrood Fresh has grown into a genuine Edinburgh destination, benefiting from near parliament, institutional clientele. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Holyrood Fresh has grown into a genuine Edinburgh destination, built around near parliament, institutional clientele across a substantial 4,200 sq ft. Modern point-of-sale and inventory systems, near round-the-clock readiness, and a dedicated staff break room all point to real recent investment — and footfall of roughly 1,111 a day backs it up.*
 
 **Key Stats**
 - Size: 4,200 sq ft
@@ -411,7 +411,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. West End Supermarket
 
-*West End Supermarket ranks among the strongest performers in Edinburgh, combining residential area, parking available with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*With residential area, parking available and a premium fit-out across 2,400 sq ft, West End Supermarket is built to run around the clock — refrigerated storage, full 24/7 approval, and 38 parking spaces all point to a serious, high-volume operation pulling in close to 1,448 shoppers a day.*
 
 **Key Stats**
 - Size: 2,400 sq ft
@@ -436,7 +436,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Portobello Square
 
-*Portobello Square is the flagship of the Edinburgh portfolio, defined by converted warehouse, modern conversion. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Portobello Square is the flagship of the entire Edinburgh portfolio — converted warehouse, modern conversion, basement storage, premium security, and full 24/7 trading across a commanding 6,800 sq ft. With 57 parking spaces and roughly 1,814 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 6,800 sq ft
@@ -463,7 +463,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Pier Head Market
 
-*Pier Head Market is a modest entry point into the Liverpool market, with waterfront, heritage site location. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*Pier Head Market is a lean, budget-conscious 3,100 sq ft store — waterfront, heritage site location — that's only just finding its rhythm in Liverpool. Foot traffic sits around 411 a day for now, amenities are basic, and the condition reflects a property that hasn't seen much recent investment. It's an undervalued starting point rather than a finished product.*
 
 **Key Stats**
 - Size: 3,100 sq ft
@@ -487,7 +487,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Bold Street Express
 
-*Bold Street Express has built a loyal local following since opening, offering bohemian quarter, independent vibe. Foot traffic has grown steadily, and the store now runs as a dependable part of the Liverpool network.*
+*Bold Street Express has settled into a dependable rhythm since opening, offering bohemian quarter, independent vibe across 2,600 sq ft in Liverpool. Daily footfall has climbed to roughly 610 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 2,600 sq ft
@@ -512,7 +512,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Albert Dock Supermarket
 
-*Albert Dock Supermarket is a well-regarded fixture in Liverpool, known for tourist destination, 2-storey. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Albert Dock Supermarket is a well-regarded fixture of the Liverpool scene, prized for tourist destination, 2-storey and kept in excellent condition throughout its 5,800 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 848, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 5,800 sq ft
@@ -537,7 +537,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Sefton Park Fresh
 
-*Sefton Park Fresh has grown into a genuine Liverpool destination, benefiting from suburban residential, family area. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 4,100 sq ft, Sefton Park Fresh pairs suburban residential, family area with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,039 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 4,100 sq ft
@@ -562,7 +562,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. City Centre Hub
 
-*City Centre Hub ranks among the strongest performers in Liverpool, combining shopping precinct, modern build with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*City Centre Hub ranks among the strongest performers in Liverpool, combining shopping precinct, modern build with refrigerated units, 24/7 operating approval, and 33 on-site parking spaces across 6,200 sq ft. Daily footfall of roughly 1,338 visitors puts it firmly in the upper tier of the whole chain.*
 
 **Key Stats**
 - Size: 6,200 sq ft
@@ -587,7 +587,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Wavertree Depot
 
-*Wavertree Depot is the flagship of the Liverpool portfolio, defined by warehouse format, bulk wholesale. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Wavertree Depot is the flagship of the entire Liverpool portfolio — warehouse format, bulk wholesale, basement storage, premium security, and full 24/7 trading across a commanding 7,100 sq ft. With 46 parking spaces and roughly 1,708 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 7,100 sq ft
@@ -616,7 +616,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Downtown Core Market
 
-*Downtown Core Market is a modest entry point into the Toronto market, with financial district, high earners. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*A modest, no-frills entry point into the Toronto market, Downtown Core Market offers financial district, high earners across a compact 4,500 sq ft footprint. The fit-out is basic and daily footfall — currently around 554 visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.*
 
 **Key Stats**
 - Size: 4,500 sq ft
@@ -640,7 +640,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Distillery District Fresh
 
-*Distillery District Fresh has built a loyal local following since opening, offering heritage precinct, boutique. Foot traffic has grown steadily, and the store now runs as a dependable part of the Toronto network.*
+*Distillery District Fresh has settled into a dependable rhythm since opening, offering heritage precinct, boutique across 3,800 sq ft in Toronto. Daily footfall has climbed to roughly 782 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 3,800 sq ft
@@ -665,7 +665,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Yorkville Express
 
-*Yorkville Express is a well-regarded fixture in Toronto, known for upscale residential, compact. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Sitting in excellent condition, Yorkville Express combines upscale residential, compact with a security-conscious fit-out across 2,900 sq ft. Extended hours and around 962 daily visitors make it a genuinely solid, well-run store rather than a project — the kind of location that mostly looks after itself.*
 
 **Key Stats**
 - Size: 2,900 sq ft
@@ -690,7 +690,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Harbourfront Store
 
-*Harbourfront Store has grown into a genuine Toronto destination, benefiting from waterfront, scenic location. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 6,200 sq ft, Harbourfront Store pairs waterfront, scenic location with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,249 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 6,200 sq ft
@@ -715,7 +715,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Chinatown Central
 
-*Chinatown Central ranks among the strongest performers in Toronto, combining diverse clientele, specialty focus with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*Chinatown Central ranks among the strongest performers in Toronto, combining diverse clientele, specialty focus with refrigerated units, 24/7 operating approval, and 47 on-site parking spaces across 5,100 sq ft. Daily footfall of roughly 1,584 visitors puts it firmly in the upper tier of the whole chain.*
 
 **Key Stats**
 - Size: 5,100 sq ft
@@ -740,7 +740,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. North York Depot
 
-*North York Depot is the flagship of the Toronto portfolio, defined by warehouse, suburban logistics hub. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Nothing about North York Depot is understated: warehouse, suburban logistics hub sits alongside basement storage, premium security systems, and true 24/7 operations across 7,600 sq ft — the largest format in the Toronto lineup. At close to 1,969 shoppers a day and 70 parking spaces, this is the anchor location the rest of the portfolio is built around.*
 
 **Key Stats**
 - Size: 7,600 sq ft
@@ -767,7 +767,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Gastown Market
 
-*Gastown Market is a modest entry point into the Vancouver market, with historic district, tourist traffic. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*A modest, no-frills entry point into the Vancouver market, Gastown Market offers historic district, tourist traffic across a compact 3,200 sq ft footprint. The fit-out is basic and daily footfall — currently around 511 visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.*
 
 **Key Stats**
 - Size: 3,200 sq ft
@@ -791,7 +791,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Kitsilano Fresh
 
-*Kitsilano Fresh has built a loyal local following since opening, offering beachside neighbourhood, lifestyle. Foot traffic has grown steadily, and the store now runs as a dependable part of the Vancouver network.*
+*Kitsilano Fresh has settled into a dependable rhythm since opening, offering beachside neighbourhood, lifestyle across 4,800 sq ft in Vancouver. Daily footfall has climbed to roughly 698 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 4,800 sq ft
@@ -816,7 +816,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Downtown Express
 
-*Downtown Express is a well-regarded fixture in Vancouver, known for compact, transit-oriented. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Downtown Express is a well-regarded fixture of the Vancouver scene, prized for compact, transit-oriented and kept in excellent condition throughout its 2,100 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 919, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 2,100 sq ft
@@ -841,7 +841,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. West End Supermarket
 
-*West End Supermarket has grown into a genuine Vancouver destination, benefiting from residential density, modern. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 5,500 sq ft, West End Supermarket pairs residential density, modern with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,197 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 5,500 sq ft
@@ -866,7 +866,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Richmond Centre Store
 
-*Richmond Centre Store ranks among the strongest performers in Vancouver, combining shopping mall anchor, 2 floors with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*With shopping mall anchor, 2 floors and a premium fit-out across 6,800 sq ft, Richmond Centre Store is built to run around the clock — refrigerated storage, full 24/7 approval, and 44 parking spaces all point to a serious, high-volume operation pulling in close to 1,536 shoppers a day.*
 
 **Key Stats**
 - Size: 6,800 sq ft
@@ -891,7 +891,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Burnaby Warehouse
 
-*Burnaby Warehouse is the flagship of the Vancouver portfolio, defined by industrial area, high capacity. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Burnaby Warehouse is the flagship of the entire Vancouver portfolio — industrial area, high capacity, basement storage, premium security, and full 24/7 trading across a commanding 8,200 sq ft. With 64 parking spaces and roughly 1,887 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 8,200 sq ft
@@ -918,7 +918,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Old Montreal Market
 
-*Old Montreal Market is a modest entry point into the Montreal market, with historic cobblestones, tourism. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*Old Montreal Market is a lean, budget-conscious 3,600 sq ft store — historic cobblestones, tourism — that's only just finding its rhythm in Montreal. Foot traffic sits around 490 a day for now, amenities are basic, and the condition reflects a property that hasn't seen much recent investment. It's an undervalued starting point rather than a finished product.*
 
 **Key Stats**
 - Size: 3,600 sq ft
@@ -942,7 +942,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Plateau Mont-Royal Fresh
 
-*Plateau Mont-Royal Fresh has built a loyal local following since opening, offering artistic quarter, indie shoppers. Foot traffic has grown steadily, and the store now runs as a dependable part of the Montreal network.*
+*Plateau Mont-Royal Fresh has settled into a dependable rhythm since opening, offering artistic quarter, indie shoppers across 4,200 sq ft in Montreal. Daily footfall has climbed to roughly 670 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 4,200 sq ft
@@ -967,7 +967,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Downtown Express
 
-*Downtown Express is a well-regarded fixture in Montreal, known for central business district, compact. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Downtown Express is a well-regarded fixture of the Montreal scene, prized for central business district, compact and kept in excellent condition throughout its 2,400 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 872, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 2,400 sq ft
@@ -992,7 +992,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Griffintown Store
 
-*Griffintown Store has grown into a genuine Montreal destination, benefiting from redeveloped warehouse district. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 6,100 sq ft, Griffintown Store pairs redeveloped warehouse district with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,137 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 6,100 sq ft
@@ -1017,7 +1017,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Côte-des-Neiges Supermarket
 
-*Côte-des-Neiges Supermarket ranks among the strongest performers in Montreal, combining residential, family-oriented with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*Côte-des-Neiges Supermarket ranks among the strongest performers in Montreal, combining residential, family-oriented with refrigerated units, 24/7 operating approval, and 36 on-site parking spaces across 5,700 sq ft. Daily footfall of roughly 1,474 visitors puts it firmly in the upper tier of the whole chain.*
 
 **Key Stats**
 - Size: 5,700 sq ft
@@ -1042,7 +1042,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Laval Depot
 
-*Laval Depot is the flagship of the Montreal portfolio, defined by suburban, bulk operations. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Laval Depot is the flagship of the entire Montreal portfolio — suburban, bulk operations, basement storage, premium security, and full 24/7 trading across a commanding 7,900 sq ft. With 56 parking spaces and roughly 1,747 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 7,900 sq ft
@@ -1069,7 +1069,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Downtown Core Market
 
-*Downtown Core Market is a modest entry point into the Calgary market, with business district, office workers. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*A modest, no-frills entry point into the Calgary market, Downtown Core Market offers business district, office workers across a compact 3,900 sq ft footprint. The fit-out is basic and daily footfall — currently around 414 visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.*
 
 **Key Stats**
 - Size: 3,900 sq ft
@@ -1093,7 +1093,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Bow River Express
 
-*Bow River Express has built a loyal local following since opening, offering scenic location, riverside. Foot traffic has grown steadily, and the store now runs as a dependable part of the Calgary network.*
+*Bow River Express has settled into a dependable rhythm since opening, offering scenic location, riverside across 2,700 sq ft in Calgary. Daily footfall has climbed to roughly 657 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 2,700 sq ft
@@ -1118,7 +1118,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Chinook Supermarket
 
-*Chinook Supermarket is a well-regarded fixture in Calgary, known for shopping mall anchor, major footfall. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Chinook Supermarket is a well-regarded fixture of the Calgary scene, prized for shopping mall anchor, major footfall and kept in excellent condition throughout its 5,400 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 849, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 5,400 sq ft
@@ -1143,7 +1143,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Bridgeland Fresh
 
-*Bridgeland Fresh has grown into a genuine Calgary destination, benefiting from new development, modern amenities. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 4,600 sq ft, Bridgeland Fresh pairs new development, modern amenities with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,021 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 4,600 sq ft
@@ -1168,7 +1168,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. West Springs Store
 
-*West Springs Store ranks among the strongest performers in Calgary, combining affluent suburban, upscale with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*West Springs Store ranks among the strongest performers in Calgary, combining affluent suburban, upscale with refrigerated units, 24/7 operating approval, and 31 on-site parking spaces across 3,200 sq ft. Daily footfall of roughly 1,308 visitors puts it firmly in the upper tier of the whole chain.*
 
 **Key Stats**
 - Size: 3,200 sq ft
@@ -1193,7 +1193,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Industrial East Depot
 
-*Industrial East Depot is the flagship of the Calgary portfolio, defined by warehouse zone, distribution hub. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Industrial East Depot is the flagship of the entire Calgary portfolio — warehouse zone, distribution hub, basement storage, premium security, and full 24/7 trading across a commanding 8,100 sq ft. With 46 parking spaces and roughly 1,702 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 8,100 sq ft
@@ -1222,7 +1222,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Circular Quay Market
 
-*Circular Quay Market is a modest entry point into the Sydney market, with iconic harbour, tourism magnet. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*Circular Quay Market is a lean, budget-conscious 4,100 sq ft store — iconic harbour, tourism magnet — that's only just finding its rhythm in Sydney. Foot traffic sits around 586 a day for now, amenities are basic, and the condition reflects a property that hasn't seen much recent investment. It's an undervalued starting point rather than a finished product.*
 
 **Key Stats**
 - Size: 4,100 sq ft
@@ -1246,7 +1246,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Bondi Beach Express
 
-*Bondi Beach Express has built a loyal local following since opening, offering beachfront, seasonal surges. Foot traffic has grown steadily, and the store now runs as a dependable part of the Sydney network.*
+*A step up from a bare-bones starter, Bondi Beach Express pairs beachfront, seasonal surges with proper back-of-house facilities across 3,200 sq ft. With around 772 visitors a day and a loading dock now in place, it's a store that's clearly through its awkward early phase and into consistent, repeatable trading.*
 
 **Key Stats**
 - Size: 3,200 sq ft
@@ -1271,7 +1271,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Central Sydney Fresh
 
-*Central Sydney Fresh is a well-regarded fixture in Sydney, known for cbd, office lunch crowd. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Central Sydney Fresh is a well-regarded fixture of the Sydney scene, prized for cbd, office lunch crowd and kept in excellent condition throughout its 6,500 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 981, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 6,500 sq ft
@@ -1296,7 +1296,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Newtown Supermarket
 
-*Newtown Supermarket has grown into a genuine Sydney destination, benefiting from bohemian precinct, diverse. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Newtown Supermarket has grown into a genuine Sydney destination, built around bohemian precinct, diverse across a substantial 2,800 sq ft. Modern point-of-sale and inventory systems, near round-the-clock readiness, and a dedicated staff break room all point to real recent investment — and footfall of roughly 1,212 a day backs it up.*
 
 **Key Stats**
 - Size: 2,800 sq ft
@@ -1321,7 +1321,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Westfield Store
 
-*Westfield Store ranks among the strongest performers in Sydney, combining shopping centre anchor, 2 floors with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*Westfield Store ranks among the strongest performers in Sydney, combining shopping centre anchor, 2 floors with refrigerated units, 24/7 operating approval, and 47 on-site parking spaces across 7,200 sq ft. Daily footfall of roughly 1,571 visitors puts it firmly in the upper tier of the whole chain.*
 
 **Key Stats**
 - Size: 7,200 sq ft
@@ -1346,7 +1346,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Parramatta Warehouse
 
-*Parramatta Warehouse is the flagship of the Sydney portfolio, defined by suburban logistics, expansion hub. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Parramatta Warehouse is the flagship of the entire Sydney portfolio — suburban logistics, expansion hub, basement storage, premium security, and full 24/7 trading across a commanding 8,600 sq ft. With 71 parking spaces and roughly 1,947 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 8,600 sq ft
@@ -1373,7 +1373,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Queen Victoria Market
 
-*Queen Victoria Market is a modest entry point into the Melbourne market, with heritage precinct, farmers market vibe. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*Queen Victoria Market is a lean, budget-conscious 3,700 sq ft store — heritage precinct, farmers market vibe — that's only just finding its rhythm in Melbourne. Foot traffic sits around 527 a day for now, amenities are basic, and the condition reflects a property that hasn't seen much recent investment. It's an undervalued starting point rather than a finished product.*
 
 **Key Stats**
 - Size: 3,700 sq ft
@@ -1397,7 +1397,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Fitzroy Fresh
 
-*Fitzroy Fresh has built a loyal local following since opening, offering hipster neighbourhood, artisan focus. Foot traffic has grown steadily, and the store now runs as a dependable part of the Melbourne network.*
+*A step up from a bare-bones starter, Fitzroy Fresh pairs hipster neighbourhood, artisan focus with proper back-of-house facilities across 2,900 sq ft. With around 741 visitors a day and a loading dock now in place, it's a store that's clearly through its awkward early phase and into consistent, repeatable trading.*
 
 **Key Stats**
 - Size: 2,900 sq ft
@@ -1422,7 +1422,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. CBD Express
 
-*CBD Express is a well-regarded fixture in Melbourne, known for business district, weekday volume. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Sitting in excellent condition, CBD Express combines business district, weekday volume with a security-conscious fit-out across 5,100 sq ft. Extended hours and around 934 daily visitors make it a genuinely solid, well-run store rather than a project — the kind of location that mostly looks after itself.*
 
 **Key Stats**
 - Size: 5,100 sq ft
@@ -1447,7 +1447,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. South Yarra Supermarket
 
-*South Yarra Supermarket has grown into a genuine Melbourne destination, benefiting from trendy residential, premium. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 4,400 sq ft, South Yarra Supermarket pairs trendy residential, premium with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,169 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 4,400 sq ft
@@ -1472,7 +1472,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Chadstone Centre Store
 
-*Chadstone Centre Store ranks among the strongest performers in Melbourne, combining major mall, highest traffic with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*With major mall, highest traffic and a premium fit-out across 7,800 sq ft, Chadstone Centre Store is built to run around the clock — refrigerated storage, full 24/7 approval, and 44 parking spaces all point to a serious, high-volume operation pulling in close to 1,503 shoppers a day.*
 
 **Key Stats**
 - Size: 7,800 sq ft
@@ -1497,7 +1497,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Dandenong Depot
 
-*Dandenong Depot is the flagship of the Melbourne portfolio, defined by warehouse zone, wholesale operations. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Nothing about Dandenong Depot is understated: warehouse zone, wholesale operations sits alongside basement storage, premium security systems, and true 24/7 operations across 9,100 sq ft — the largest format in the Melbourne lineup. At close to 1,862 shoppers a day and 62 parking spaces, this is the anchor location the rest of the portfolio is built around.*
 
 **Key Stats**
 - Size: 9,100 sq ft
@@ -1524,7 +1524,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. South Bank Market
 
-*South Bank Market is a modest entry point into the Brisbane market, with cultural precinct, pedestrian plaza. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*A modest, no-frills entry point into the Brisbane market, South Bank Market offers cultural precinct, pedestrian plaza across a compact 3,500 sq ft footprint. The fit-out is basic and daily footfall — currently around 493 visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.*
 
 **Key Stats**
 - Size: 3,500 sq ft
@@ -1548,7 +1548,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Paddington Express
 
-*Paddington Express has built a loyal local following since opening, offering hillside village, compact footprint. Foot traffic has grown steadily, and the store now runs as a dependable part of the Brisbane network.*
+*A step up from a bare-bones starter, Paddington Express pairs hillside village, compact footprint with proper back-of-house facilities across 2,600 sq ft. With around 698 visitors a day and a loading dock now in place, it's a store that's clearly through its awkward early phase and into consistent, repeatable trading.*
 
 **Key Stats**
 - Size: 2,600 sq ft
@@ -1573,7 +1573,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. City Centre Fresh
 
-*City Centre Fresh is a well-regarded fixture in Brisbane, known for cbd, river views, office clientele. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*City Centre Fresh is a well-regarded fixture of the Brisbane scene, prized for cbd, river views, office clientele and kept in excellent condition throughout its 5,800 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 870, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 5,800 sq ft
@@ -1598,7 +1598,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Fortitude Valley Store
 
-*Fortitude Valley Store has grown into a genuine Brisbane destination, benefiting from entertainment quarter, evening trade. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Fortitude Valley Store has grown into a genuine Brisbane destination, built around entertainment quarter, evening trade across a substantial 4,200 sq ft. Modern point-of-sale and inventory systems, near round-the-clock readiness, and a dedicated staff break room all point to real recent investment — and footfall of roughly 1,125 a day backs it up.*
 
 **Key Stats**
 - Size: 4,200 sq ft
@@ -1623,7 +1623,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Sunnybank Supermarket
 
-*Sunnybank Supermarket ranks among the strongest performers in Brisbane, combining multicultural hub, specialist goods with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*With multicultural hub, specialist goods and a premium fit-out across 6,400 sq ft, Sunnybank Supermarket is built to run around the clock — refrigerated storage, full 24/7 approval, and 38 parking spaces all point to a serious, high-volume operation pulling in close to 1,420 shoppers a day.*
 
 **Key Stats**
 - Size: 6,400 sq ft
@@ -1648,7 +1648,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Logan Warehouse
 
-*Logan Warehouse is the flagship of the Brisbane portfolio, defined by industrial suburb, high capacity. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Logan Warehouse is the flagship of the entire Brisbane portfolio — industrial suburb, high capacity, basement storage, premium security, and full 24/7 trading across a commanding 8,800 sq ft. With 58 parking spaces and roughly 1,783 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 8,800 sq ft
@@ -1675,7 +1675,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Kings Park Market
 
-*Kings Park Market is a modest entry point into the Perth market, with premium location, parkside views. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*Kings Park Market is a lean, budget-conscious 3,300 sq ft store — premium location, parkside views — that's only just finding its rhythm in Perth. Foot traffic sits around 407 a day for now, amenities are basic, and the condition reflects a property that hasn't seen much recent investment. It's an undervalued starting point rather than a finished product.*
 
 **Key Stats**
 - Size: 3,300 sq ft
@@ -1699,7 +1699,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Fremantle Express
 
-*Fremantle Express has built a loyal local following since opening, offering historic port town, boutique. Foot traffic has grown steadily, and the store now runs as a dependable part of the Perth network.*
+*Fremantle Express has settled into a dependable rhythm since opening, offering historic port town, boutique across 2,500 sq ft in Perth. Daily footfall has climbed to roughly 648 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 2,500 sq ft
@@ -1724,7 +1724,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. CBD Fresh
 
-*CBD Fresh is a well-regarded fixture in Perth, known for city centre, corporate clientele. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*CBD Fresh is a well-regarded fixture of the Perth scene, prized for city centre, corporate clientele and kept in excellent condition throughout its 5,600 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 829, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 5,600 sq ft
@@ -1749,7 +1749,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Cottesloe Beach Store
 
-*Cottesloe Beach Store has grown into a genuine Perth destination, benefiting from coastal suburb, seasonal tourism. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 3,900 sq ft, Cottesloe Beach Store pairs coastal suburb, seasonal tourism with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,081 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 3,900 sq ft
@@ -1774,7 +1774,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Westfield Innaloo
 
-*Westfield Innaloo ranks among the strongest performers in Perth, combining shopping mall anchor, family destination with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*Westfield Innaloo ranks among the strongest performers in Perth, combining shopping mall anchor, family destination with refrigerated units, 24/7 operating approval, and 33 on-site parking spaces across 7,100 sq ft. Daily footfall of roughly 1,309 visitors puts it firmly in the upper tier of the whole chain.*
 
 **Key Stats**
 - Size: 7,100 sq ft
@@ -1799,7 +1799,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Kwinana Depot
 
-*Kwinana Depot is the flagship of the Perth portfolio, defined by industrial area, bulk wholesale, port access. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Nothing about Kwinana Depot is understated: industrial area, bulk wholesale, port access sits alongside basement storage, premium security systems, and true 24/7 operations across 9,200 sq ft — the largest format in the Perth lineup. At close to 1,723 shoppers a day and 54 parking spaces, this is the anchor location the rest of the portfolio is built around.*
 
 **Key Stats**
 - Size: 9,200 sq ft
@@ -1828,7 +1828,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Shibuya Crossing Market
 
-*Shibuya Crossing Market is a modest entry point into the Tokyo market, with world's busiest intersection, peak traffic. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*Shibuya Crossing Market is a lean, budget-conscious 4,600 sq ft store — world's busiest intersection, peak traffic — that's only just finding its rhythm in Tokyo. Foot traffic sits around 543 a day for now, amenities are basic, and the condition reflects a property that hasn't seen much recent investment. It's an undervalued starting point rather than a finished product.*
 
 **Key Stats**
 - Size: 4,600 sq ft
@@ -1852,7 +1852,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Shinjuku Express
 
-*Shinjuku Express has built a loyal local following since opening, offering entertainment district, 24/7 approved. Foot traffic has grown steadily, and the store now runs as a dependable part of the Tokyo network.*
+*Shinjuku Express has settled into a dependable rhythm since opening, offering entertainment district, 24/7 approved across 3,100 sq ft in Tokyo. Daily footfall has climbed to roughly 750 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 3,100 sq ft
@@ -1877,7 +1877,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Harajuku Fresh
 
-*Harajuku Fresh is a well-regarded fixture in Tokyo, known for fashion precinct, youth market. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Harajuku Fresh is a well-regarded fixture of the Tokyo scene, prized for fashion precinct, youth market and kept in excellent condition throughout its 2,400 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 946, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 2,400 sq ft
@@ -1902,7 +1902,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Ginza Luxury Store
 
-*Ginza Luxury Store has grown into a genuine Tokyo destination, benefiting from upscale shopping, premium clientele. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Ginza Luxury Store has grown into a genuine Tokyo destination, built around upscale shopping, premium clientele across a substantial 5,200 sq ft. Modern point-of-sale and inventory systems, near round-the-clock readiness, and a dedicated staff break room all point to real recent investment — and footfall of roughly 1,260 a day backs it up.*
 
 **Key Stats**
 - Size: 5,200 sq ft
@@ -1927,7 +1927,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Ikebukuro Supermarket
 
-*Ikebukuro Supermarket ranks among the strongest performers in Tokyo, combining transport hub, commuter volume with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*Ikebukuro Supermarket ranks among the strongest performers in Tokyo, combining transport hub, commuter volume with refrigerated units, 24/7 operating approval, and 45 on-site parking spaces across 6,800 sq ft. Daily footfall of roughly 1,574 visitors puts it firmly in the upper tier of the whole chain.*
 
 **Key Stats**
 - Size: 6,800 sq ft
@@ -1952,7 +1952,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Chiba Warehouse
 
-*Chiba Warehouse is the flagship of the Tokyo portfolio, defined by industrial logistics, regional distribution. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Chiba Warehouse is the flagship of the entire Tokyo portfolio — industrial logistics, regional distribution, basement storage, premium security, and full 24/7 trading across a commanding 9,400 sq ft. With 74 parking spaces and roughly 1,953 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 9,400 sq ft
@@ -1979,7 +1979,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Dotonbori Market
 
-*Dotonbori Market is a modest entry point into the Osaka market, with entertainment district, neon lights. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*A modest, no-frills entry point into the Osaka market, Dotonbori Market offers entertainment district, neon lights across a compact 3,800 sq ft footprint. The fit-out is basic and daily footfall — currently around 519 visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.*
 
 **Key Stats**
 - Size: 3,800 sq ft
@@ -2003,7 +2003,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Umeda Express
 
-*Umeda Express has built a loyal local following since opening, offering shopping complex, high footfall. Foot traffic has grown steadily, and the store now runs as a dependable part of the Osaka network.*
+*Umeda Express has settled into a dependable rhythm since opening, offering shopping complex, high footfall across 4,100 sq ft in Osaka. Daily footfall has climbed to roughly 718 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 4,100 sq ft
@@ -2028,7 +2028,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Namba Fresh
 
-*Namba Fresh is a well-regarded fixture in Osaka, known for historic district, compact. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Namba Fresh is a well-regarded fixture of the Osaka scene, prized for historic district, compact and kept in excellent condition throughout its 2,700 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 941, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 2,700 sq ft
@@ -2053,7 +2053,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Kobe Port Store
 
-*Kobe Port Store has grown into a genuine Osaka destination, benefiting from waterfront, import hub access. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 5,900 sq ft, Kobe Port Store pairs waterfront, import hub access with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,185 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 5,900 sq ft
@@ -2078,7 +2078,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Osaka Castle Supermarket
 
-*Osaka Castle Supermarket ranks among the strongest performers in Osaka, combining cultural landmark, tourism with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*With cultural landmark, tourism and a premium fit-out across 4,500 sq ft, Osaka Castle Supermarket is built to run around the clock — refrigerated storage, full 24/7 approval, and 44 parking spaces all point to a serious, high-volume operation pulling in close to 1,468 shoppers a day.*
 
 **Key Stats**
 - Size: 4,500 sq ft
@@ -2103,7 +2103,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Yodogawa Depot
 
-*Yodogawa Depot is the flagship of the Osaka portfolio, defined by warehouse precinct, bulk operations. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Yodogawa Depot is the flagship of the entire Osaka portfolio — warehouse precinct, bulk operations, basement storage, premium security, and full 24/7 trading across a commanding 8,700 sq ft. With 66 parking spaces and roughly 1,875 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 8,700 sq ft
@@ -2130,7 +2130,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Arashiyama Market
 
-*Arashiyama Market is a modest entry point into the Kyoto market, with bamboo forest, premium tourist traffic. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*A modest, no-frills entry point into the Kyoto market, Arashiyama Market offers bamboo forest, premium tourist traffic across a compact 3,200 sq ft footprint. The fit-out is basic and daily footfall — currently around 407 visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.*
 
 **Key Stats**
 - Size: 3,200 sq ft
@@ -2154,7 +2154,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Gion Express
 
-*Gion Express has built a loyal local following since opening, offering geisha district, upscale compact. Foot traffic has grown steadily, and the store now runs as a dependable part of the Kyoto network.*
+*Gion Express has settled into a dependable rhythm since opening, offering geisha district, upscale compact across 2,300 sq ft in Kyoto. Daily footfall has climbed to roughly 627 shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.*
 
 **Key Stats**
 - Size: 2,300 sq ft
@@ -2179,7 +2179,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Central Kyoto Fresh
 
-*Central Kyoto Fresh is a well-regarded fixture in Kyoto, known for temple precinct, cultural clientele. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Central Kyoto Fresh is a well-regarded fixture of the Kyoto scene, prized for temple precinct, cultural clientele and kept in excellent condition throughout its 4,800 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 803, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 4,800 sq ft
@@ -2204,7 +2204,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Kawaramachi Store
 
-*Kawaramachi Store has grown into a genuine Kyoto destination, benefiting from main shopping street, anchor position. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Kawaramachi Store has grown into a genuine Kyoto destination, built around main shopping street, anchor position across a substantial 5,500 sq ft. Modern point-of-sale and inventory systems, near round-the-clock readiness, and a dedicated staff break room all point to real recent investment — and footfall of roughly 1,044 a day backs it up.*
 
 **Key Stats**
 - Size: 5,500 sq ft
@@ -2229,7 +2229,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Fushimi Supermarket
 
-*Fushimi Supermarket ranks among the strongest performers in Kyoto, combining sake brewery area, specialty focus with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*With sake brewery area, specialty focus and a premium fit-out across 3,600 sq ft, Fushimi Supermarket is built to run around the clock — refrigerated storage, full 24/7 approval, and 34 parking spaces all point to a serious, high-volume operation pulling in close to 1,359 shoppers a day.*
 
 **Key Stats**
 - Size: 3,600 sq ft
@@ -2254,7 +2254,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Uji Warehouse
 
-*Uji Warehouse is the flagship of the Kyoto portfolio, defined by suburban expansion, tea region. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Uji Warehouse is the flagship of the entire Kyoto portfolio — suburban expansion, tea region, basement storage, premium security, and full 24/7 trading across a commanding 7,900 sq ft. With 48 parking spaces and roughly 1,694 visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.*
 
 **Key Stats**
 - Size: 7,900 sq ft
@@ -2281,7 +2281,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 1. Minato Mirai Market
 
-*Minato Mirai Market is a modest entry point into the Yokohama market, with waterfront landmark, cosmopolitan. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.*
+*A modest, no-frills entry point into the Yokohama market, Minato Mirai Market offers waterfront landmark, cosmopolitan across a compact 4,300 sq ft footprint. The fit-out is basic and daily footfall — currently around 495 visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.*
 
 **Key Stats**
 - Size: 4,300 sq ft
@@ -2305,7 +2305,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 2. Chinatown Express
 
-*Chinatown Express has built a loyal local following since opening, offering historic precinct, specialist goods. Foot traffic has grown steadily, and the store now runs as a dependable part of the Yokohama network.*
+*A step up from a bare-bones starter, Chinatown Express pairs historic precinct, specialist goods with proper back-of-house facilities across 2,800 sq ft. With around 700 visitors a day and a loading dock now in place, it's a store that's clearly through its awkward early phase and into consistent, repeatable trading.*
 
 **Key Stats**
 - Size: 2,800 sq ft
@@ -2330,7 +2330,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 3. Central Yokohama Fresh
 
-*Central Yokohama Fresh is a well-regarded fixture in Yokohama, known for city centre, office district. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.*
+*Central Yokohama Fresh is a well-regarded fixture of the Yokohama scene, prized for city centre, office district and kept in excellent condition throughout its 5,700 sq ft. CCTV coverage and extended trading hours have helped push daily footfall past 873, and it now ranks among the more reliable, low-drama performers in the portfolio.*
 
 **Key Stats**
 - Size: 5,700 sq ft
@@ -2355,7 +2355,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 4. Kamakura Outpost Store
 
-*Kamakura Outpost Store has grown into a genuine Yokohama destination, benefiting from beach town satellite, seasonal. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.*
+*Spanning 3,100 sq ft, Kamakura Outpost Store pairs beach town satellite, seasonal with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around 1,112 shoppers daily and reads as a location the chain has deliberately invested behind.*
 
 **Key Stats**
 - Size: 3,100 sq ft
@@ -2380,7 +2380,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 5. Ramen Alley Supermarket
 
-*Ramen Alley Supermarket ranks among the strongest performers in Yokohama, combining food tourism district, niche with premium fittings and extended hours. It's a genuine anchor location for the chain.*
+*With food tourism district, niche and a premium fit-out across 2,200 sq ft, Ramen Alley Supermarket is built to run around the clock — refrigerated storage, full 24/7 approval, and 39 parking spaces all point to a serious, high-volume operation pulling in close to 1,479 shoppers a day.*
 
 **Key Stats**
 - Size: 2,200 sq ft
@@ -2405,7 +2405,7 @@ A complete generated listing for all 96 Supermarket Chain properties: 4 countrie
 
 #### 6. Totsuka Warehouse
 
-*Totsuka Warehouse is the flagship of the Yokohama portfolio, defined by suburban logistics, major hub. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.*
+*Nothing about Totsuka Warehouse is understated: suburban logistics, major hub sits alongside basement storage, premium security systems, and true 24/7 operations across 8,900 sq ft — the largest format in the Yokohama lineup. At close to 1,786 shoppers a day and 62 parking spaces, this is the anchor location the rest of the portfolio is built around.*
 
 **Key Stats**
 - Size: 8,900 sq ft

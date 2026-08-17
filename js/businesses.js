@@ -462,27 +462,40 @@ const Businesses = (() => {
   /** Country selector + city scroller + property list — identical structure
    *  to setupBrowseHTML, just reading propertiesBrowse instead of setupFlow
    *  (the two screens are only ever open one at a time). */
+  /** Country selector + city scroller, STICKY to the top of the scrolling
+   *  screen so it stays reachable however far you scroll into a city's
+   *  property list — previously plain in-flow content, which meant
+   *  scrolling down a longer list scrolled the only way to change city
+   *  out of view too. Shared by the setup wizard's browse screen and the
+   *  read-only Properties browser (identical markup, different state). */
+  function propertyBrowseHeaderHTML(country, otherCountries, cityObj, dropdownOpen) {
+    return `
+      <div class="biz-browse-sticky">
+        <div class="biz-setup-country">
+          <button class="biz-setup-country-btn" data-setup-country-toggle type="button" aria-label="Change country">
+            <span class="biz-setup-flag">${country.flag}</span>
+            <span class="biz-setup-country-name">${country.name}</span>
+            <span class="biz-setup-country-chevron">${dropdownOpen ? '︿' : '⌄'}</span>
+          </button>
+          ${dropdownOpen ? `
+            <div class="biz-setup-country-dropdown">
+              ${otherCountries.map((c) => `
+                <button class="biz-setup-country-option" data-setup-country="${c.id}" type="button">
+                  <span class="biz-setup-flag">${c.flag}</span>${c.name}
+                </button>`).join('')}
+            </div>` : ''}
+        </div>
+        <div class="biz-setup-scroller">
+          ${country.cities.map((c) => `
+            <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
+        </div>
+      </div>`;
+  }
+
   function propertiesBrowseListHTML(def, catalog, country, cityObj, dropdownOpen) {
     const otherCountries = catalog.countries.filter((c) => c.id !== country.id);
     return `
-      <div class="biz-setup-country">
-        <button class="biz-setup-country-btn" data-setup-country-toggle type="button" aria-label="Change country">
-          <span class="biz-setup-flag">${country.flag}</span>
-          <span class="biz-setup-country-name">${country.name}</span>
-          <span class="biz-setup-country-chevron">${dropdownOpen ? '︿' : '⌄'}</span>
-        </button>
-        ${dropdownOpen ? `
-          <div class="biz-setup-country-dropdown">
-            ${otherCountries.map((c) => `
-              <button class="biz-setup-country-option" data-setup-country="${c.id}" type="button">
-                <span class="biz-setup-flag">${c.flag}</span>${c.name}
-              </button>`).join('')}
-          </div>` : ''}
-      </div>
-      <div class="biz-setup-scroller">
-        ${country.cities.map((c) => `
-          <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
-      </div>
+      ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, dropdownOpen)}
       <div class="biz-list">
         ${cityObj.properties.map(propertyRowHTML).join('')}
       </div>`;
@@ -655,24 +668,7 @@ const Businesses = (() => {
     const cityObj = country.cities.find((c) => c.name === setupFlow.city) || country.cities[0];
     const otherCountries = catalog.countries.filter((c) => c.id !== country.id);
     return `
-      <div class="biz-setup-country">
-        <button class="biz-setup-country-btn" data-setup-country-toggle type="button" aria-label="Change country">
-          <span class="biz-setup-flag">${country.flag}</span>
-          <span class="biz-setup-country-name">${country.name}</span>
-          <span class="biz-setup-country-chevron">${setupFlow.countryDropdownOpen ? '︿' : '⌄'}</span>
-        </button>
-        ${setupFlow.countryDropdownOpen ? `
-          <div class="biz-setup-country-dropdown">
-            ${otherCountries.map((c) => `
-              <button class="biz-setup-country-option" data-setup-country="${c.id}" type="button">
-                <span class="biz-setup-flag">${c.flag}</span>${c.name}
-              </button>`).join('')}
-          </div>` : ''}
-      </div>
-      <div class="biz-setup-scroller">
-        ${country.cities.map((c) => `
-          <button class="biz-setup-chip ${c.name === cityObj.name ? 'is-active' : ''}" data-setup-city="${c.name}" type="button">${c.name}</button>`).join('')}
-      </div>
+      ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, setupFlow.countryDropdownOpen)}
       <div class="biz-list">
         ${cityObj.properties.map(propertyRowHTML).join('')}
       </div>`;

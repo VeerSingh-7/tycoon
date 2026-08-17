@@ -240,16 +240,39 @@ const CITY_TIERS = {
   Liverpool: 0.85, Calgary: 0.85, Perth: 0.85, Kyoto: 0.85,
 };
 
-// One template per store tier — 2 sentences, increasing in sophistication
-// from "modest start" (tier 0) to "flagship" (tier 5), weaving in each
-// property's own short desc tag.
-const DESC_TEMPLATES = [
-  (p, city) => `${p.name} is a modest entry point into the ${city} market, with ${p.desc.toLowerCase()}. It's finding its footing with steady local demand, and there's clear room to grow as the surrounding area develops.`,
-  (p, city) => `${p.name} has built a loyal local following since opening, offering ${p.desc.toLowerCase()}. Foot traffic has grown steadily, and the store now runs as a dependable part of the ${city} network.`,
-  (p, city) => `${p.name} is a well-regarded fixture in ${city}, known for ${p.desc.toLowerCase()}. Its excellent condition and improving footfall make it one of the more reliable performers in the portfolio.`,
-  (p, city) => `${p.name} has grown into a genuine ${city} destination, benefiting from ${p.desc.toLowerCase()}. Recent investment in the fit-out and operating hours has lifted both revenue and reputation.`,
-  (p, city) => `${p.name} ranks among the strongest performers in ${city}, combining ${p.desc.toLowerCase()} with premium fittings and extended hours. It's a genuine anchor location for the chain.`,
-  (p, city) => `${p.name} is the flagship of the ${city} portfolio, defined by ${p.desc.toLowerCase()}. Every system, from refrigeration to security, is built for round-the-clock, high-volume trading.`,
+// Two variants per store tier (12 total) — real-estate-listing style prose:
+// a hook woven around the property's own short desc tag, concrete numbers
+// (sqft/traffic/parking) pulled from THIS property's own generated stats,
+// and a closing line pitched at that tier's kind of buyer (fixer-upper ->
+// flagship). Two variants per tier means two properties in the same tier
+// don't read identically apart from their name/city — which one a given
+// property gets is picked deterministically (seededFraction) in
+// propertyDetails() below.
+const DESC_VARIANTS = [
+  [ // Store 1 — modest, budget entry point
+    (p, city, s) => `A modest, no-frills entry point into the ${city} market, ${p.name} offers ${p.desc.toLowerCase()} across a compact ${s.sqft.toLocaleString()} sq ft footprint. The fit-out is basic and daily footfall — currently around ${s.dailyTraffic.toLocaleString()} visitors — is still building, but that's exactly the appeal: a low-cost foothold with real upside as the surrounding block develops. Best suited to an operator happy to put in the early groundwork.`,
+    (p, city, s) => `${p.name} is a lean, budget-conscious ${s.sqft.toLocaleString()} sq ft store — ${p.desc.toLowerCase()} — that's only just finding its rhythm in ${city}. Foot traffic sits around ${s.dailyTraffic.toLocaleString()} a day for now, amenities are basic, and the condition reflects a property that hasn't seen much recent investment. It's an undervalued starting point rather than a finished product.`,
+  ],
+  [ // Store 2 — established, growing
+    (p, city, s) => `${p.name} has settled into a dependable rhythm since opening, offering ${p.desc.toLowerCase()} across ${s.sqft.toLocaleString()} sq ft in ${city}. Daily footfall has climbed to roughly ${s.dailyTraffic.toLocaleString()} shoppers, a loading dock and expanded storage now support a fuller shelf range, and the store reads as a steady, unglamorous performer.`,
+    (p, city, s) => `A step up from a bare-bones starter, ${p.name} pairs ${p.desc.toLowerCase()} with proper back-of-house facilities across ${s.sqft.toLocaleString()} sq ft. With around ${s.dailyTraffic.toLocaleString()} visitors a day and a loading dock now in place, it's a store that's clearly through its awkward early phase and into consistent, repeatable trading.`,
+  ],
+  [ // Store 3 — well-run, excellent condition
+    (p, city, s) => `${p.name} is a well-regarded fixture of the ${city} scene, prized for ${p.desc.toLowerCase()} and kept in excellent condition throughout its ${s.sqft.toLocaleString()} sq ft. CCTV coverage and extended trading hours have helped push daily footfall past ${s.dailyTraffic.toLocaleString()}, and it now ranks among the more reliable, low-drama performers in the portfolio.`,
+    (p, city, s) => `Sitting in excellent condition, ${p.name} combines ${p.desc.toLowerCase()} with a security-conscious fit-out across ${s.sqft.toLocaleString()} sq ft. Extended hours and around ${s.dailyTraffic.toLocaleString()} daily visitors make it a genuinely solid, well-run store rather than a project — the kind of location that mostly looks after itself.`,
+  ],
+  [ // Store 4 — maturing destination, recent investment
+    (p, city, s) => `${p.name} has grown into a genuine ${city} destination, built around ${p.desc.toLowerCase()} across a substantial ${s.sqft.toLocaleString()} sq ft. Modern point-of-sale and inventory systems, near round-the-clock readiness, and a dedicated staff break room all point to real recent investment — and footfall of roughly ${s.dailyTraffic.toLocaleString()} a day backs it up.`,
+    (p, city, s) => `Spanning ${s.sqft.toLocaleString()} sq ft, ${p.name} pairs ${p.desc.toLowerCase()} with a noticeably upgraded operation: modern systems, near-24-hour readiness, and space for staff to properly run shifts. It's pulling in around ${s.dailyTraffic.toLocaleString()} shoppers daily and reads as a location the chain has deliberately invested behind.`,
+  ],
+  [ // Store 5 — high performer, premium
+    (p, city, s) => `${p.name} ranks among the strongest performers in ${city}, combining ${p.desc.toLowerCase()} with refrigerated units, 24/7 operating approval, and ${s.parking} on-site parking spaces across ${s.sqft.toLocaleString()} sq ft. Daily footfall of roughly ${s.dailyTraffic.toLocaleString()} visitors puts it firmly in the upper tier of the whole chain.`,
+    (p, city, s) => `With ${p.desc.toLowerCase()} and a premium fit-out across ${s.sqft.toLocaleString()} sq ft, ${p.name} is built to run around the clock — refrigerated storage, full 24/7 approval, and ${s.parking} parking spaces all point to a serious, high-volume operation pulling in close to ${s.dailyTraffic.toLocaleString()} shoppers a day.`,
+  ],
+  [ // Store 6 — flagship
+    (p, city, s) => `${p.name} is the flagship of the entire ${city} portfolio — ${p.desc.toLowerCase()}, basement storage, premium security, and full 24/7 trading across a commanding ${s.sqft.toLocaleString()} sq ft. With ${s.parking} parking spaces and roughly ${s.dailyTraffic.toLocaleString()} visitors passing through daily, every system here is built for sustained, high-volume trading rather than everyday convenience.`,
+    (p, city, s) => `Nothing about ${p.name} is understated: ${p.desc.toLowerCase()} sits alongside basement storage, premium security systems, and true 24/7 operations across ${s.sqft.toLocaleString()} sq ft — the largest format in the ${city} lineup. At close to ${s.dailyTraffic.toLocaleString()} shoppers a day and ${s.parking} parking spaces, this is the anchor location the rest of the portfolio is built around.`,
+  ],
 ];
 
 function seededFraction(seed) {
@@ -284,10 +307,14 @@ function propertyDetails(property, cityName, storeIndex) {
   // of the game's own business income formulas.
   const avgSpend = 14 + seededFraction(seed + '_spend') * 8; // ~$14-22 average basket
   const expectedAnnualRevenue = Math.round(dailyTraffic * avgSpend * 365);
+  const stats = { sqft: property.sqft, dailyTraffic, condition: tier.condition, parking, hours: tier.hours };
+
+  const variants = DESC_VARIANTS[storeIndex];
+  const variant = variants[Math.floor(seededFraction(seed + '_desc') * variants.length) % variants.length];
 
   return {
-    description: DESC_TEMPLATES[storeIndex](property, cityName),
-    stats: { sqft: property.sqft, dailyTraffic, condition: tier.condition, parking, hours: tier.hours },
+    description: variant(property, cityName, stats),
+    stats,
     amenities: tier.amenities,
     financials: { monthlyRent, annualRent, purchasePrice, expectedAnnualRevenue },
   };

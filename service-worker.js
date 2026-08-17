@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v100'; // v100: colored icon per property row, solid red hero placeholder, colorful pill/section accents
+const CACHE_NAME = 'tycoon-v101'; // v101: richer real-listing-style property descriptions; sticky city selector on browse screens
 
 const ASSETS = [
   'index.html',
