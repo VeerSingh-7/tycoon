@@ -628,6 +628,31 @@ const Businesses = (() => {
   const escapeHtml = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const escapeAttr = (v) => escapeHtml(v).replace(/"/g, '&quot;');
 
+  // Short uppercase captions under the stepper's 3 circles — index-matched
+  // to SETUP_STAGES, kept separate since the stepper wants an abbreviated
+  // word ("SIGN") where the header wants the full stage label ("Signature").
+  const STEPPER_LABELS = ['DETAILS', 'PROPERTY', 'SIGN'];
+
+  /** Shared top-level page stepper — 3 circles + connecting lines, reused
+   *  identically across all three setup screens (Business Details,
+   *  Property, Signature). currentStage is setupFlow.stage (0-2): steps
+   *  before it are "done", that index is "current" (gets the ring), steps
+   *  after are "upcoming". A connecting line is "done" (--text) once it
+   *  leads into a stage the player has reached; otherwise "upcoming"
+   *  (--border). */
+  function setupStepperHTML(currentStage) {
+    return `<div class="biz-stepper">
+      ${STEPPER_LABELS.map((label, i) => {
+        const state = i < currentStage ? 'done' : i === currentStage ? 'current' : 'upcoming';
+        const line = i === 0 ? '' : `<div class="biz-stepper-line ${i <= currentStage ? 'done' : 'upcoming'}"></div>`;
+        return `${line}<div class="biz-stepper-step">
+          <span class="biz-stepper-circle ${state}">${i + 1}</span>
+          <span class="biz-stepper-label ${state === 'current' ? 'current' : ''}">${label}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
   function openBusinessSetup(bizId) {
     const firstCountry = BUSINESS_PROPERTIES[bizId].countries[0];
     setupFlow = {
@@ -754,9 +779,10 @@ const Businesses = (() => {
           ${closeOrBackBtn}
           <div class="bizd-id">
             <div class="bizd-co-name">${def.name} — Setup</div>
-            <div class="bizd-co-sub">Step ${setupFlow.stage + 1} of ${SETUP_STAGES.length} · ${stage.label}</div>
+            <div class="bizd-co-sub">${stage.label}</div>
           </div>
         </div>
+        ${setupStepperHTML(setupFlow.stage)}
         ${body}
       </div>`;
   }
@@ -922,7 +948,7 @@ const Businesses = (() => {
         </div>
       </div>
 
-      <div class="biz-step-card">
+      <div class="biz-step-card biz-step-locked">
         <div class="biz-step-head">
           <span class="biz-step-badge">03</span>
           <div class="biz-step-titles">
@@ -932,6 +958,7 @@ const Businesses = (() => {
         </div>
         <div class="biz-step-body">
           <div class="coming-soon" style="padding:26px 12px">
+            <div class="biz-lock-icon" aria-hidden="true"><span class="biz-lock-shackle"></span><span class="biz-lock-body"></span></div>
             <div class="cs-badge">COMING SOON</div>
             <p class="muted">No suppliers hooked up yet — on the way.</p>
           </div>

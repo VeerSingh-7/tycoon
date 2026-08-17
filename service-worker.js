@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v107'; // v107: add Step 3 (Signature) to business setup — draw a signature to finish, after Business Details and Property
+const CACHE_NAME = 'tycoon-v108'; // v108: Business Details redesign (icon-free store type grid, CSS padlock) + shared 3-page stepper across the whole setup flow
 
 const ASSETS = [
   'index.html',

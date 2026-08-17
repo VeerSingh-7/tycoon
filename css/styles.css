@@ -553,10 +553,53 @@ html, body {
 
 .biz-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .biz-type-chip {
-  background: var(--bg-elev-2); border: 1px solid var(--line); border-radius: 12px;
-  padding: 12px 10px; font-size: 13px; font-weight: 700; color: var(--text); text-align: center;
+  display: flex; align-items: center; justify-content: center; min-height: 56px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+  padding: 20px 12px; font-size: 13px; font-weight: 700; color: var(--text); text-align: center;
+  transition: border-color 0.15s ease;
 }
-.biz-type-chip.is-active { background: var(--gold); color: var(--accent-ink); border-color: var(--gold-deep); }
+.biz-type-chip:hover { border-color: var(--text); }
+.biz-type-chip.is-active { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-bg); }
+
+/* Suppliers' locked card: a dashed-circle padlock drawn entirely in CSS
+   (no emoji, no image asset) — a rounded-arc shackle over a small
+   rounded-rectangle body, both --muted. */
+.biz-step-locked { opacity: 0.5; }
+.biz-lock-icon {
+  position: relative; width: 46px; height: 46px; border-radius: 50%;
+  border: 1.5px dashed var(--border);
+}
+.biz-lock-shackle {
+  position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+  width: 14px; height: 10px;
+  border: 2px solid var(--muted); border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+.biz-lock-body {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  width: 18px; height: 13px;
+  background: var(--muted); border-radius: 3px;
+}
+
+/* ------------------------------------------------------ Setup page stepper */
+/* Shared across all 3 setup screens (Business Details/Property/Signature)
+   — 3 circles connected by lines, showing which page is current, already
+   passed, or still ahead. */
+.biz-stepper { display: flex; align-items: flex-start; justify-content: center; margin: 18px 0 20px; }
+.biz-stepper-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+.biz-stepper-circle {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.biz-stepper-circle.done, .biz-stepper-circle.current { background: var(--accent-bg); color: var(--accent-text); }
+.biz-stepper-circle.upcoming { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+.biz-stepper-circle.current { box-shadow: 0 0 0 4px var(--surface), 0 0 0 5px var(--border); }
+.biz-stepper-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); }
+.biz-stepper-label.current { color: var(--text); }
+.biz-stepper-line { flex: 1; height: 2px; margin-top: 15px; min-width: 24px; }
+.biz-stepper-line.done { background: var(--text); }
+.biz-stepper-line.upcoming { background: var(--border); }
 
 /* ---------------------------------------------------------- Modal / overlay */
 .overlay {
