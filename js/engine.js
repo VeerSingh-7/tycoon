@@ -197,7 +197,7 @@ function maxStaff(def) {
  * Buy one level of a business. Starting a business (level 0 -> 1) also
  * requires the player level unlock AND a free business slot.
  */
-function buyBusinessLevel(id) {
+function buyBusinessLevel(id, costOverride) {
   const def = BUSINESS_BY_ID[id];
   const biz = getBiz(id);
   if (biz.level === 0) {
@@ -205,11 +205,16 @@ function buyBusinessLevel(id) {
     if (usedSlots() >= maxSlots()) return false;
     // Supermarket Chains 2-6 stay locked until the chain before them is
     // open — same defense-in-depth as the unlockLevel check above (the UI
-    // already hides the purchase button too, see businesses.js
-    // supermarketChainLock/chainLockedCardHTML).
+    // already only ever offers the next sequential chain id too, see
+    // businesses.js openAnotherChainCardHTML).
     if (def.chainIndex > 1 && getBiz('supermarket_' + (def.chainIndex - 1)).level === 0) return false;
   }
-  const cost = businessNextCost(def);
+  // costOverride lets a caller charge something other than the flat
+  // next-level cost — used for Supermarket Chain property deposits/buyouts,
+  // which scale by the specific property's quality tier (see businesses.js
+  // propertyDepositCost). Every other business omits it and pays the
+  // ordinary businessNextCost curve, unchanged.
+  const cost = costOverride != null ? costOverride : businessNextCost(def);
   if (state.balance < cost) return false;
   state.balance -= cost;
   biz.level += 1;

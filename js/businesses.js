@@ -217,9 +217,10 @@ const Businesses = (() => {
   /** "Buy It Outright" — converts ONE deposit-paying tenant property into a
    *  full owner. key is "bizId:index" (index into that business's
    *  biz.properties array — stable at render time since properties are
-   *  only ever appended/never reordered). Charges the business's own
-   *  next-level cost (the SAME lever every other purchase in this game
-   *  uses) and bumps biz.level along with it — buying outright is a
+   *  only ever appended/never reordered). Charges that SPECIFIC property's
+   *  quality-scaled cost (propertyDepositCost — the same tier multiplier
+   *  the original deposit used) on top of the business's own next-level
+   *  cost curve, and bumps biz.level along with it — buying outright is a
    *  bigger commitment than the initial deposit, so a further real cost +
    *  income bump feels earned; staying a renter costs nothing further,
    *  same as the property has always been flavor rather than its own
@@ -231,7 +232,10 @@ const Businesses = (() => {
     const biz = getBiz(bizId);
     const target = biz.properties[idx];
     if (!target || target.tenure === 'purchase') return false;
-    if (!buyBusinessLevel(bizId)) return false;
+    const resolved = resolveOwnedProperties(bizId)[idx];
+    const storeIndex = resolved ? resolved.storeIndex : 2; // mid-tier fallback if the catalog entry can't be resolved
+    const cost = propertyDepositCost(BUSINESS_BY_ID[bizId], storeIndex);
+    if (!buyBusinessLevel(bizId, cost)) return false;
     target.tenure = 'purchase';
     saveGame();
     return true;
@@ -251,11 +255,11 @@ const Businesses = (() => {
     const typeLabel = biz.brand && biz.brand.storeType
       ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || 'General')
       : 'General';
-    const cost = businessNextCost(def);
-    const canBuy = state.balance >= cost;
 
     const cardsHTML = owned.map((o, idx) => {
       const isPurchased = o.raw.tenure === 'purchase';
+      const cost = propertyDepositCost(def, o.storeIndex); // each property's own buyout cost — scaled by ITS quality tier, not a shared flat price
+      const canBuy = state.balance >= cost;
       return `
         <div class="biz-owned-strip" style="margin-top:10px">
           <span class="biz-owned-thumb">
@@ -538,7 +542,7 @@ const Businesses = (() => {
     }
 
     if (changed) {
-      UI.renderBalance();
+      if (typeof UI !== 'undefined') UI.renderBalance();
       render();
     }
   }
@@ -771,10 +775,10 @@ const Businesses = (() => {
       const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === addPropertyFlow.viewPropertyId);
       const property = cityObj.properties[storeIndex];
       if (isOwnedProperty(biz, property, cityObj, country)) return; // already owns this exact one — button shouldn't be reachable, cheap insurance
-      if (!buyBusinessLevel(def.id)) return;
+      if (!buyBusinessLevel(def.id, propertyDepositCost(def, storeIndex))) return;
       biz.properties.push({ countryId: country.id, city: cityObj.name, propertyId: addPropertyFlow.viewPropertyId, tenure: 'rent' });
       saveGame();
-      UI.renderBalance();
+      if (typeof UI !== 'undefined') UI.renderBalance();
       addPropertyFlow = null;
       render(); // back to the business list underneath
       if (typeof BizDash !== 'undefined') BizDash.open(def.id); // land back on the dedicated page — the new property is now visible in its Properties list
@@ -795,7 +799,7 @@ const Businesses = (() => {
       const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === addPropertyFlow.viewPropertyId);
       const property = cityObj.properties[storeIndex];
       const already = isOwnedProperty(biz, property, cityObj, country);
-      const cost = businessNextCost(def);
+      const cost = propertyDepositCost(def, storeIndex);
       const canBuy = state.balance >= cost && !atCap && !already;
 
       let actionsHTML;
@@ -821,6 +825,7 @@ const Businesses = (() => {
       const otherCountries = catalog.countries.filter((c) => c.id !== country.id);
       body = `
         ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, addPropertyFlow.countryDropdownOpen)}
+        ${maxPropertiesCaptionHTML()}
         <div class="biz-list">
           ${cityObj.properties.map((p, i) => propertyRowHTML(p, cityObj.name, i)).join('')}
         </div>`;
@@ -888,6 +893,22 @@ const Businesses = (() => {
   // this many properties — enforced in propertyOverviewHTML (Add Property
   // button hides at the cap) and openAddProperty's deposit handler.
   const MAX_PROPERTIES_PER_CHAIN = 16;
+
+  // A property's quality tier (its storeIndex, 0-5 — "Store 1" modest ..
+  // "Store 6" flagship, see js/data/properties.js STORE_TIERS, the SAME
+  // index that already drives its condition/traffic/amenities) scales what
+  // it costs to secure: a run-down Store 1 is cheaper to deposit on or buy
+  // outright than a flagship Store 6, on top of the business's own ordinary
+  // next-level cost curve (businessNextCost) — index 2 (tier "Store 3") is
+  // the roughly-unchanged baseline (1.0x, matching pre-tiered pricing).
+  const PROPERTY_TIER_COST_MULT = [0.6, 0.8, 1.0, 1.3, 1.7, 2.2];
+
+  /** What it actually costs to secure ONE specific property — a deposit or
+   *  a buyout, both charged through this (see buyBusinessLevel's
+   *  costOverride param). */
+  function propertyDepositCost(def, storeIndex) {
+    return businessNextCost(def) * (PROPERTY_TIER_COST_MULT[storeIndex] != null ? PROPERTY_TIER_COST_MULT[storeIndex] : 1);
+  }
 
   const STORE_TYPES = [
     { id: 'jewellery', label: 'Jewellery' },
@@ -1021,14 +1042,20 @@ const Businesses = (() => {
       // confirmation, not the action, but this is cheap insurance
       // regardless), don't let a second buyBusinessLevel() fire.
       if (getBiz(setupFlow.bizId).level > 0) return;
-      const cost = businessNextCost(BUSINESS_BY_ID[setupFlow.bizId]); // capture BEFORE buying — the level-0 cost is what's actually charged
-      if (buyBusinessLevel(setupFlow.bizId)) {
+      const rentCatalog = BUSINESS_PROPERTIES[setupFlow.bizId];
+      const rentCountry = rentCatalog.countries.find((c) => c.id === setupFlow.countryId);
+      const rentCityObj = rentCountry.cities.find((c) => c.name === setupFlow.city);
+      const rentStoreIndex = rentCityObj.properties.findIndex((p) => propertySlug(p.name) === setupFlow.propertyId);
+      // capture BEFORE buying — the level-0 cost (scaled by this property's
+      // own quality tier, see propertyDepositCost) is what's actually charged
+      const cost = propertyDepositCost(BUSINESS_BY_ID[setupFlow.bizId], rentStoreIndex);
+      if (buyBusinessLevel(setupFlow.bizId, cost)) {
         const biz = getBiz(setupFlow.bizId);
         biz.properties.push({ countryId: setupFlow.countryId, city: setupFlow.city, propertyId: setupFlow.propertyId, tenure: 'rent' });
         saveGame();
         setupFlow.tenure = 'rent';
         setupFlow.amountSpent = cost; // shown as the setup cost on the Review page — businessNextCost(def) would return a different (higher) number once level > 0
-        UI.renderBalance();
+        if (typeof UI !== 'undefined') UI.renderBalance();
         render();
         if (typeof Businesses !== 'undefined') Businesses.render();
       }
@@ -1138,10 +1165,19 @@ const Businesses = (() => {
     const pending = pendingProp ? { countryId: pendingProp.countryId, city: pendingProp.city } : null;
     return `
       ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, setupFlow.countryDropdownOpen, pending)}
+      ${maxPropertiesCaptionHTML()}
       <div class="biz-list">
         ${cityObj.properties.map((p, i) => propertyRowHTML(p, cityObj.name, i,
           !!(pending && pending.countryId === country.id && pending.city === cityObj.name && pendingProp.propertyId === propertySlug(p.name)))).join('')}
       </div>`;
+  }
+
+  /* Aesthetic-only note surfacing the per-chain properties cap right on the
+   * browse screen where it's most relevant — shown once above the property
+   * list in both the setup wizard's Property stage (setupBrowseHTML) and
+   * the lightweight Add Property flow (addPropertyHTML). */
+  function maxPropertiesCaptionHTML() {
+    return `<div class="biz-max-props-note">Maximum of ${MAX_PROPERTIES_PER_CHAIN} properties per Supermarket Chain franchise</div>`;
   }
 
   /** The shared premium listing template — a real-estate-style page: a
@@ -1223,7 +1259,7 @@ const Businesses = (() => {
     const cityObj = country.cities.find((c) => c.name === setupFlow.city);
     const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === setupFlow.propertyId);
     const property = cityObj.properties[storeIndex];
-    const cost = businessNextCost(def);
+    const cost = propertyDepositCost(def, storeIndex);
     const canBuy = state.balance >= cost;
     const biz = getBiz(def.id);
     // Only THIS property is "started" if it's one biz.properties actually
@@ -1761,10 +1797,26 @@ const Businesses = (() => {
     box.style.top = top + 'px';
   }
 
+  /** The Purchasable catalog collapses the 6 Supermarket Chain slots into
+   *  ONE representative row (chain 1's def) — chainFamilyCardHTML renders
+   *  it as a repeatable purchase (Start Business -> Open Another Chain ->
+   *  eventually maxed out) instead of showing 6 near-identical rows.
+   *  "My Businesses" is untouched: every chain you've actually opened still
+   *  shows there as its own separate, fully independent card. */
+  function catalogDefs() {
+    return BUSINESS_DEFS.filter((d) => !(d.chainIndex > 1));
+  }
+
+  function openedChainCount() {
+    let n = 0;
+    for (let i = 1; i <= SUPERMARKET_CHAIN_COUNT; i++) if (getBiz('supermarket_' + i).level > 0) n++;
+    return n;
+  }
+
   function bizTabHTML() {
     const level = playerLevel();
     const owned = BUSINESS_DEFS.filter((def) => getBiz(def.id).level > 0);
-    const defs = listMode === 'mine' ? owned : BUSINESS_DEFS;
+    const defs = listMode === 'mine' ? owned : catalogDefs();
     let html = `
       <div class="section-head">
         <h2>Businesses</h2>
@@ -1804,7 +1856,7 @@ const Businesses = (() => {
         <button class="biz-nav-panel biz-nav-panel--own ${listMode === 'all' ? 'is-active' : ''}" data-biz-nav="all" type="button">
           <span class="biz-nav-top">
             <span class="biz-nav-icon">${NAV_ICON_OWN}</span>
-            <span class="biz-nav-num">${BUSINESS_DEFS.length}</span>
+            <span class="biz-nav-num">${catalogDefs().length}</span>
           </span>
           <span class="biz-nav-label">Purchasable</span>
         </button>
@@ -1815,7 +1867,10 @@ const Businesses = (() => {
     if (listMode === 'mine' && defs.length === 0) {
       html += `<div class="bizd-empty">You don't own any businesses yet — tap "Purchasable" to get started.</div>`;
     } else {
-      for (const def of defs) html += businessCardHTML(def, level);
+      for (const def of defs) {
+        if (listMode === 'all' && def.chainIndex === 1) { html += chainFamilyCardHTML(level); continue; }
+        html += businessCardHTML(def, level);
+      }
     }
     html += '</div>';
     return html;
@@ -1848,38 +1903,28 @@ const Businesses = (() => {
   function businessCardHTML(def, level) {
     const biz = getBiz(def.id);
     if (biz.level === 0) {
-      const chainLock = supermarketChainLock(def);
-      if (chainLock) return chainLockedCardHTML(def, chainLock);
       if (level < def.unlockLevel) return lockedCardHTML(def);
       return availableCardHTML(def);
     }
     return ownedCardHTML(def, biz);
   }
 
-  /* Supermarket Chains 2-6 stay locked until the chain before them is
-   * actually open (a property deposited on) — chain slots unlock one at a
-   * time instead of all at once. Returns the previous chain's def to point
-   * the locked card at, or null if this def isn't a gated later chain (or
-   * its predecessor is already open). */
-  function supermarketChainLock(def) {
-    if (!def.chainIndex || def.chainIndex <= 1) return null;
-    const prevDef = BUSINESS_BY_ID['supermarket_' + (def.chainIndex - 1)];
-    if (!prevDef || getBiz(prevDef.id).level > 0) return null;
-    return prevDef;
-  }
-
-  /* "Chain 2/6" — the only UI that spells out the 6-chain cap. */
+  /* "Chain 2/6" — the only UI that spells out the 6-chain cap on an
+   * individually-opened chain's own card (see "My Businesses"). */
   function chainBadgeHTML(def) {
     return def.chainIndex ? `<span class="biz-chain-badge">Chain ${def.chainIndex}/${SUPERMARKET_CHAIN_COUNT}</span>` : '';
   }
 
-  /* Locked: shown dimmed with its unlock requirement — a visible next goal. */
-  function lockedCardHTML(def) {
+  /* Locked: shown dimmed with its unlock requirement — a visible next goal.
+   * label overrides the displayed name (used by chainFamilyCardHTML, which
+   * points this at chain 1's def but wants the generic "Supermarket Chain"
+   * name rather than "Supermarket Chain 1" before any chain is open). */
+  function lockedCardHTML(def, label) {
     return `
       <div class="card biz-card biz-locked">
         <div class="biz-head">
           <div class="biz-title-wrap">
-            <div class="biz-name">${def.name}</div>
+            <div class="biz-name">${label || def.name}</div>
             <div class="biz-blurb">${def.blurb}</div>
             ${chainBadgeHTML(def)}
           </div>
@@ -1890,26 +1935,9 @@ const Businesses = (() => {
       </div>`;
   }
 
-  /* Locked because the previous Supermarket Chain slot isn't open yet — a
-   * different reason than a player-level gate, so it gets its own message
-   * instead of reusing lockedCardHTML's "Unlocks at player level" caption. */
-  function chainLockedCardHTML(def, prevDef) {
-    return `
-      <div class="card biz-card biz-locked">
-        <div class="biz-head">
-          <div class="biz-title-wrap">
-            <div class="biz-name">${def.name}</div>
-            <div class="biz-blurb">${def.blurb}</div>
-            ${chainBadgeHTML(def)}
-          </div>
-          <div class="lock-tag">🔒 Chain ${def.chainIndex}</div>
-        </div>
-        <div class="progress-caption">Opens once ${prevDef.name} is up and running</div>
-      </div>`;
-  }
-
-  /* Available: can be started if there's money and a free slot. */
-  function availableCardHTML(def) {
+  /* Available: can be started if there's money and a free slot. label
+   * overrides the displayed name (see lockedCardHTML). */
+  function availableCardHTML(def, label) {
     const cost = def.baseCost;
     const slotFree = usedSlots() < maxSlots();
     const canBuy = state.balance >= cost && slotFree;
@@ -1917,7 +1945,7 @@ const Businesses = (() => {
       <div class="card biz-card not-owned">
         <div class="biz-head">
           <div class="biz-title-wrap">
-            <div class="biz-name">${def.name}</div>
+            <div class="biz-name">${label || def.name}</div>
             <div class="biz-blurb">${def.blurb}</div>
             ${chainBadgeHTML(def)}
           </div>
@@ -1929,6 +1957,68 @@ const Businesses = (() => {
         <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy="${def.id}" ${canBuy ? '' : 'disabled'}>
           Start Business</button>
         ${slotFree ? '' : '<div class="progress-caption">⚠️ No free business slot — level up or sell a business.</div>'}
+      </div>`;
+  }
+
+  /** The Purchasable catalog's ONE row for the whole Supermarket Chain
+   *  family (see catalogDefs/bizTabHTML) — cycles through 3 states as more
+   *  chains open: available (0 open, identical to a normal business card),
+   *  "Open Another Chain" (1-5 open — reuses the exact same 4-stage wizard
+   *  as chain 1 did, just targeting the next sequential chain id), and
+   *  maxed out (6 open — nothing left to purchase). */
+  function chainFamilyCardHTML(level) {
+    const chain1Def = BUSINESS_BY_ID['supermarket_1'];
+    const openCount = openedChainCount();
+    if (openCount === 0) {
+      if (level < chain1Def.unlockLevel) return lockedCardHTML(chain1Def, 'Supermarket Chain');
+      return availableCardHTML(chain1Def, 'Supermarket Chain');
+    }
+    if (openCount >= SUPERMARKET_CHAIN_COUNT) return maxedChainFamilyCardHTML(chain1Def);
+    return openAnotherChainCardHTML(openCount);
+  }
+
+  /* 1-5 chains open: offer the next sequential chain slot. data-buy targets
+   * that slot's real id directly — onClick's existing d.buy handler already
+   * routes any id with a property catalog through openBusinessSetup (the
+   * full wizard), so nothing new needs wiring there. */
+  function openAnotherChainCardHTML(openCount) {
+    const nextDef = BUSINESS_BY_ID['supermarket_' + (openCount + 1)];
+    const cost = nextDef.baseCost; // a "from" price — the real deposit depends on which property is picked (see propertyDepositCost)
+    const slotFree = usedSlots() < maxSlots();
+    const canBuy = state.balance >= cost && slotFree;
+    return `
+      <div class="card biz-card not-owned">
+        <div class="biz-head">
+          <div class="biz-title-wrap">
+            <div class="biz-name">Supermarket Chain</div>
+            <div class="biz-blurb">${nextDef.blurb}</div>
+            <span class="biz-chain-badge">${openCount}/${SUPERMARKET_CHAIN_COUNT} chains open</span>
+          </div>
+        </div>
+        <div class="biz-stats">
+          <div><span class="muted">Income</span><b class="gold">${formatRate(nextDef.baseIncome)}</b></div>
+          <div><span class="muted">Startup from</span><b>${formatMoney(cost)}</b></div>
+        </div>
+        <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy="${nextDef.id}" ${canBuy ? '' : 'disabled'}>
+          Open Another Chain</button>
+        ${slotFree ? '' : '<div class="progress-caption">⚠️ No free business slot — level up or sell a business.</div>'}
+      </div>`;
+  }
+
+  /* All 6 chain slots are open — nothing left to buy in the catalog. Each
+   * open chain still lives on in "My Businesses" with its own page. */
+  function maxedChainFamilyCardHTML(chain1Def) {
+    return `
+      <div class="card biz-card biz-locked">
+        <div class="biz-head">
+          <div class="biz-title-wrap">
+            <div class="biz-name">Supermarket Chain</div>
+            <div class="biz-blurb">${chain1Def.blurb}</div>
+            <span class="biz-chain-badge">${SUPERMARKET_CHAIN_COUNT}/${SUPERMARKET_CHAIN_COUNT} chains open</span>
+          </div>
+          <div class="lock-tag">🔒 Max</div>
+        </div>
+        <div class="progress-caption">Max amount of chains purchased — manage your ${SUPERMARKET_CHAIN_COUNT} open chains from "My Businesses".</div>
       </div>`;
   }
 

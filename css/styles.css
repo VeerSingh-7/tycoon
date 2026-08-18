@@ -344,6 +344,17 @@ html, body {
   border-radius: 6px; padding: 1px 6px; margin-top: 4px;
 }
 
+/* A quiet reminder note on the property browse screens (setup wizard's
+   Property stage + the lightweight Add Property flow) spelling out the
+   16-properties-per-chain cap where it's actually relevant. Dashed border
+   reads as an aside/note rather than another actionable card, monochrome
+   like everything else. */
+.biz-max-props-note {
+  text-align: center; font-size: 11.5px; color: var(--muted);
+  padding: 8px 12px; margin: 10px 0 2px; border-radius: 10px;
+  background: var(--bg-elev-2); border: 1px dashed var(--line);
+}
+
 /* "My Businesses" card's property strip — only rendered for businesses
    with a real, purchased property (js/businesses.js resolveOwnedProperty).
    A compact row: small photo thumbnail, company name / store type / the

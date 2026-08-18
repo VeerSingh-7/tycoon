@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v112'; // v112: Supermarket Chain is now 6 independent, sequentially-unlocked chain slots, each holding up to 16 properties (Add Property flow + per-property Buy It Outright on the dedicated page)
+const CACHE_NAME = 'tycoon-v113'; // v113: Supermarket Chain is one repeatable catalog purchase (Open Another Chain up to 6, then "Max amount of chains purchased"); property deposits/buyouts scale by quality tier; 16-properties-per-franchise note on the browse screen
 
 const ASSETS = [
   'index.html',

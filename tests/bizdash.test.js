@@ -2,8 +2,8 @@
  * tests/bizdash.test.js — headless tests for:
  *   Part 1: Real estate retired from the Business tab (refund migration +
  *           the new Invest-tab "Coming Soon" placeholder)
- *   Part 2: The dedicated per-business page (js/bizdash.js) for all 14
- *           businesses, every tab
+ *   Part 2: The dedicated per-business page (js/bizdash.js) for all 19
+ *           businesses (13 + 6 Supermarket Chain slots), every tab
  * -------------------------------------------------------------------------
  * Run:  node tests/bizdash.test.js   (exit code 0 = all pass, 1 = a failure)
  * Same load-and-eval pattern as tests/business.test.js / techco.test.js.
@@ -115,7 +115,7 @@ check('Assets still exports the Luxury API untouched', typeof Assets.buyLuxury =
 check('ESTATE_DEFS/ESTATE_BY_ID no longer exist', typeof ESTATE_DEFS === 'undefined' && typeof ESTATE_BY_ID === 'undefined');
 check('LUXURY_DEFS/LUXURY_BY_ID/LUXURY_SETS still exist untouched', Array.isArray(LUXURY_DEFS) && LUXURY_DEFS.length > 0 && typeof LUXURY_BY_ID === 'object' && Array.isArray(LUXURY_SETS));
 
-/* ===================== B) Dedicated business page (BizDash) — all 14 x every tab ===================== */
+/* ===================== B) Dedicated business page (BizDash) — all 19 x every tab ===================== */
 state = defaultState();
 state.balance = 1e15;
 state.totalEarned = 1e20;
@@ -348,6 +348,128 @@ for (const def of BUSINESS_DEFS) {
   // Stocks segment still works normally (regression: the new segment didn't break the others).
   container._listeners.click({ target: fakeTarget('seg', 'stock') });
   check('Stocks segment still renders a real asset list', stubEl('mktBody').innerHTML.includes('asset-list'));
+})();
+
+/* ===================== E) Supermarket Chain: one catalog row, repeatable purchase ===================== */
+(function () {
+  function bizStubContainer() {
+    return {
+      innerHTML: '', _listeners: {},
+      addEventListener(type, fn) { this._listeners[type] = fn; },
+      removeEventListener() {},
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+    };
+  }
+  function fakeBizBtn(dataset) { return { closest: () => ({ dataset, disabled: false }) }; }
+  globalThis.document = {
+    getElementById: () => null,
+    createElement: () => ({ style: {}, addEventListener() {} }),
+    body: { style: {} },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  const container = bizStubContainer();
+  Businesses.mount(container); // default listMode 'all'
+
+  check('Purchasable catalog shows exactly ONE "Supermarket Chain" row (0 chains open)',
+    (container.innerHTML.match(/Supermarket Chain</g) || []).length === 1);
+  check('the family row offers Start Business targeting chain 1', /data-buy="supermarket_1"/.test(container.innerHTML));
+  check('no supermarket_2..6 purchase buttons appear individually', ![2, 3, 4, 5, 6].some((i) => container.innerHTML.includes('data-buy="supermarket_' + i + '"')));
+  check('"Purchasable" count is the consolidated 14 (13 non-chain + 1 chain row), not the raw 19 defs', (function () {
+    const idx = container.innerHTML.indexOf('biz-nav-num">14</span>');
+    return idx >= 0 && container.innerHTML.slice(idx, idx + 150).includes('Purchasable');
+  })());
+
+  buyBusinessLevel('supermarket_1');
+  Businesses.render();
+  check('catalog now offers "Open Another Chain" (1/6 open)', container.innerHTML.includes('Open Another Chain') && container.innerHTML.includes('1/6 chains open'));
+  check('"Open Another Chain" targets the next sequential chain id', /data-buy="supermarket_2"/.test(container.innerHTML));
+  check('still exactly one Supermarket Chain row while some are open', (container.innerHTML.match(/Supermarket Chain</g) || []).length === 1);
+
+  for (let i = 2; i <= 6; i++) buyBusinessLevel('supermarket_' + i);
+  Businesses.render();
+  check('catalog shows the max-chains message once all 6 are open', container.innerHTML.includes('Max amount of chains purchased'));
+  check('no purchase button remains on the maxed-out family row', ![1, 2, 3, 4, 5, 6].some((i) => container.innerHTML.includes('data-buy="supermarket_' + i + '"')));
+
+  // "My Businesses" still lists every opened chain as its own separate card.
+  container._listeners.click({ target: fakeBizBtn({ bizNav: 'mine' }) });
+  check('"My Businesses" lists all 6 opened chains individually, each with its own Manage button',
+    [1, 2, 3, 4, 5, 6].every((i) => container.innerHTML.includes('data-manage="supermarket_' + i + '"')));
+})();
+
+/* ===================== F) Property deposits scale with quality tier ===================== */
+(function () {
+  function bizStubContainer() {
+    return {
+      innerHTML: '', _listeners: {},
+      addEventListener(type, fn) { this._listeners[type] = fn; },
+      removeEventListener() {},
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+    };
+  }
+  function fakeBizBtn(dataset) { return { closest: () => ({ dataset, disabled: false }) }; }
+  globalThis.document = {
+    getElementById: () => null,
+    createElement: () => ({ style: {}, addEventListener() {} }),
+    body: { style: {} },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  const container = bizStubContainer();
+  Businesses.mount(container);
+
+  // formatMoney abbreviates >= $10,000 ("$10.78K", not "$10,780.00") — parse
+  // both the plain and the K/M/B/T-suffixed forms rather than assuming one.
+  const MONEY_SUFFIX_MULT = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 };
+  function parseMoney(str) {
+    const m = str.match(/[$]([0-9,.]+)([KMBT]?)/);
+    if (!m) return NaN;
+    return parseFloat(m[1].split(',').join('')) * (MONEY_SUFFIX_MULT[m[2]] || 1);
+  }
+
+  container._listeners.click({ target: fakeBizBtn({ buy: 'supermarket_1' }) }); // opens the setup wizard (Details stage)
+  container._listeners.click({ target: fakeBizBtn({ setupType: 'grocery' }) });
+  container._listeners.click({ target: fakeBizBtn({ setupContinueStage: '' }) }); // -> Property browse (London, UK is the default first city)
+
+  check('the property browse screen shows the max-properties-per-franchise note', container.innerHTML.includes('Maximum of 16 properties per Supermarket Chain franchise'));
+
+  // London's list (js/data/properties.js) is: [0] Riverside Market (Store 1,
+  // modest) .. [5] East London Fresh (Store 6, flagship) — real named
+  // properties, not synthetic test fixtures.
+  container._listeners.click({ target: fakeBizBtn({ setupProperty: propertySlug('Riverside Market') }) });
+  const store1Cost = parseMoney((container.innerHTML.match(/Pay Deposit .{1,3}[$][0-9,.]+[KMBT]?/) || [''])[0]);
+
+  container._listeners.click({ target: fakeBizBtn({ setupBack: '' }) }); // back to browse without depositing
+  container._listeners.click({ target: fakeBizBtn({ setupProperty: propertySlug('East London Fresh') }) });
+  const store6Cost = parseMoney((container.innerHTML.match(/Pay Deposit .{1,3}[$][0-9,.]+[KMBT]?/) || [''])[0]);
+
+  check('a modest Store 1 property has a real, finite deposit cost', Number.isFinite(store1Cost) && store1Cost > 0);
+  check('a flagship Store 6 property costs more to deposit on than a modest Store 1', store6Cost > store1Cost);
+  check('the Store 6 : Store 1 deposit ratio matches the designed tier multipliers (2.2x : 0.6x)', approx(store6Cost / store1Cost, 2.2 / 0.6, 0.02));
+
+  // Actually pay the (cheaper) Store 1 deposit, then confirm Buy It Outright
+  // on THAT specific property also reflects its own (low) tier cost.
+  container._listeners.click({ target: fakeBizBtn({ setupBack: '' }) });
+  container._listeners.click({ target: fakeBizBtn({ setupProperty: propertySlug('Riverside Market') }) });
+  const balBeforeDeposit = state.balance;
+  container._listeners.click({ target: fakeBizBtn({ setupRent: '' }) });
+  check('the deposit actually charged matches the price shown on the listing', approx(balBeforeDeposit - state.balance, store1Cost, 0.001));
+
+  const balBeforeOutright = state.balance;
+  const outrightOk = Businesses.buyPropertyOutright('supermarket_1:0');
+  check('Buy It Outright on the same Store 1 property succeeds', outrightOk === true);
+  const outrightCost = balBeforeOutright - state.balance;
+  check('Buy It Outright cost is also finite and real (Store 1 tier, not a flat unscaled price)', Number.isFinite(outrightCost) && outrightCost > 0);
 })();
 
 console.log('');
