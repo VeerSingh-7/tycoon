@@ -90,6 +90,16 @@ const BizDash = (() => {
     const id = dash.id, def = BUSINESS_BY_ID[id], biz = getBiz(id);
     if (biz.level <= 0) { close(); return; } // sold from elsewhere while open
 
+    // Supermarket Chains: the dedicated page (staff/upgrades/operations/
+    // properties) is being rebuilt — show a plain Coming Soon placeholder
+    // instead, with no tabs and no other actions. Selling a chain still
+    // works from its ⋮ menu on the business list card (js/businesses.js
+    // ownedCardHTML) — that's a separate mechanism from this page.
+    if (def.chainIndex) {
+      dash.el.innerHTML = chainComingSoonHTML(def);
+      return;
+    }
+
     dash.el.innerHTML = `
       <div class="bizd-head">
         <button class="icon-btn" data-bizd-close aria-label="Close">✕</button>
@@ -110,6 +120,24 @@ const BizDash = (() => {
         `<button class="bizd-tab ${dash.tab === t.id ? 'on' : ''}" data-bizd-tab="${t.id}">${t.label}</button>`).join('')}</div>
 
       <div class="bizd-body" id="bizdBody">${tabHTML(dash.tab, def, biz)}</div>
+    `;
+  }
+
+  function chainComingSoonHTML(def) {
+    return `
+      <div class="bizd-head">
+        <button class="icon-btn" data-bizd-close aria-label="Close">✕</button>
+        <div class="bizd-id">
+          <div class="bizd-co-name">${def.name}</div>
+          <div class="bizd-co-sub">${def.blurb}</div>
+        </div>
+      </div>
+      <div class="coming-soon">
+        <div class="cs-badge">COMING SOON</div>
+        <h2>Chain Management</h2>
+        <p>Staff, upgrades, and day-to-day operations for your Supermarket Chains are being rebuilt.</p>
+        <p class="muted">You can still sell this chain any time from its ⋮ menu on the business list.</p>
+      </div>
     `;
   }
 

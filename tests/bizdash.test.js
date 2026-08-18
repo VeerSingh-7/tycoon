@@ -199,7 +199,7 @@ for (const def of BUSINESS_DEFS) {
   check('document.body.style.overflow is restored on close', document.body.style.overflow === '');
 })();
 
-/* ===================== C2) Overview's Properties card + "Buy It Outright" ===================== */
+/* ===================== C2) Manage Business is Coming Soon for chains; propertyOverviewHTML/buyPropertyOutright still work as pure functions ===================== */
 (function () {
   const created = [];
   globalThis.document = {
@@ -212,7 +212,6 @@ for (const def of BUSINESS_DEFS) {
     },
     body: { children: [], appendChild(el) { this.children.push(el); }, style: {} },
   };
-  function fakeBtn(dataset) { return { closest: () => ({ dataset, disabled: false }) }; }
 
   state = defaultState();
   state.balance = 1e15;
@@ -222,72 +221,43 @@ for (const def of BUSINESS_DEFS) {
   const uk = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'uk');
   const london = uk.cities.find((c) => c.name === 'London');
   const riverside = london.properties[0]; // "Riverside Market"
-  const oxford = london.properties[1];
   biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(riverside.name), tenure: 'rent' });
   biz.brand = { storeType: 'grocery', companyName: 'Fresh Co' };
 
   BizDash.open('supermarket_1');
   const el = created[created.length - 1];
-  check('Overview shows a Properties card once biz.properties has an entry', el.innerHTML.includes('Riverside Market') && el.innerHTML.includes('Fresh Co'));
-  check('the property card shows the store type and business type', el.innerHTML.includes('Grocery') && el.innerHTML.includes('Supermarket Chain 1'));
-  check('while renting, the card offers Buy It Outright with a real cost, keyed "bizId:index"', /data-buy-outright="supermarket_1:0"/.test(el.innerHTML) && el.innerHTML.includes('Buy It Outright'));
-  check('tenure reads Rented before buying outright', el.innerHTML.includes('>Rented<'));
-  check('the Properties card shows a 1/16 count', el.innerHTML.includes('Properties · 1/16'));
-  check('the Add Property button is offered (under the 16 cap)', /data-add-property="supermarket_1"/.test(el.innerHTML));
-
-  const balBefore = state.balance;
-  const levelBefore = biz.level;
-  el._listeners.click({ target: fakeBtn({ buyOutright: 'supermarket_1:0' }) });
-  check('Buy It Outright charges real money', state.balance < balBefore);
-  check('Buy It Outright bumps the business level (same lever as every other purchase)', biz.level === levelBefore + 1);
-  check('the property record now reads purchase, not rent', biz.properties[0].tenure === 'purchase');
-
-  const rerendered = created[created.length - 1];
-  check('Overview re-renders showing Owned instead of Rented, with no further action offered for that property', rerendered.innerHTML.includes('>Owned<')
-    && !rerendered.innerHTML.includes('Buy It Outright') && rerendered.innerHTML.includes('Fully paid off'));
-
-  // A second property, added directly (simulating openAddProperty's deposit
-  // push) — the list and count grow, and each property's Buy It Outright
-  // targets ONLY its own index.
-  biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(oxford.name), tenure: 'rent' });
-  BizDash.close();
-  BizDash.open('supermarket_1');
-  const twoEl = created[created.length - 1];
-  check('Properties card now shows 2/16 and both properties', twoEl.innerHTML.includes('Properties · 2/16')
-    && twoEl.innerHTML.includes('Riverside Market') && twoEl.innerHTML.includes(oxford.name));
-  check('only the still-renting 2nd property offers Buy It Outright, at its own index 1', /data-buy-outright="supermarket_1:1"/.test(twoEl.innerHTML)
-    && !/data-buy-outright="supermarket_1:0"/.test(twoEl.innerHTML));
-
+  check('Manage Business on a Supermarket Chain shows Coming Soon, not the tabbed dashboard', el.innerHTML.includes('COMING SOON'));
+  check('the Coming Soon screen still names the specific chain', el.innerHTML.includes('Supermarket Chain 1'));
+  check('the Coming Soon screen has no tabs (Overview/Operations/Staff/Upgrades all gone)', !el.innerHTML.includes('data-bizd-tab'));
+  check('the Coming Soon screen offers no Properties card or Buy It Outright button', !el.innerHTML.includes('Properties ·') && !el.innerHTML.includes('Buy It Outright'));
+  check('the Coming Soon screen offers no Add Property button', !el.innerHTML.includes('data-add-property'));
+  check('the Coming Soon screen is still closable', el.innerHTML.includes('data-bizd-close'));
   BizDash.close();
 
-  // A business with no property catalog gets no Properties card at all.
+  // A non-chain business is completely unaffected — still the full tabbed dashboard.
   buyBusinessLevel('hotels');
   BizDash.open('hotels');
   const hotelsEl = created[created.length - 1];
-  check('a business without a property catalog shows no Properties card', !hotelsEl.innerHTML.includes('card-title">Properties'));
+  check('a non-chain business still opens the real tabbed dashboard, not Coming Soon', !hotelsEl.innerHTML.includes('COMING SOON') && hotelsEl.innerHTML.includes('Net Income'));
+  check('a non-chain business without a property catalog shows no Properties card', !hotelsEl.innerHTML.includes('card-title">Properties'));
   BizDash.close();
 
-  // At the 16-property cap, Add Property is replaced by a "slots filled" message.
-  state = defaultState();
-  state.balance = 1e15;
-  state.totalEarned = 1e20;
-  buyBusinessLevel('supermarket_1');
-  const fullBiz = getBiz('supermarket_1');
-  let added = 0;
-  outer:
-  for (const c of uk.cities) {
-    for (const p of c.properties) {
-      fullBiz.properties.push({ countryId: 'uk', city: c.name, propertyId: propertySlug(p.name), tenure: 'rent' });
-      added++;
-      if (added >= 16) break outer;
-    }
-  }
-  check('sanity: pushed exactly 16 properties', fullBiz.properties.length === 16);
-  BizDash.open('supermarket_1');
-  const fullEl = created[created.length - 1];
-  check('at the 16-property cap, Add Property is no longer offered', !/data-add-property="supermarket_1"/.test(fullEl.innerHTML));
-  check('at the cap, a "slots filled" message shows instead', fullEl.innerHTML.includes('slots filled'));
-  BizDash.close();
+  // propertyOverviewHTML and buyPropertyOutright are unreachable through
+  // BizDash's UI now, but the underlying functions are still exported and
+  // still correct — exercised directly here as pure functions (per the
+  // user: Manage Business's features get rebuilt/re-wired their own way
+  // later, this logic isn't deleted, just currently unreachable from the UI).
+  const overviewHtml = Businesses.propertyOverviewHTML(BUSINESS_BY_ID['supermarket_1'], biz);
+  check('propertyOverviewHTML (called directly) still renders the Properties card correctly', overviewHtml.includes('Riverside Market')
+    && overviewHtml.includes('Fresh Co') && overviewHtml.includes('Properties · 1/16'));
+  check('propertyOverviewHTML (called directly) still offers Buy It Outright, keyed "bizId:index"', /data-buy-outright="supermarket_1:0"/.test(overviewHtml));
+
+  const balBefore = state.balance;
+  const levelBefore = biz.level;
+  const outrightOk = Businesses.buyPropertyOutright('supermarket_1:0');
+  check('buyPropertyOutright (called directly) still charges real money and succeeds', outrightOk === true && state.balance < balBefore);
+  check('buyPropertyOutright (called directly) still bumps the business level', biz.level === levelBefore + 1);
+  check('buyPropertyOutright (called directly) still flips the property record to purchase', biz.properties[0].tenure === 'purchase');
 })();
 
 /* ===================== D) Invest tab: Real Estate "Coming Soon" placeholder ===================== */
@@ -470,6 +440,96 @@ for (const def of BUSINESS_DEFS) {
   check('Buy It Outright on the same Store 1 property succeeds', outrightOk === true);
   const outrightCost = balBeforeOutright - state.balance;
   check('Buy It Outright cost is also finite and real (Store 1 tier, not a flat unscaled price)', Number.isFinite(outrightCost) && outrightCost > 0);
+})();
+
+/* ===================== G) Business list cards no longer show Income/Startup ===================== */
+(function () {
+  function bizStubContainer() {
+    return {
+      innerHTML: '', _listeners: {},
+      addEventListener(type, fn) { this._listeners[type] = fn; },
+      removeEventListener() {},
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+    };
+  }
+  function fakeBizBtn(dataset) { return { closest: () => ({ dataset, disabled: false }) }; }
+  globalThis.document = {
+    getElementById: () => null,
+    createElement: () => ({ style: {}, addEventListener() {} }),
+    body: { style: {} },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  const container = bizStubContainer();
+  Businesses.mount(container); // listMode 'all' — every not-yet-owned card, including the chain family card
+
+  check('Purchasable list shows no "Income" stat on any card', !container.innerHTML.includes('>Income<'));
+  check('Purchasable list shows no "Startup" cost box on any card', !container.innerHTML.includes('>Startup<') && !container.innerHTML.includes('>Startup from<'));
+
+  buyBusinessLevel('supermarket_1');
+  buyBusinessLevel('hotels');
+  Businesses.render();
+  container._listeners.click({ target: fakeBizBtn({ bizNav: 'mine' }) });
+  check('"My Businesses" owned cards show no "Net income" stat either', !container.innerHTML.includes('>Net income<'));
+  check('"My Businesses" owned cards still show Manage Business', container.innerHTML.includes('Manage Business'));
+})();
+
+/* ===================== H) World Map property markers ===================== */
+(function () {
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  buyBusinessLevel('supermarket_1');
+  const biz = getBiz('supermarket_1');
+  const uk = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'uk');
+  const au = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'au');
+  const london = uk.cities.find((c) => c.name === 'London');
+  const sydney = au.cities.find((c) => c.name === 'Sydney');
+  const riverside = london.properties[0];   // London, real coords
+  const centralHub = london.properties[1];  // London too — same city, different real landmark
+  const circularQuay = sydney.properties[0]; // Sydney — a different country entirely
+
+  biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(riverside.name), tenure: 'rent' });
+  biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(centralHub.name), tenure: 'rent' });
+  biz.properties.push({ countryId: 'au', city: 'Sydney', propertyId: propertySlug(circularQuay.name), tenure: 'rent' });
+
+  const markers = Businesses._worldMapMarkers();
+  check('one marker exists per owned property (3 owned -> 3 markers)', markers.length === 3);
+  check('every marker is keyed "bizId:idx" matching biz.properties order', markers.every((m, i) => m.bizId === 'supermarket_1' && m.idx === i));
+  check('every marker carries the real lat/lon from the catalog (not a generic city-center guess)',
+    markers[0].lat === riverside.lat && markers[0].lon === riverside.lon
+    && markers[2].lat === circularQuay.lat && markers[2].lon === circularQuay.lon);
+
+  // Projection sanity: equirectangular onto the 1000 x 507.209 viewBox.
+  check('projection: x = (lon+180)/360*1000', approx(markers[0].x, (riverside.lon + 180) / 360 * 1000, 0.0001));
+  check('projection: y = (90-lat)/180*507.209', approx(markers[0].y, (90 - riverside.lat) / 180 * 507.209, 0.0001));
+  check('two properties in the SAME city (London) land at genuinely different map points', markers[0].x !== markers[1].x || markers[0].y !== markers[1].y);
+  check('a property in a different country/city lands far away on the map (Sydney vs London)', Math.abs(markers[2].x - markers[0].x) > 100);
+
+  // A business with no property catalog contributes zero markers.
+  buyBusinessLevel('hotels');
+  const markersAfterHotels = Businesses._worldMapMarkers();
+  check('a business without a property catalog adds no markers', markersAfterHotels.length === 3);
+
+  // Marker detail popup — the same premium listing template, read-only.
+  biz.brand = { storeType: 'grocery', companyName: 'Fresh Co' };
+  const detailHtml = Businesses._mapPropertyDetailHTML('supermarket_1', 0);
+  check('the marker detail popup shows the real property name', detailHtml.includes('Riverside Market'));
+  check('the marker detail popup shows the owning company name', detailHtml.includes('Fresh Co'));
+  check('the marker detail popup shows the chain name', detailHtml.includes('Supermarket Chain 1'));
+  check('the marker detail popup shows a real back/close control', detailHtml.includes('data-biz-nav="closeMapDetail"'));
+  check('the marker detail popup is read-only (no Pay Deposit / Buy It Outright actions)', !detailHtml.includes('Pay Deposit') && !detailHtml.includes('Buy It Outright'));
+
+  const detailHtml2 = Businesses._mapPropertyDetailHTML('supermarket_1', 2);
+  check('a different index shows that property instead (Circular Quay Market, Sydney)', detailHtml2.includes('Circular Quay Market') && detailHtml2.includes('Sydney'));
+
+  const missingHtml = Businesses._mapPropertyDetailHTML('supermarket_1', 99);
+  check('an out-of-range index degrades gracefully instead of crashing', typeof missingHtml === 'string' && missingHtml.length > 0);
 })();
 
 console.log('');

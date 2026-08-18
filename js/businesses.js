@@ -107,6 +107,11 @@ const Businesses = (() => {
   let pinchPending = null;  // { targetVw, midX, midY } for the next coalesced frame
   let selectedCountryEl = null;   // the <g> currently highlighted, or null
   let selectedCountryCode = null; // its ISO code, or null
+  // { bizId, idx } for the property whose detail popup is showing over the
+  // World Map, or null — idx is the property's position in that business's
+  // biz.properties array (same "bizId:idx" key convention buyPropertyOutright
+  // uses). Only meaningful while mapOpen is true.
+  let mapPropertyDetail = null;
 
   // Setup wizard Step 3's signature pad: pointer-driven freehand drawing on
   // a <canvas>, wired once at container mount (delegated, like the zoom-hold
@@ -469,6 +474,7 @@ const Businesses = (() => {
     container.addEventListener('pointerleave', onSignaturePointerUp);
     listMode = 'all';
     mapOpen = false;
+    mapPropertyDetail = null;
     propertiesOpen = false;
     propertiesBrowse = null;
     setupFlow = null;
@@ -481,15 +487,22 @@ const Businesses = (() => {
   /* ------------------------- Event delegation ------------------------- */
 
   function onClick(e) {
-    // The map screen owns every click while open: the close/zoom buttons
-    // first, then anything else is treated as a country/ocean tap.
+    // The map screen owns every click while open: the close/back/zoom
+    // buttons first, then a property marker (if a detail popup isn't
+    // already showing), then anything else is treated as a country/ocean
+    // tap. A property's detail popup takes over the whole screen the same
+    // way — only its own back button is live while it's open.
     if (mapOpen) {
       const mapBtn = e.target.closest('button');
       if (mapBtn && !mapBtn.disabled) {
         const md = mapBtn.dataset;
-        if (md.bizNav === 'closeMap') { mapOpen = false; clearCountrySelection(); render(); return; }
+        if (md.bizNav === 'closeMap') { mapOpen = false; mapPropertyDetail = null; clearCountrySelection(); render(); return; }
+        if (md.bizNav === 'closeMapDetail') { mapPropertyDetail = null; render(); return; }
         if (md.mapZoom) { zoomStep(md.mapZoom === 'in' ? 1 : -1); return; }
       }
+      if (mapPropertyDetail) return; // the detail popup has no other interactive targets
+      const markerEl = e.target.closest && e.target.closest('[data-map-marker]');
+      if (markerEl) { mapPropertyDetail = parseMapMarkerKey(markerEl.dataset.mapMarker); render(); return; }
       handleCountryClick(e);
       return;
     }
@@ -556,6 +569,12 @@ const Businesses = (() => {
   function render() {
     if (!container) return;
     if (mapOpen) {
+      if (mapPropertyDetail) {
+        const desired = 'mapdetail:' + mapPropertyDetail.bizId + ':' + mapPropertyDetail.idx;
+        if (lastRenderKey !== desired) container.innerHTML = mapPropertyDetailHTML();
+        lastRenderKey = desired;
+        return;
+      }
       const desired = 'map:' + (worldMapSvg ? 'loaded' : 'loading');
       if (lastRenderKey !== desired) {
         container.innerHTML = mapHTML();
@@ -567,6 +586,7 @@ const Businesses = (() => {
         if (desired === 'map:loaded') {
           const svg = mapSvgEl();
           if (svg) svg.style.width = mapWidthVw + 'vw';
+          rescaleMapMarkers();
         }
       }
       return;
@@ -1541,6 +1561,7 @@ const Businesses = (() => {
 
     mapWidthVw = newVw;
     svg.style.width = mapWidthVw + 'vw';
+    rescaleMapMarkers();
 
     scroll.scrollLeft = fracX * newWidthPx - ax;
     scroll.scrollTop = fracY * newHeightPx - ay;
@@ -1886,7 +1907,7 @@ const Businesses = (() => {
    *  to reach them. */
   function mapHTML() {
     const body = worldMapSvg
-      ? `${MAP_COLOR_DEFS}<div class="biz-worldmap-scroll">${worldMapSvg}</div>`
+      ? `${MAP_COLOR_DEFS}<div class="biz-worldmap-scroll">${injectMapMarkers(worldMapSvg)}</div>`
       : `<div class="biz-worldmap-scroll biz-worldmap-loading">${WORLD_MAP_SVG}</div>`;
     return `
       <div class="biz-worldmap-screen">
@@ -1898,6 +1919,135 @@ const Businesses = (() => {
             <button class="biz-worldmap-zoom-btn" data-map-zoom="out" type="button" aria-label="Zoom out">−</button>
           </div>` : ''}
       </div>`;
+  }
+
+  /* --------------------- World Map: owned property markers -------------- */
+  // Every property any business actually owns gets a clickable marker
+  // pinned to its real-world location — placed inside the SVG itself (not
+  // an HTML overlay) so it scales and pans perfectly with the map for
+  // free, riding along with the same CSS-width zoom setMapWidth already
+  // does for the country paths (see the file header's map section).
+
+  /** Equirectangular projection onto the real map SVG's own 1000 x 507.209
+   *  viewBox (MAP_ASPECT) — calibrated against known country centroids
+   *  (Australia's mainland lands almost exactly on its real SVG path at
+   *  this formula). Good enough to land a marker in the right country/city
+   *  area; not surveyed precision. */
+  function projectLatLon(lat, lon) {
+    return { x: (lon + 180) / 360 * 1000, y: (90 - lat) / 180 * 507.209 };
+  }
+
+  /** Every owned property across every business with a catalog, flattened
+   *  for the map's markers. idx matches biz.properties' array position
+   *  (same "bizId:idx" key convention buyPropertyOutright already uses),
+   *  so a marker's data-map-marker value doubles as that lookup key. */
+  function allOwnedMapProperties() {
+    const out = [];
+    for (const def of BUSINESS_DEFS) {
+      if (!hasPropertyCatalog(def.id)) continue;
+      resolveOwnedProperties(def.id).forEach((o, idx) => out.push({ bizId: def.id, def, idx, ...o }));
+    }
+    return out;
+  }
+
+  function parseMapMarkerKey(key) {
+    const sep = key.lastIndexOf(':');
+    return { bizId: key.slice(0, sep), idx: parseInt(key.slice(sep + 1), 10) };
+  }
+
+  function mapMarkersSVG() {
+    return allOwnedMapProperties().map((o) => {
+      const { x, y } = projectLatLon(o.property.lat, o.property.lon);
+      const xs = x.toFixed(2), ys = y.toFixed(2);
+      // data-mx/data-my let rescaleMapMarkers() rebuild this transform with
+      // a compensating scale() on top, without needing to re-derive x/y.
+      return `<g class="biz-map-marker" data-map-marker="${o.bizId}:${o.idx}" data-mx="${xs}" data-my="${ys}" transform="translate(${xs},${ys})">
+        <circle r="6" class="biz-map-marker-hit"></circle>
+        <circle r="3.2" class="biz-map-marker-dot"></circle>
+        <circle r="1.2" class="biz-map-marker-core"></circle>
+      </g>`;
+    }).join('');
+  }
+
+  /** Markers live inside the SVG (so they pan/scroll perfectly for free —
+   *  see the section header), but that also means the whole-SVG CSS-width
+   *  zoom (setMapWidth) would scale their drawn size right along with the
+   *  map, ballooning a small pin into an oversized blob at max zoom. Counter
+   *  -scale each marker's own local coordinate space by the inverse of how
+   *  far zoomed in we are from the baseline, so they read as a roughly
+   *  constant, sensible on-screen size at any zoom level — the same
+   *  invariant real map pins keep. Called after every zoom change
+   *  (setMapWidth, and once on initial map render). */
+  function rescaleMapMarkers() {
+    const svg = mapSvgEl();
+    if (!svg || !svg.querySelectorAll) return;
+    const factor = mapZoomMinVw / mapWidthVw;
+    const markers = svg.querySelectorAll('.biz-map-marker');
+    for (let i = 0; i < markers.length; i++) {
+      const g = markers[i];
+      const mx = g.getAttribute && g.getAttribute('data-mx');
+      const my = g.getAttribute && g.getAttribute('data-my');
+      if (mx == null || my == null) continue;
+      g.setAttribute('transform', `translate(${mx},${my}) scale(${factor})`);
+    }
+  }
+
+  /** Splices the marker group(s) in just before the SVG's closing tag —
+   *  keeps everything as one HTML string (matching how the rest of this
+   *  file builds every screen) rather than post-processing the DOM. */
+  function injectMapMarkers(svgText) {
+    const markers = mapMarkersSVG();
+    if (!markers) return svgText;
+    const i = svgText.lastIndexOf('</svg>');
+    return i < 0 ? svgText : svgText.slice(0, i) + markers + svgText.slice(i);
+  }
+
+  /** The property detail popup a marker tap opens — the exact same
+   *  premium listing template used everywhere else (propertyListingHTML),
+   *  read-only (actionsHTML=''), matching the read-only Properties browser.
+   *  isOwnedProperty inside propertyListingHTML already resolves "Owned
+   *  By" correctly since this property really is in biz.properties. */
+  function mapPropertyDetailHTML() {
+    const { bizId, idx } = mapPropertyDetail;
+    const def = BUSINESS_BY_ID[bizId];
+    const biz = getBiz(bizId);
+    const owned = resolveOwnedProperties(bizId)[idx];
+    if (!def || !owned) {
+      return `
+        <div class="bizd-screen">
+          <div class="bizd-head">
+            <button class="icon-btn" data-biz-nav="closeMapDetail" type="button" aria-label="Back">‹</button>
+            <div class="bizd-id"><div class="bizd-co-name">Property</div></div>
+          </div>
+          <div class="bizd-empty">This property is no longer available.</div>
+        </div>`;
+    }
+    const companyName = (biz.brand && biz.brand.companyName) || def.name;
+    return `
+      <div class="bizd-screen">
+        <div class="bizd-head">
+          <button class="icon-btn" data-biz-nav="closeMapDetail" type="button" aria-label="Back">‹</button>
+          <div class="bizd-id">
+            <div class="bizd-co-name">${escapeHtml(companyName)}</div>
+            <div class="bizd-co-sub">${escapeHtml(def.name)}</div>
+          </div>
+        </div>
+        ${propertyListingHTML(def, owned.property, owned.cityObj, owned.country, owned.storeIndex, '')}
+      </div>`;
+  }
+
+  /** Test-only hooks: exercise the World Map's marker math/detail popup
+   *  directly, without needing a real fetch() of img/map/world-map.svg or a
+   *  live DOM. */
+  function _worldMapMarkers() {
+    return allOwnedMapProperties().map((o) => ({ bizId: o.bizId, idx: o.idx, lat: o.property.lat, lon: o.property.lon, ...projectLatLon(o.property.lat, o.property.lon) }));
+  }
+  function _mapPropertyDetailHTML(bizId, idx) {
+    const saved = mapPropertyDetail;
+    mapPropertyDetail = { bizId, idx };
+    const html = mapPropertyDetailHTML();
+    mapPropertyDetail = saved;
+    return html;
   }
 
   function businessCardHTML(def, level) {
@@ -1950,10 +2100,6 @@ const Businesses = (() => {
             ${chainBadgeHTML(def)}
           </div>
         </div>
-        <div class="biz-stats">
-          <div><span class="muted">Income</span><b class="gold">${formatRate(def.baseIncome)}</b></div>
-          <div><span class="muted">Startup</span><b>${formatMoney(cost)}</b></div>
-        </div>
         <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy="${def.id}" ${canBuy ? '' : 'disabled'}>
           Start Business</button>
         ${slotFree ? '' : '<div class="progress-caption">⚠️ No free business slot — level up or sell a business.</div>'}
@@ -1995,10 +2141,6 @@ const Businesses = (() => {
             <span class="biz-chain-badge">${openCount}/${SUPERMARKET_CHAIN_COUNT} chains open</span>
           </div>
         </div>
-        <div class="biz-stats">
-          <div><span class="muted">Income</span><b class="gold">${formatRate(nextDef.baseIncome)}</b></div>
-          <div><span class="muted">Startup from</span><b>${formatMoney(cost)}</b></div>
-        </div>
         <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy="${nextDef.id}" ${canBuy ? '' : 'disabled'}>
           Open Another Chain</button>
         ${slotFree ? '' : '<div class="progress-caption">⚠️ No free business slot — level up or sell a business.</div>'}
@@ -2030,7 +2172,6 @@ const Businesses = (() => {
    * the same sell option already on the dedicated page's Overview tab —
    * both call the same sellBusiness() at the same 25%-of-spend refund. */
   function ownedCardHTML(def, biz) {
-    const net = businessIncomePerSec(def);
     const menuOpen = openMenuId === def.id;
     const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
     const ownedProperties = resolveOwnedProperties(def.id);
@@ -2080,10 +2221,6 @@ const Businesses = (() => {
         </div>
 
         ${propertyStripHTML}
-
-        <div class="biz-stats">
-          <div><span class="muted">Net income</span><b class="gold">${formatRate(net)}</b></div>
-        </div>
 
         <button class="btn btn-wide biz-manage-btn" data-manage="${def.id}">Manage Business ›</button>
       </div>`;
@@ -2138,5 +2275,5 @@ const Businesses = (() => {
 
   // staffHTML/upgradesHTML are exported so the dedicated business page
   // (js/bizdash.js) can reuse them exactly as-is — no re-derived logic.
-  return { mount, render, staffHTML, upgradesHTML, propertyOverviewHTML, buyPropertyOutright, openAddProperty };
+  return { mount, render, staffHTML, upgradesHTML, propertyOverviewHTML, buyPropertyOutright, openAddProperty, _worldMapMarkers, _mapPropertyDetailHTML };
 })();

@@ -1017,6 +1017,23 @@ html, body {
 .biz-worldmap-info-stat span { color: var(--muted); }
 .biz-worldmap-info-stat b { color: var(--text); font-variant-numeric: tabular-nums; }
 
+/* Owned-property markers on the World Map (js/businesses.js
+   mapMarkersSVG/injectMapMarkers) — plain SVG elements living inside the
+   real map SVG itself, so they scale/pan for free with the map's own
+   zoom (a CSS width resize on the whole <svg>), no extra positioning math
+   needed. Gold reuses the game's existing "your money/value" accent
+   (--gold, already used for income figures and Lv badges) rather than
+   introducing a new color. A larger transparent circle gives a comfortably
+   tappable hit target without the visible dot itself looking oversized. */
+.biz-worldmap-scroll svg .biz-map-marker { cursor: pointer; }
+.biz-worldmap-scroll svg .biz-map-marker-hit { fill: transparent; pointer-events: all; }
+.biz-worldmap-scroll svg .biz-map-marker-dot {
+  fill: var(--gold); stroke: #fff; stroke-width: 0.8;
+  filter: drop-shadow(0 0.6px 1.4px rgba(0, 0, 0, 0.55));
+}
+.biz-worldmap-scroll svg .biz-map-marker-core { fill: #fff; }
+.biz-worldmap-scroll svg .biz-map-marker:active .biz-map-marker-dot { fill: var(--gold-deep); }
+
 /* Business setup (js/businesses.js) — the country selector (flag + name,
    opens a dropdown of the other 3) and the horizontally-scrollable city bar
    below it on the Property stage's browse screen. Same active-state

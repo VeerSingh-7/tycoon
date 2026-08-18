@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v113'; // v113: Supermarket Chain is one repeatable catalog purchase (Open Another Chain up to 6, then "Max amount of chains purchased"); property deposits/buyouts scale by quality tier; 16-properties-per-franchise note on the browse screen
+const CACHE_NAME = 'tycoon-v114'; // v114: World Map plots every owned property as a real, clickable marker (hand-placed lat/lon per property, detail popup on tap); business list cards drop Income/Startup boxes; Manage Business is Coming Soon for Supermarket Chains
 
 const ASSETS = [
   'index.html',
