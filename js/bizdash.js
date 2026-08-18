@@ -58,6 +58,11 @@ const BizDash = (() => {
     if (d.bizdClose !== undefined) { close(); return; }
     if (d.bizdTab) { dash.tab = d.bizdTab; render(); return; }
     if (d.addProperty) { Businesses.openAddProperty(d.addProperty); return; }
+    if (d.openStore) {
+      const sep = d.openStore.lastIndexOf(':');
+      if (typeof StorePage !== 'undefined') StorePage.open(d.openStore.slice(0, sep), parseInt(d.openStore.slice(sep + 1), 10));
+      return;
+    }
 
     let changed = false;
     if (d.upgrade) changed = buyBusinessUpgrade(d.biz, d.upgrade);

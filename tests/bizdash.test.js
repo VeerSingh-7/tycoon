@@ -46,6 +46,7 @@ const files = [
   'js/assets.js',
   'js/businesses.js',
   'js/bizdash.js',
+  'js/storepage.js',
   'js/invest.js',
 ];
 
@@ -633,6 +634,175 @@ for (const def of BUSINESS_DEFS) {
 
   const missingHtml = Businesses._mapPropertyDetailHTML('supermarket_1', 99);
   check('an out-of-range index degrades gracefully instead of crashing', typeof missingHtml === 'string' && missingHtml.length > 0);
+})();
+
+/* ===================== I) propertyMetrics — deterministic, distinct, composite Health formula ===================== */
+(function () {
+  const uk = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'uk');
+  const london = uk.cities.find((c) => c.name === 'London');
+  const p0 = london.properties[0], p3 = london.properties[3], p5 = london.properties[5];
+
+  const m0a = propertyMetrics(p0, 'London', 0);
+  const m0b = propertyMetrics(p0, 'London', 0);
+  check('propertyMetrics is fully deterministic (same property -> byte-identical output)', JSON.stringify(m0a) === JSON.stringify(m0b));
+
+  const m3 = propertyMetrics(p3, 'London', 3);
+  const m5 = propertyMetrics(p5, 'London', 5);
+  check('different properties land on genuinely different metrics', m0a.health !== m3.health || m0a.satisfaction.score !== m3.satisfaction.score);
+  check('a third different property is also distinct from the first two', (m5.health !== m0a.health || m5.security.score !== m0a.security.score)
+    && (m5.health !== m3.health || m5.revenue.monthly !== m3.revenue.monthly));
+
+  check('composite Health = average of Satisfaction/Promotion/Security category scores (NOT revenue)',
+    m0a.health === Math.round((m0a.satisfaction.score + m0a.promotion.score + m0a.security.score) / 3));
+
+  check('capacity max matches the same sqft/100 formula the property listing page already shows', m0a.capacity.max === Math.round(p0.sqft / 100));
+  check('capacity current never exceeds max', m0a.capacity.current <= m0a.capacity.max && m3.capacity.current <= m3.capacity.max);
+
+  check('security counts stay within their own totals', m0a.security.cctvOwned <= m0a.security.cctvTotal && m0a.security.doorAlarmOwned <= m0a.security.doorAlarmTotal);
+
+  const d0 = propertyDetails(p0, 'London', 0);
+  check('revenue.monthly reuses the exact same expectedAnnualRevenue/12 already shown on the listing page', m0a.revenue.monthly === Math.round(d0.financials.expectedAnnualRevenue / 12));
+  check('revenue expenses sum to totalExpenses exactly', m0a.revenue.expenses.reduce((s, e) => s + e.amount, 0) === m0a.revenue.totalExpenses);
+  check('netProfit = monthly revenue - totalExpenses', m0a.revenue.netProfit === m0a.revenue.monthly - m0a.revenue.totalExpenses);
+  check('one of the expense line items is the property’s own real monthlyRent', m0a.revenue.expenses.some((e) => e.label === 'Rent' && e.amount === d0.financials.monthlyRent));
+
+  check('traffic series has 7 days, today/yesterday match the last two entries', m0a.traffic.series.length === 7
+    && m0a.traffic.today === m0a.traffic.series[6] && m0a.traffic.yesterday === m0a.traffic.series[5]);
+})();
+
+/* ===================== J) StorePage: Store Overview + Performance ===================== */
+(function () {
+  const created = [];
+  function stubEl(tag) {
+    const elx = {
+      tagName: tag, className: '', innerHTML: '', _listeners: {},
+      addEventListener(type, fn) { this._listeners[type] = fn; },
+      remove() { this._removed = true; },
+      querySelector() { return null; }, querySelectorAll() { return []; },
+    };
+    created.push(elx);
+    return elx;
+  }
+  globalThis.document = {
+    createElement: (tag) => stubEl(tag),
+    body: { children: [], appendChild(elx) { this.children.push(elx); } },
+  };
+  function fakeBtn(dataset) { return { closest: () => ({ dataset, disabled: false }) }; }
+
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  buyBusinessLevel('supermarket_1');
+  const biz = getBiz('supermarket_1');
+  const uk = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'uk');
+  const london = uk.cities.find((c) => c.name === 'London');
+  const riverside = london.properties[0];
+  const eastLondon = london.properties[5];
+  biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(riverside.name), tenure: 'rent' });
+  biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(eastLondon.name), tenure: 'purchase' });
+  biz.brand = { storeType: 'jewellery', companyName: 'Singh' };
+
+  StorePage.open('supermarket_1', 0);
+  check('StorePage.open() appends one real screen to the page', document.body.children.length === 1);
+  const el = created[created.length - 1];
+  check('Overview shows the real property name and company name', el.innerHTML.includes('Riverside Market') && el.innerHTML.includes('Singh'));
+  check('Overview shows the tenure chip matching this property’s real tenure (Rented)', el.innerHTML.includes('>Rented<'));
+  check('Overview shows a real Health number matching propertyMetrics', el.innerHTML.includes('store-health-badge-num">' + propertyMetrics(riverside, 'London', 0).health + '<'));
+  check('Overview has the Capacity and Weekly Traffic cards', el.innerHTML.includes('Capacity') && el.innerHTML.includes('Weekly Traffic'));
+
+  // Health badge tap -> Performance.
+  el._listeners.click({ target: fakeBtn({ storeNav: 'performance' }) });
+  const perfEl = created[created.length - 1];
+  check('tapping the Health badge navigates to Performance', perfEl.innerHTML.includes('Health Score') && perfEl.innerHTML.includes('store-cat-tabs'));
+  check('Performance defaults to the Satisfaction category', perfEl.innerHTML.includes('Customer Service'));
+
+  // Category switching.
+  el._listeners.click({ target: fakeBtn({ storeCat: 'security' }) });
+  const secEl = created[created.length - 1];
+  check('switching to the Security category shows real equipment counts', secEl.innerHTML.includes('CCTV Cameras'));
+  const m = propertyMetrics(riverside, 'London', 0);
+  check('Security panel shows this exact property’s real CCTV owned/total', secEl.innerHTML.includes('>' + m.security.cctvOwned + '/' + m.security.cctvTotal + '<'));
+
+  el._listeners.click({ target: fakeBtn({ storeCat: 'revenue' }) });
+  const revEl = created[created.length - 1];
+  check('switching to the Revenue category shows a real monthly figure and an expenses accordion', revEl.innerHTML.includes('Monthly Revenue') && revEl.innerHTML.includes('Expenses ·'));
+
+  // Tab row: back to Overview.
+  el._listeners.click({ target: fakeBtn({ storeView: 'overview' }) });
+  check('the Overview/Performance tab row can navigate back to Overview', created[created.length - 1].innerHTML.includes('Weekly Traffic'));
+
+  // Expenses accordion state (logic-level — see the real headless-browser
+  // check for the actual CSS class/visual confirmation).
+  el._listeners.click({ target: fakeBtn({ storeView: 'performance' }) });
+  el._listeners.click({ target: fakeBtn({ storeCat: 'revenue' }) });
+  check('expenses start collapsed', StorePage._state().expensesOpen === false);
+  el._listeners.click({ target: fakeBtn({ storeExpensesToggle: '' }) });
+  check('tapping the expenses row opens the accordion (state flips)', StorePage._state().expensesOpen === true);
+  el._listeners.click({ target: fakeBtn({ storeExpensesToggle: '' }) });
+  check('tapping it again closes the accordion', StorePage._state().expensesOpen === false);
+
+  // Manage -> closes StorePage (BizDash's own Manage screen is already open underneath in the real app).
+  const beforeClose = document.body.children.length;
+  el._listeners.click({ target: fakeBtn({ storeNav: 'manage' }) });
+  check('Manage closes the StorePage overlay', created[created.length - 1]._removed === true);
+
+  // A second, different property shows genuinely different real data through the exact same page.
+  StorePage.open('supermarket_1', 1);
+  const el2 = created[created.length - 1];
+  check('a different owned property opens its own distinct Store Overview', el2.innerHTML.includes('East London Fresh') && !el2.innerHTML.includes('Riverside Market'));
+  check('the second property shows its own real tenure (Owned, not Rented)', el2.innerHTML.includes('>Owned<') && !el2.innerHTML.includes('>Rented<'));
+  const health2 = propertyMetrics(eastLondon, 'London', 5).health;
+  check('the second property shows its own real, distinct Health number', el2.innerHTML.includes('store-health-badge-num">' + health2 + '<') && health2 !== propertyMetrics(riverside, 'London', 0).health);
+
+  // A third owned property, in a different country entirely.
+  const au = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'au');
+  const sydney = au.cities.find((c) => c.name === 'Sydney');
+  const circularQuay = sydney.properties[0];
+  biz.properties.push({ countryId: 'au', city: 'Sydney', propertyId: propertySlug(circularQuay.name), tenure: 'rent' });
+  StorePage.open('supermarket_1', 2);
+  const el3 = created[created.length - 1];
+  check('a third owned property (a different country) also opens its own distinct page', el3.innerHTML.includes('Circular Quay Market') && el3.innerHTML.includes('Sydney, Australia'));
+
+  // Invalid index degrades gracefully.
+  const beforeInvalid = created.length;
+  StorePage.open('supermarket_1', 99);
+  check('opening an out-of-range property index does not create a broken screen', created.length === beforeInvalid);
+})();
+
+/* ===================== K) Property list rows open their own Store Overview ===================== */
+(function () {
+  const created = [];
+  globalThis.document = {
+    createElement: (tag) => {
+      const elx = { tagName: tag, className: '', innerHTML: '', _listeners: {},
+        addEventListener(type, fn) { this._listeners[type] = fn; },
+        remove() {},
+        querySelector() { return null; }, querySelectorAll() { return []; } };
+      created.push(elx);
+      return elx;
+    },
+    body: { children: [], appendChild(elx) { this.children.push(elx); }, style: {} },
+  };
+  function fakeBtn(dataset) { return { closest: () => ({ dataset, disabled: false }) }; }
+
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  buyBusinessLevel('supermarket_1');
+  const biz = getBiz('supermarket_1');
+  const uk = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'uk');
+  const london = uk.cities.find((c) => c.name === 'London');
+  biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(london.properties[0].name), tenure: 'rent' });
+  biz.brand = { storeType: 'grocery', companyName: 'Fresh Co' };
+
+  const html = Businesses.propertyOverviewHTML(BUSINESS_BY_ID['supermarket_1'], biz);
+  check('each property row in the Properties list is a real clickable target keyed "bizId:index"', /data-open-store="supermarket_1:0"/.test(html));
+
+  BizDash.open('supermarket_1');
+  const dashEl = created[created.length - 1];
+  dashEl._listeners.click({ target: fakeBtn({ openStore: 'supermarket_1:0' }) });
+  check('tapping a property row in the real Manage Business screen opens its Store Overview', document.body.children.length === 2
+    && document.body.children[1].innerHTML.includes('Riverside Market'));
 })();
 
 console.log('');

@@ -339,6 +339,115 @@ function propertyDetails(property, cityName, storeIndex) {
 }
 
 /* =========================================================================
+ * Operational metrics (propertyMetrics) — Store Overview / Performance
+ * -------------------------------------------------------------------------
+ * Every number here is deterministic (seededFraction off the property's own
+ * name, same as propertyDetails/storefrontSVG above) — no new persisted
+ * state, no SAVE_VERSION bump, just computed on demand. Same property + same
+ * city always yields the same metrics across reloads; different properties
+ * land on genuinely different numbers because they have different names.
+ * ========================================================================= */
+
+/** clamp(base + a seeded +/-spread swing, 0, 100), rounded — the shared
+ *  building block every 0-100 sub-metric below is made of. */
+function metricScore(seed, base, spread) {
+  const v = base + (seededFraction(seed) - 0.5) * 2 * spread;
+  return Math.round(Math.max(0, Math.min(100, v)));
+}
+
+const CONDITION_BASE = { Good: 62, Excellent: 76, Premium: 90 };
+
+/** Full operational metrics for one property: satisfaction/promotion/
+ *  security sub-scores (+ their category averages), composite Health
+ *  (average of those three category averages — deliberately NOT including
+ *  revenue), capacity, a 7-day traffic series, and a revenue/expense
+ *  breakdown. storeIndex/cityName match propertyDetails()'s own signature
+ *  so callers can reuse the exact same tier/seed derivation. */
+function propertyMetrics(property, cityName, storeIndex) {
+  const tier = STORE_TIERS[storeIndex];
+  const seed = propertySlug(property.name) + '_' + cityName;
+  const d = propertyDetails(property, cityName, storeIndex);
+  const conditionBase = CONDITION_BASE[tier.condition] || 65;
+
+  // Satisfaction: customer-facing quality, skewed by the property's own
+  // condition tier (a Premium flagship reads as more polished on average).
+  const customerService = metricScore(seed + '_cs', conditionBase, 12);
+  const pricing = metricScore(seed + '_pr', 60, 18); // value-for-money reads independently of tier — a flagship isn't automatically "good value"
+  const interior = metricScore(seed + '_int', conditionBase + 4, 10);
+  const cleanliness = metricScore(seed + '_cln', conditionBase + 2, 10);
+  const satisfaction = Math.round((customerService + pricing + interior + cleanliness) / 4);
+
+  // Promotion: how actively this specific store is marketed locally —
+  // independent of the chain-wide Marketing & Growth service (js/marketing.js).
+  const localMarketing = metricScore(seed + '_lm', 45, 25);
+  const loyaltyProgram = metricScore(seed + '_lp', 40, 25);
+  const socialReach = metricScore(seed + '_sr', 35, 25);
+  const promotion = Math.round((localMarketing + loyaltyProgram + socialReach) / 3);
+
+  // Security: real equipment counts (owned vs. a tier-scaled total), not
+  // just an abstract percentage — bigger/higher-tier stores warrant (and
+  // are more likely to already have) more cameras and a guard.
+  const cctvTotal = 2 + Math.floor(storeIndex / 2); // 2 (Store 1-2) .. 4 (Store 5-6)
+  const cctvOwnProb = 0.28 + storeIndex * 0.11;
+  let cctvOwned = 0;
+  for (let i = 0; i < cctvTotal; i++) if (seededFraction(seed + '_cctv' + i) < cctvOwnProb) cctvOwned++;
+  const doorAlarmTotal = 1;
+  const doorAlarmOwned = seededFraction(seed + '_door') < 0.35 + storeIndex * 0.1 ? 1 : 0;
+  const guardAssigned = seededFraction(seed + '_guard') < 0.15 + storeIndex * 0.12;
+  const security = Math.round((cctvOwned / cctvTotal) * 50 + (doorAlarmOwned / doorAlarmTotal) * 30 + (guardAssigned ? 20 : 0));
+
+  const health = Math.round((satisfaction + promotion + security) / 3);
+
+  // Capacity: max reuses the exact same sqft/100 figure already shown on
+  // the property's own listing page (propertyListingHTML's "Customer
+  // Capacity" stat) — current is a seeded occupancy fraction of that max.
+  const capacityMax = Math.round(property.sqft / 100);
+  const occupancyPct = metricScore(seed + '_occ', 62, 22);
+  const capacityCurrent = Math.round(capacityMax * occupancyPct / 100);
+
+  // Traffic: a 7-day series oscillating +/-25% around the property's own
+  // already-generated dailyTraffic figure (propertyDetails' stats.dailyTraffic),
+  // so the two numbers always agree with each other. Day 6 (last) = "today";
+  // day 5 = "yesterday".
+  const trafficSeries = [];
+  for (let i = 0; i < 7; i++) {
+    trafficSeries.push(Math.round(d.stats.dailyTraffic * (0.75 + seededFraction(seed + '_traf' + i) * 0.5)));
+  }
+  const trafficToday = trafficSeries[6];
+  const trafficYesterday = trafficSeries[5];
+
+  // Revenue: monthly figure reuses financials.expectedAnnualRevenue/12 (the
+  // same yield estimate already shown on the listing page) so numbers never
+  // disagree; expenses are seeded shares of that revenue plus the real
+  // monthlyRent already generated for this property.
+  const monthlyRevenue = Math.round(d.financials.expectedAnnualRevenue / 12);
+  const expenseStaffWages = Math.round(monthlyRevenue * (0.18 + seededFraction(seed + '_exStaff') * 0.10));
+  const expenseUtilities = Math.round(monthlyRevenue * (0.03 + seededFraction(seed + '_exUtil') * 0.03));
+  const expenseRestocking = Math.round(monthlyRevenue * (0.30 + seededFraction(seed + '_exStock') * 0.10));
+  const expenseInsurance = Math.round(200 + seededFraction(seed + '_exIns') * 300 + storeIndex * 60);
+  const expenseRent = d.financials.monthlyRent;
+  const expenses = [
+    { label: 'Rent', amount: expenseRent },
+    { label: 'Staff Wages', amount: expenseStaffWages },
+    { label: 'Restocking & COGS', amount: expenseRestocking },
+    { label: 'Utilities', amount: expenseUtilities },
+    { label: 'Insurance', amount: expenseInsurance },
+  ];
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const netProfit = monthlyRevenue - totalExpenses;
+
+  return {
+    satisfaction: { score: satisfaction, customerService, pricing, interior, cleanliness },
+    promotion: { score: promotion, localMarketing, loyaltyProgram, socialReach },
+    security: { score: security, cctvOwned, cctvTotal, doorAlarmOwned, doorAlarmTotal, guardAssigned },
+    health,
+    capacity: { current: capacityCurrent, max: capacityMax },
+    traffic: { series: trafficSeries, today: trafficToday, yesterday: trafficYesterday },
+    revenue: { monthly: monthlyRevenue, expenses, totalExpenses, netProfit },
+  };
+}
+
+/* =========================================================================
  * Procedural storefront illustration (storefrontSVG)
  * -------------------------------------------------------------------------
  * A genuine "image" for every one of the 96 listings without a single

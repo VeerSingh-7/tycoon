@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v116'; // v116: new "Suppliers" category on the Invest tab's Services hub, showing one procedurally-named/described supplier business
+const CACHE_NAME = 'tycoon-v117'; // v117: new Store Overview + Performance pages for every owned Supermarket Chain property (health ring, capacity gauge, weekly traffic chart, Satisfaction/Promotion/Security/Revenue categories with animated bars and an expenses accordion) — tap any property in the Properties list to open it
 
 const ASSETS = [
   'index.html',
@@ -39,6 +39,7 @@ const ASSETS = [
   'js/tap.js',
   'js/businesses.js',
   'js/bizdash.js',
+  'js/storepage.js',
   'js/invest.js',
   'js/hiring.js',
   'js/marketing.js',

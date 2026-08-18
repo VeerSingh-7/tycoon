@@ -267,19 +267,21 @@ const Businesses = (() => {
       const canBuy = state.balance >= buyCost;
       const monthlyRent = propertyDetails(o.property, o.cityObj.name, o.storeIndex).financials.monthlyRent;
       return `
-        <div class="biz-owned-strip" style="margin-top:10px">
-          <span class="biz-owned-thumb">
-            <span class="biz-owned-thumb-fallback" aria-hidden="true">🏪</span>
-            <img class="biz-owned-thumb-img" src="${propertyImagePath(o.cityObj.name, o.storeIndex)}" alt=""
-              loading="lazy" onerror="this.style.opacity='0'">
-          </span>
-          <span class="biz-owned-info">
-            <span class="biz-owned-name">${escapeHtml(companyName)}</span>
-            <span class="biz-owned-meta">${escapeHtml(typeLabel)} · ${escapeHtml(def.name)}</span>
-            <span class="biz-owned-loc">${escapeHtml(o.property.name)} · ${escapeHtml(o.cityObj.name)}, ${escapeHtml(o.country.name)}</span>
-          </span>
-          <span class="biz-owned-tenure">${isPurchased ? 'Owned' : 'Rented'}</span>
-        </div>
+        <button class="biz-owned-strip-btn" data-open-store="${def.id}:${idx}" type="button" aria-label="Open ${escapeAttr(o.property.name)}">
+          <div class="biz-owned-strip" style="margin-top:10px">
+            <span class="biz-owned-thumb">
+              <span class="biz-owned-thumb-fallback" aria-hidden="true">🏪</span>
+              <img class="biz-owned-thumb-img" src="${propertyImagePath(o.cityObj.name, o.storeIndex)}" alt=""
+                loading="lazy" onerror="this.style.opacity='0'">
+            </span>
+            <span class="biz-owned-info">
+              <span class="biz-owned-name">${escapeHtml(companyName)}</span>
+              <span class="biz-owned-meta">${escapeHtml(typeLabel)} · ${escapeHtml(def.name)}</span>
+              <span class="biz-owned-loc">${escapeHtml(o.property.name)} · ${escapeHtml(o.cityObj.name)}, ${escapeHtml(o.country.name)}</span>
+            </span>
+            <span class="biz-owned-tenure">${isPurchased ? 'Owned' : 'Rented'}</span>
+          </div>
+        </button>
         <div class="biz-rent-buy-choice">
           <div class="biz-rent-buy-option ${isPurchased ? '' : 'is-active'}">
             <span class="biz-rent-buy-label">Pay Rent Monthly</span>
@@ -2341,5 +2343,5 @@ const Businesses = (() => {
 
   // staffHTML/upgradesHTML are exported so the dedicated business page
   // (js/bizdash.js) can reuse them exactly as-is — no re-derived logic.
-  return { mount, render, staffHTML, upgradesHTML, propertyOverviewHTML, buyPropertyOutright, openAddProperty, _worldMapMarkers, _mapPropertyDetailHTML };
+  return { mount, render, staffHTML, upgradesHTML, propertyOverviewHTML, buyPropertyOutright, openAddProperty, resolveOwnedProperties, _worldMapMarkers, _mapPropertyDetailHTML };
 })();
