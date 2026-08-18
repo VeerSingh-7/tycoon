@@ -199,7 +199,7 @@ for (const def of BUSINESS_DEFS) {
   check('document.body.style.overflow is restored on close', document.body.style.overflow === '');
 })();
 
-/* ===================== C2) Manage Business is Coming Soon for chains; propertyOverviewHTML/buyPropertyOutright still work as pure functions ===================== */
+/* ===================== C2) Manage Business: focused property screen with real rent-vs-buy choice ===================== */
 (function () {
   const created = [];
   globalThis.document = {
@@ -212,6 +212,7 @@ for (const def of BUSINESS_DEFS) {
     },
     body: { children: [], appendChild(el) { this.children.push(el); }, style: {} },
   };
+  function fakeBtn(dataset) { return { closest: () => ({ dataset, disabled: false }) }; }
 
   state = defaultState();
   state.balance = 1e15;
@@ -226,38 +227,65 @@ for (const def of BUSINESS_DEFS) {
 
   BizDash.open('supermarket_1');
   const el = created[created.length - 1];
-  check('Manage Business on a Supermarket Chain shows Coming Soon, not the tabbed dashboard', el.innerHTML.includes('COMING SOON'));
-  check('the Coming Soon screen still names the specific chain', el.innerHTML.includes('Supermarket Chain 1'));
-  check('the Coming Soon screen has no tabs (Overview/Operations/Staff/Upgrades all gone)', !el.innerHTML.includes('data-bizd-tab'));
-  check('the Coming Soon screen offers no Properties card or Buy It Outright button', !el.innerHTML.includes('Properties ·') && !el.innerHTML.includes('Buy It Outright'));
-  check('the Coming Soon screen offers no Add Property button', !el.innerHTML.includes('data-add-property'));
-  check('the Coming Soon screen is still closable', el.innerHTML.includes('data-bizd-close'));
+  check('Manage Business on a Supermarket Chain shows the property, not the tabbed dashboard', !el.innerHTML.includes('data-bizd-tab'));
+  check('Manage Business names the specific chain', el.innerHTML.includes('Supermarket Chain 1'));
+  check('Manage Business shows the real Properties card (photo, company, location)', el.innerHTML.includes('Riverside Market') && el.innerHTML.includes('Fresh Co'));
+  check('Manage Business shows the rent-vs-buy choice for the still-renting property', el.innerHTML.includes('Pay Rent Monthly') && el.innerHTML.includes('Buy It Outright'));
+  check('the rent option shows a real, non-zero monthly figure', (function () {
+    const idx = el.innerHTML.indexOf('Pay Rent Monthly');
+    return idx >= 0 && /[$][1-9]/.test(el.innerHTML.slice(idx, idx + 80));
+  })());
+  check('Staff/Upgrades/Operations remain Coming Soon (not rebuilt yet)', el.innerHTML.includes('COMING SOON'));
+  check('Manage Business is still closable', el.innerHTML.includes('data-bizd-close'));
+
+  // Buying outright from the real rendered screen works end to end.
+  const balBefore = state.balance;
+  el._listeners.click({ target: fakeBtn({ buyOutright: 'supermarket_1:0' }) });
+  check('Buy It Outright from the real Manage Business screen charges money and flips tenure', state.balance < balBefore && biz.properties[0].tenure === 'purchase');
+  const rerendered = created[created.length - 1];
+  check('once purchased, the property shows Owned on both sides of the choice, no further action', rerendered.innerHTML.includes('✓ Owned')
+    && !rerendered.innerHTML.includes('✓ Current'));
   BizDash.close();
 
   // A non-chain business is completely unaffected — still the full tabbed dashboard.
   buyBusinessLevel('hotels');
   BizDash.open('hotels');
   const hotelsEl = created[created.length - 1];
-  check('a non-chain business still opens the real tabbed dashboard, not Coming Soon', !hotelsEl.innerHTML.includes('COMING SOON') && hotelsEl.innerHTML.includes('Net Income'));
+  check('a non-chain business still opens the real tabbed dashboard', hotelsEl.innerHTML.includes('data-bizd-tab') && hotelsEl.innerHTML.includes('Net Income'));
   check('a non-chain business without a property catalog shows no Properties card', !hotelsEl.innerHTML.includes('card-title">Properties'));
   BizDash.close();
+})();
 
-  // propertyOverviewHTML and buyPropertyOutright are unreachable through
-  // BizDash's UI now, but the underlying functions are still exported and
-  // still correct — exercised directly here as pure functions (per the
-  // user: Manage Business's features get rebuilt/re-wired their own way
-  // later, this logic isn't deleted, just currently unreachable from the UI).
-  const overviewHtml = Businesses.propertyOverviewHTML(BUSINESS_BY_ID['supermarket_1'], biz);
-  check('propertyOverviewHTML (called directly) still renders the Properties card correctly', overviewHtml.includes('Riverside Market')
-    && overviewHtml.includes('Fresh Co') && overviewHtml.includes('Properties · 1/16'));
-  check('propertyOverviewHTML (called directly) still offers Buy It Outright, keyed "bizId:index"', /data-buy-outright="supermarket_1:0"/.test(overviewHtml));
+/* ===================== C3) Renting a property is a real, ongoing cost ===================== */
+(function () {
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  buyBusinessLevel('supermarket_1');
+  const def = BUSINESS_BY_ID['supermarket_1'];
+  const biz = getBiz('supermarket_1');
+  const uk = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'uk');
+  const london = uk.cities.find((c) => c.name === 'London');
+  const property = london.properties[0];
 
-  const balBefore = state.balance;
-  const levelBefore = biz.level;
-  const outrightOk = Businesses.buyPropertyOutright('supermarket_1:0');
-  check('buyPropertyOutright (called directly) still charges real money and succeeds', outrightOk === true && state.balance < balBefore);
-  check('buyPropertyOutright (called directly) still bumps the business level', biz.level === levelBefore + 1);
-  check('buyPropertyOutright (called directly) still flips the property record to purchase', biz.properties[0].tenure === 'purchase');
+  const incomeBefore = businessIncomePerSec(def);
+  biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(property.name), tenure: 'rent' });
+  const incomeWhileRenting = businessIncomePerSec(def);
+  check('net income drops once a property is actively being rented (a real ongoing cost)', incomeWhileRenting < incomeBefore);
+
+  const expectedMonthlyRent = propertyDetails(property, 'London', 0).financials.monthlyRent;
+  const expectedRentPerSec = expectedMonthlyRent / (30 * 86400);
+  check('the income drop matches the property own displayed monthlyRent, converted to per-second', approx(incomeBefore - incomeWhileRenting, expectedRentPerSec, 0.001));
+
+  Businesses.buyPropertyOutright('supermarket_1:0');
+  check('buying the property outright removes it from the rent drain (businessRentPerSec drops to 0)', businessRentPerSec(def) === 0);
+  const incomeAfterBuying = businessIncomePerSec(def);
+  check('income after buying is higher than while renting (rent gone, and the purchase itself bumped level/income)', incomeAfterBuying > incomeWhileRenting);
+
+  // A business with no property catalog is completely unaffected.
+  buyBusinessLevel('hotels');
+  const hotelsDef = BUSINESS_BY_ID['hotels'];
+  check('businessRentPerSec is a no-op for businesses without a property catalog', businessRentPerSec(hotelsDef) === 0);
 })();
 
 /* ===================== D) Invest tab: Real Estate "Coming Soon" placeholder ===================== */
@@ -505,28 +533,84 @@ for (const def of BUSINESS_DEFS) {
     markers[0].lat === riverside.lat && markers[0].lon === riverside.lon
     && markers[2].lat === circularQuay.lat && markers[2].lon === circularQuay.lon);
 
-  // Projection sanity: equirectangular onto the 1000 x 507.209 viewBox.
-  check('projection: x = (lon+180)/360*1000', approx(markers[0].x, (riverside.lon + 180) / 360 * 1000, 0.0001));
-  check('projection: y = (90-lat)/180*507.209', approx(markers[0].y, (90 - riverside.lat) / 180 * 507.209, 0.0001));
+  // Projection sanity: per-country affine fit (js/businesses.js
+  // MAP_COUNTRY_PROJECTION), calibrated against the real map SVG's own
+  // getBBox() per country — NOT a single global equirectangular formula
+  // (that one put a London property's marker over Germany, and even a
+  // global regression still put a Vancouver property in the ocean).
+  const UK_PROJ = { sx: 2.2842, ox: 476.29, sy: -2.9131, oy: 242.26 };
+  const AU_PROJ = { sx: 3.7445, ox: 352.02, sy: -4.0979, oy: 244.06 };
+  check('UK marker matches the calibrated UK projection', approx(markers[0].x, riverside.lon * UK_PROJ.sx + UK_PROJ.ox, 0.0001)
+    && approx(markers[0].y, riverside.lat * UK_PROJ.sy + UK_PROJ.oy, 0.0001));
+  check('AU marker matches the calibrated AU projection (different constants than UK)', approx(markers[2].x, circularQuay.lon * AU_PROJ.sx + AU_PROJ.ox, 0.0001)
+    && approx(markers[2].y, circularQuay.lat * AU_PROJ.sy + AU_PROJ.oy, 0.0001));
   check('two properties in the SAME city (London) land at genuinely different map points', markers[0].x !== markers[1].x || markers[0].y !== markers[1].y);
+  check('same-city markers are separated by a real, visually-distinguishable margin (not sub-pixel apart)',
+    Math.hypot(markers[0].x - markers[1].x, markers[0].y - markers[1].y) > 1.0);
   check('a property in a different country/city lands far away on the map (Sydney vs London)', Math.abs(markers[2].x - markers[0].x) > 100);
+  check('UK marker actually lands within the real UK landmass on the map (not another country)',
+    markers[0].x >= 457.6 - 1 && markers[0].x <= 480.3 + 1 && markers[0].y >= 65.0 - 1 && markers[0].y <= 96.9 + 1);
+  check('AU marker actually lands within the real Australia landmass on the map', markers[2].x >= 775.7 - 1 && markers[2].x <= 927.3 + 1
+    && markers[2].y >= 285.2 - 1 && markers[2].y <= 422.8 + 1);
+
+  // Regression: Vancouver (a real west-coast Canadian property) used to
+  // land ~23 units out in the Pacific Ocean under a single global
+  // projection formula — the per-country fit must place it inside
+  // Canada's real bbox on the map, same as every other Canadian city.
+  (function () {
+    const ca = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'ca');
+    const vancouver = ca.cities.find((c) => c.name === 'Vancouver');
+    const gastown = vancouver.properties[0];
+    const CA_PROJ = { sx: 2.4628, ox: 511.28, sy: -2.7156, oy: 234.92 };
+    const x = gastown.lon * CA_PROJ.sx + CA_PROJ.ox;
+    const y = gastown.lat * CA_PROJ.sy + CA_PROJ.oy;
+    check('Vancouver (a real west-coast Canadian city) lands inside Canada real bbox on the map, not out in the ocean',
+      x >= 164.0 - 1 && x <= 381.7 + 1 && y >= 9.2 - 1 && y <= 121.7 + 1);
+  })();
 
   // A business with no property catalog contributes zero markers.
   buyBusinessLevel('hotels');
   const markersAfterHotels = Businesses._worldMapMarkers();
   check('a business without a property catalog adds no markers', markersAfterHotels.length === 3);
 
-  // Marker detail popup — the same premium listing template, read-only.
-  biz.brand = { storeType: 'grocery', companyName: 'Fresh Co' };
+  // Marker detail popup — a compact COMPANY IDENTITY card (store type,
+  // business name, company name, which property/location), not the full
+  // real-estate listing page.
+  biz.brand = { storeType: 'jewellery', companyName: 'Singh' };
   const detailHtml = Businesses._mapPropertyDetailHTML('supermarket_1', 0);
-  check('the marker detail popup shows the real property name', detailHtml.includes('Riverside Market'));
-  check('the marker detail popup shows the owning company name', detailHtml.includes('Fresh Co'));
-  check('the marker detail popup shows the chain name', detailHtml.includes('Supermarket Chain 1'));
+  check('the marker detail popup shows the company name', detailHtml.includes('Singh'));
+  check('the marker detail popup shows the store type', detailHtml.includes('Jewellery'));
+  check('the marker detail popup shows the business name', detailHtml.includes('Supermarket Chain 1'));
+  check('the marker detail popup shows which property/location this is', detailHtml.includes('Riverside Market') && detailHtml.includes('London'));
   check('the marker detail popup shows a real back/close control', detailHtml.includes('data-biz-nav="closeMapDetail"'));
-  check('the marker detail popup is read-only (no Pay Deposit / Buy It Outright actions)', !detailHtml.includes('Pay Deposit') && !detailHtml.includes('Buy It Outright'));
+  check('the marker detail popup offers a Manage Business link, not property-listing actions',
+    /data-manage="supermarket_1"/.test(detailHtml) && !detailHtml.includes('Pay Deposit') && !detailHtml.includes('Buy It Outright'));
+  check('the marker detail popup is NOT the full real-estate listing (no "About This Property" prose)', !detailHtml.includes('About This Property'));
 
   const detailHtml2 = Businesses._mapPropertyDetailHTML('supermarket_1', 2);
   check('a different index shows that property instead (Circular Quay Market, Sydney)', detailHtml2.includes('Circular Quay Market') && detailHtml2.includes('Sydney'));
+
+  // Tapping "Manage Business" from the marker card closes the map and opens BizDash.
+  (function () {
+    globalThis.document = {
+      createElement: (tag) => ({ tagName: tag, className: '', innerHTML: '', _listeners: {}, addEventListener(type, fn) { this._listeners[type] = fn; }, remove() {} }),
+      body: { children: [], appendChild(el) { this.children.push(el); }, style: {} },
+      getElementById: () => null,
+      querySelector: () => null,
+      querySelectorAll: () => [],
+    };
+    const container = { innerHTML: '', _listeners: {}, addEventListener(type, fn) { this._listeners[type] = fn; }, removeEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
+    Businesses.mount(container);
+    container._listeners.click({ target: { closest: () => ({ dataset: { bizNav: 'map' }, disabled: false }) } });
+    mapPropertyDetail_setForTest();
+    function mapPropertyDetail_setForTest() {
+      // simulate a marker tap the same way onClick does
+      container._listeners.click({ target: { closest: () => ({ dataset: { mapMarker: 'supermarket_1:0' }, disabled: false }) } });
+    }
+    container._listeners.click({ target: { closest: () => ({ dataset: { manage: 'supermarket_1' }, disabled: false }) } });
+    check('tapping Manage Business from the marker card opens the real BizDash overlay', document.body.children.length === 1
+      && document.body.children[0].innerHTML.includes('Supermarket Chain 1'));
+  })();
 
   const missingHtml = Businesses._mapPropertyDetailHTML('supermarket_1', 99);
   check('an out-of-range index degrades gracefully instead of crashing', typeof missingHtml === 'string' && missingHtml.length > 0);

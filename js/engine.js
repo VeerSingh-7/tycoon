@@ -112,6 +112,31 @@ function businessSalariesPerSec(def) {
   return biz.staff * def.baseIncome * biz.level * STAFF_SALARY_RATE;
 }
 
+/** Total rent/sec for a business — a real, ongoing cost for every property
+ *  it's still RENTING (not bought outright), on top of staff salaries.
+ *  Uses the exact same monthlyRent figure already shown on that property's
+ *  own listing page (propertyDetails), converted to per-second — the
+ *  number the player sees when picking a property is the number actually
+ *  charged. Buying a property outright (buyPropertyOutright) permanently
+ *  removes it from this sum. Businesses without a property catalog (every
+ *  business except the Supermarket Chains) are entirely unaffected. */
+function businessRentPerSec(def) {
+  const biz = getBiz(def.id);
+  if (!biz.properties.length || typeof hasPropertyCatalog === 'undefined' || !hasPropertyCatalog(def.id)) return 0;
+  const catalog = BUSINESS_PROPERTIES[def.id];
+  let monthlyTotal = 0;
+  for (const raw of biz.properties) {
+    if (raw.tenure !== 'rent') continue;
+    const country = catalog.countries.find((c) => c.id === raw.countryId);
+    const cityObj = country && country.cities.find((c) => c.name === raw.city);
+    if (!cityObj) continue;
+    const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === raw.propertyId);
+    if (storeIndex < 0) continue;
+    monthlyTotal += propertyDetails(cityObj.properties[storeIndex], cityObj.name, storeIndex).financials.monthlyRent;
+  }
+  return monthlyTotal / (30 * 86400); // monthly -> per-second, same real-time convention as everything else
+}
+
 /** GROSS income/sec: base x level x milestones x upgrades x mechanic. */
 function businessGrossPerSec(def) {
   const biz = getBiz(def.id);
@@ -127,11 +152,11 @@ function globalIncomeMultiplier() {
   return typeof Progression !== 'undefined' ? Progression.globalIncomeMultiplier() : 1;
 }
 
-/** NET income/sec: (gross x staff boost - salaries) x global multiplier. */
+/** NET income/sec: (gross x staff boost - salaries - rent) x global multiplier. */
 function businessIncomePerSec(def) {
   const biz = getBiz(def.id);
   if (biz.level <= 0) return 0;
-  return (businessGrossPerSec(def) * staffBoost(def) - businessSalariesPerSec(def)) *
+  return (businessGrossPerSec(def) * staffBoost(def) - businessSalariesPerSec(def) - businessRentPerSec(def)) *
     globalIncomeMultiplier();
 }
 

@@ -90,13 +90,15 @@ const BizDash = (() => {
     const id = dash.id, def = BUSINESS_BY_ID[id], biz = getBiz(id);
     if (biz.level <= 0) { close(); return; } // sold from elsewhere while open
 
-    // Supermarket Chains: the dedicated page (staff/upgrades/operations/
-    // properties) is being rebuilt — show a plain Coming Soon placeholder
-    // instead, with no tabs and no other actions. Selling a chain still
-    // works from its ⋮ menu on the business list card (js/businesses.js
-    // ownedCardHTML) — that's a separate mechanism from this page.
+    // Supermarket Chains: staff/upgrades/operations are still being
+    // rebuilt (Coming Soon), but the property side is real again — a
+    // single focused screen (no tabs) showing every owned property with
+    // its actual rent-vs-buy choice (js/businesses.js propertyOverviewHTML,
+    // js/engine.js businessRentPerSec for the real recurring rent charge).
+    // Selling a chain still works from its ⋮ menu on the business list
+    // card (js/businesses.js ownedCardHTML) — a separate mechanism.
     if (def.chainIndex) {
-      dash.el.innerHTML = chainComingSoonHTML(def);
+      dash.el.innerHTML = chainPropertyManageHTML(def, biz);
       return;
     }
 
@@ -123,7 +125,7 @@ const BizDash = (() => {
     `;
   }
 
-  function chainComingSoonHTML(def) {
+  function chainPropertyManageHTML(def, biz) {
     return `
       <div class="bizd-head">
         <button class="icon-btn" data-bizd-close aria-label="Close">✕</button>
@@ -132,11 +134,10 @@ const BizDash = (() => {
           <div class="bizd-co-sub">${def.blurb}</div>
         </div>
       </div>
-      <div class="coming-soon">
+      ${Businesses.propertyOverviewHTML(def, biz)}
+      <div class="coming-soon" style="padding:32px 12px">
         <div class="cs-badge">COMING SOON</div>
-        <h2>Chain Management</h2>
-        <p>Staff, upgrades, and day-to-day operations for your Supermarket Chains are being rebuilt.</p>
-        <p class="muted">You can still sell this chain any time from its ⋮ menu on the business list.</p>
+        <p class="muted">Staff, upgrades, and day-to-day operations for this chain are still being rebuilt.</p>
       </div>
     `;
   }

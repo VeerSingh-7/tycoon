@@ -381,6 +381,26 @@ html, body {
   padding: 4px 8px; border-radius: 999px; white-space: nowrap;
 }
 
+/* Rent-vs-buy choice on a property's Manage Business page (js/businesses.js
+   propertyOverviewHTML) — two side-by-side options, the currently-active
+   one (whichever it already is) picked out with a gold border/tint and a
+   checkmark, the other a real actionable button. Renting is genuinely
+   ongoing now (js/engine.js businessRentPerSec) — not just flavor — so
+   this reads as a real fork in the road, not a single "buy it" prompt. */
+.biz-rent-buy-choice { display: flex; gap: 8px; margin-top: 10px; }
+.biz-rent-buy-option {
+  flex: 1; min-width: 0; border-radius: 12px; padding: 10px 12px;
+  background: var(--bg-elev-2); border: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 3px; text-align: left;
+  font: inherit; color: inherit;
+}
+button.biz-rent-buy-option { cursor: pointer; }
+button.biz-rent-buy-option:disabled { cursor: default; opacity: 0.55; }
+.biz-rent-buy-option.is-active { border-color: var(--gold); background: var(--gold-glow); }
+.biz-rent-buy-label { font-size: 10.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.biz-rent-buy-price { font-size: 14.5px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.biz-rent-buy-check { font-size: 10.5px; color: var(--gold); font-weight: 700; }
+
 /* Owned-card ⋮ menu — a quick Sell shortcut in the corner (js/businesses.js
    ownedCardHTML). Kept minimal: no fill/border on the dots button itself,
    a small monochrome popover for the one menu item it currently has. */
@@ -966,10 +986,21 @@ html, body {
 .biz-worldmap-scroll svg g[id] { cursor: pointer; }
 .biz-worldmap-scroll svg g[id]:active path { filter: brightness(1.15); }
 /* The tapped/selected country — a crisp white outline that reads clearly
-   against any of the map's land/ocean colors, not a color-matched wash. */
+   against any of the map's land/ocean colors, not a color-matched wash.
+   Kept thin (only slightly thicker than the map's own default 0.6 border)
+   plus a brightness boost, rather than a heavy stroke — a bulky outline
+   was completely swallowing small countries' whole shape. */
 .biz-worldmap-scroll svg g.is-selected path,
 .biz-worldmap-scroll svg g.is-selected circle {
-  stroke: #FFFFFF; stroke-width: 2;
+  stroke: #FFFFFF; stroke-width: 1.4;
+  /* Country outlines are drawn as MANY separate path fragments (coastal
+     detail, islands — GB alone is 25 of them). A stroke sized in the map's
+     own userSpace units scales up right along with zoom (setMapWidth is a
+     CSS width resize, which scales everything inside proportionally), so
+     at high zoom those many fragments' strokes visually flood together
+     into a solid white mass. non-scaling-stroke keeps it a constant,
+     modest SCREEN-pixel width at any zoom instead. */
+  vector-effect: non-scaling-stroke;
 }
 .biz-worldmap-scroll svg g.is-selected circle { fill: rgba(255, 255, 255, 0.9); }
 
@@ -1018,21 +1049,23 @@ html, body {
 .biz-worldmap-info-stat b { color: var(--text); font-variant-numeric: tabular-nums; }
 
 /* Owned-property markers on the World Map (js/businesses.js
-   mapMarkersSVG/injectMapMarkers) — plain SVG elements living inside the
-   real map SVG itself, so they scale/pan for free with the map's own
-   zoom (a CSS width resize on the whole <svg>), no extra positioning math
-   needed. Gold reuses the game's existing "your money/value" accent
-   (--gold, already used for income figures and Lv badges) rather than
-   introducing a new color. A larger transparent circle gives a comfortably
-   tappable hit target without the visible dot itself looking oversized. */
+   mapMarkersSVG/injectMapMarkers/MAP_PIN_PATH) — a classic map-pin
+   teardrop, tip planted exactly on the property's real coordinate, drawn
+   as plain SVG elements living inside the real map SVG itself so they
+   scale/pan for free with the map's own zoom (a CSS width resize on the
+   whole <svg>), no extra positioning math needed. Gold reuses the game's
+   existing "your money/value" accent (--gold, already used for income
+   figures and Lv badges) rather than introducing a new color. A larger
+   transparent hit circle over the pin's head gives a comfortably tappable
+   target without the visible pin itself looking oversized. */
 .biz-worldmap-scroll svg .biz-map-marker { cursor: pointer; }
 .biz-worldmap-scroll svg .biz-map-marker-hit { fill: transparent; pointer-events: all; }
-.biz-worldmap-scroll svg .biz-map-marker-dot {
-  fill: var(--gold); stroke: #fff; stroke-width: 0.8;
-  filter: drop-shadow(0 0.6px 1.4px rgba(0, 0, 0, 0.55));
+.biz-worldmap-scroll svg .biz-map-marker-pin {
+  fill: var(--gold); stroke: rgba(0, 0, 0, 0.35); stroke-width: 0.35;
+  filter: drop-shadow(0 0.8px 1.3px rgba(0, 0, 0, 0.5));
 }
-.biz-worldmap-scroll svg .biz-map-marker-core { fill: #fff; }
-.biz-worldmap-scroll svg .biz-map-marker:active .biz-map-marker-dot { fill: var(--gold-deep); }
+.biz-worldmap-scroll svg .biz-map-marker-hole { fill: #fff; }
+.biz-worldmap-scroll svg .biz-map-marker:active .biz-map-marker-pin { fill: var(--gold-deep); }
 
 /* Business setup (js/businesses.js) — the country selector (flag + name,
    opens a dropdown of the other 3) and the horizontally-scrollable city bar

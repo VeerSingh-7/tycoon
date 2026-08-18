@@ -263,8 +263,9 @@ const Businesses = (() => {
 
     const cardsHTML = owned.map((o, idx) => {
       const isPurchased = o.raw.tenure === 'purchase';
-      const cost = propertyDepositCost(def, o.storeIndex); // each property's own buyout cost — scaled by ITS quality tier, not a shared flat price
-      const canBuy = state.balance >= cost;
+      const buyCost = propertyDepositCost(def, o.storeIndex); // each property's own buyout cost — scaled by ITS quality tier, not a shared flat price
+      const canBuy = state.balance >= buyCost;
+      const monthlyRent = propertyDetails(o.property, o.cityObj.name, o.storeIndex).financials.monthlyRent;
       return `
         <div class="biz-owned-strip" style="margin-top:10px">
           <span class="biz-owned-thumb">
@@ -279,11 +280,18 @@ const Businesses = (() => {
           </span>
           <span class="biz-owned-tenure">${isPurchased ? 'Owned' : 'Rented'}</span>
         </div>
-        ${isPurchased ? `
-          <div class="progress-caption" style="text-align:left;margin-top:6px">Fully paid off — this property is yours outright.</div>` : `
-          <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy-outright="${def.id}:${idx}" type="button" ${canBuy ? '' : 'disabled'}>
-            Buy It Outright · ${formatMoney(cost)}</button>
-          <div class="progress-caption" style="text-align:left;margin-top:6px">Or keep renting — there's no ongoing cost either way for now.</div>`}
+        <div class="biz-rent-buy-choice">
+          <div class="biz-rent-buy-option ${isPurchased ? '' : 'is-active'}">
+            <span class="biz-rent-buy-label">Pay Rent Monthly</span>
+            <span class="biz-rent-buy-price">${formatMoney(monthlyRent)}/mo</span>
+            ${isPurchased ? '' : '<span class="biz-rent-buy-check">✓ Current</span>'}
+          </div>
+          <button class="biz-rent-buy-option ${isPurchased ? 'is-active' : ''}" data-buy-outright="${def.id}:${idx}" type="button" ${isPurchased || !canBuy ? 'disabled' : ''}>
+            <span class="biz-rent-buy-label">Buy It Outright</span>
+            <span class="biz-rent-buy-price">${formatMoney(buyCost)}</span>
+            ${isPurchased ? '<span class="biz-rent-buy-check">✓ Owned</span>' : ''}
+          </button>
+        </div>
       `;
     }).join('');
 
@@ -499,6 +507,12 @@ const Businesses = (() => {
         if (md.bizNav === 'closeMap') { mapOpen = false; mapPropertyDetail = null; clearCountrySelection(); render(); return; }
         if (md.bizNav === 'closeMapDetail') { mapPropertyDetail = null; render(); return; }
         if (md.mapZoom) { zoomStep(md.mapZoom === 'in' ? 1 : -1); return; }
+        if (md.manage) {
+          mapOpen = false; mapPropertyDetail = null; clearCountrySelection();
+          render(); // back to the normal business list underneath, so closing BizDash lands there
+          if (typeof BizDash !== 'undefined') BizDash.open(md.manage);
+          return;
+        }
       }
       if (mapPropertyDetail) return; // the detail popup has no other interactive targets
       const markerEl = e.target.closest && e.target.closest('[data-map-marker]');
@@ -1928,12 +1942,32 @@ const Businesses = (() => {
   // free, riding along with the same CSS-width zoom setMapWidth already
   // does for the country paths (see the file header's map section).
 
-  /** Equirectangular projection onto the real map SVG's own 1000 x 507.209
-   *  viewBox (MAP_ASPECT) — calibrated against known country centroids
-   *  (Australia's mainland lands almost exactly on its real SVG path at
-   *  this formula). Good enough to land a marker in the right country/city
-   *  area; not surveyed precision. */
-  function projectLatLon(lat, lon) {
+  /** Per-country projection onto the real map SVG's own 1000 x 507.209
+   *  viewBox. This hand-illustrated map is NOT one consistent global
+   *  projection — a single naive "full globe" formula put a London
+   *  property's marker over Germany, and even a global least-squares
+   *  regression (fit across 14 countries' capitals) still landed a
+   *  Vancouver property ~23 units out in the open ocean. Each entry below
+   *  is instead its own 2-point affine fit, derived directly from that
+   *  ACTUAL country's getBBox() on the rendered SVG vs. its real,
+   *  documented geographic extreme points (northernmost/southernmost/
+   *  easternmost/westernmost) — validated point-for-point (isPointInFill)
+   *  against every property this game actually has: all land at or inside
+   *  the real coastline, not just "somewhere in the right hemisphere". */
+  const MAP_COUNTRY_PROJECTION = {
+    uk: { sx: 2.2842, ox: 476.29, sy: -2.9131, oy: 242.26 },
+    ca: { sx: 2.4628, ox: 511.28, sy: -2.7156, oy: 234.92 },
+    au: { sx: 3.7445, ox: 352.02, sy: -4.0979, oy: 244.06 },
+    jp: { sx: 2.0638, ox: 540.61, sy: -3.4056, oy: 265.75 },
+  };
+
+  /** Falls back to a rough whole-globe equirectangular guess for any
+   *  future country not yet calibrated above — approximate only, good
+   *  enough to land in roughly the right place until it gets its own
+   *  real per-country fit like the four above. */
+  function projectLatLon(lat, lon, countryId) {
+    const p = MAP_COUNTRY_PROJECTION[countryId];
+    if (p) return { x: p.sx * lon + p.ox, y: p.sy * lat + p.oy };
     return { x: (lon + 180) / 360 * 1000, y: (90 - lat) / 180 * 507.209 };
   }
 
@@ -1955,16 +1989,23 @@ const Businesses = (() => {
     return { bizId: key.slice(0, sep), idx: parseInt(key.slice(sep + 1), 10) };
   }
 
+  // A classic map-pin teardrop, drawn tip-down with the tip exactly at the
+  // local origin (0,0) — so translate(x,y) below plants the tip precisely
+  // on the property's real coordinate, the same way a paper map pin's
+  // point marks the spot rather than its round head. Traced once as a
+  // path constant rather than rebuilt per marker.
+  const MAP_PIN_PATH = 'M0,0 C-1.6,-2.6 -4.6,-5.2 -4.6,-8.2 C-4.6,-11.1 -2.5,-13.4 0,-13.4 C2.5,-13.4 4.6,-11.1 4.6,-8.2 C4.6,-5.2 1.6,-2.6 0,0 Z';
+
   function mapMarkersSVG() {
     return allOwnedMapProperties().map((o) => {
-      const { x, y } = projectLatLon(o.property.lat, o.property.lon);
+      const { x, y } = projectLatLon(o.property.lat, o.property.lon, o.country.id);
       const xs = x.toFixed(2), ys = y.toFixed(2);
       // data-mx/data-my let rescaleMapMarkers() rebuild this transform with
       // a compensating scale() on top, without needing to re-derive x/y.
       return `<g class="biz-map-marker" data-map-marker="${o.bizId}:${o.idx}" data-mx="${xs}" data-my="${ys}" transform="translate(${xs},${ys})">
-        <circle r="6" class="biz-map-marker-hit"></circle>
-        <circle r="3.2" class="biz-map-marker-dot"></circle>
-        <circle r="1.2" class="biz-map-marker-core"></circle>
+        <circle cx="0" cy="-8.2" r="7.5" class="biz-map-marker-hit"></circle>
+        <path class="biz-map-marker-pin" d="${MAP_PIN_PATH}"></path>
+        <circle class="biz-map-marker-hole" cx="0" cy="-8.2" r="1.9"></circle>
       </g>`;
     }).join('');
   }
@@ -2007,6 +2048,12 @@ const Businesses = (() => {
    *  read-only (actionsHTML=''), matching the read-only Properties browser.
    *  isOwnedProperty inside propertyListingHTML already resolves "Owned
    *  By" correctly since this property really is in biz.properties. */
+  /** What a marker tap shows — a compact COMPANY IDENTITY card (which
+   *  business owns this spot: store type, business name, company name),
+   *  not the full real-estate-listing page (that's still available from
+   *  the setup wizard / read-only Properties browser, where the property
+   *  itself is what's being evaluated). Tapping "Manage Business" closes
+   *  the map and opens the business's own dedicated page. */
   function mapPropertyDetailHTML() {
     const { bizId, idx } = mapPropertyDetail;
     const def = BUSINESS_BY_ID[bizId];
@@ -2023,16 +2070,35 @@ const Businesses = (() => {
         </div>`;
     }
     const companyName = (biz.brand && biz.brand.companyName) || def.name;
+    const typeLabel = biz.brand && biz.brand.storeType
+      ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || 'General')
+      : 'General';
+    const tenureLabel = owned.raw.tenure === 'purchase' ? 'Owned' : 'Rented';
     return `
       <div class="bizd-screen">
         <div class="bizd-head">
           <button class="icon-btn" data-biz-nav="closeMapDetail" type="button" aria-label="Back">‹</button>
           <div class="bizd-id">
             <div class="bizd-co-name">${escapeHtml(companyName)}</div>
-            <div class="bizd-co-sub">${escapeHtml(def.name)}</div>
+            <div class="bizd-co-sub">${escapeHtml(owned.property.name)} · ${escapeHtml(owned.cityObj.name)}, ${escapeHtml(owned.country.name)}</div>
           </div>
         </div>
-        ${propertyListingHTML(def, owned.property, owned.cityObj, owned.country, owned.storeIndex, '')}
+        <div class="card">
+          <div class="biz-owned-strip" style="margin-top:0">
+            <span class="biz-owned-thumb">
+              <span class="biz-owned-thumb-fallback" aria-hidden="true">🏪</span>
+              <img class="biz-owned-thumb-img" src="${propertyImagePath(owned.cityObj.name, owned.storeIndex)}" alt=""
+                loading="lazy" onerror="this.style.opacity='0'">
+            </span>
+            <span class="biz-owned-info">
+              <span class="biz-owned-name">${escapeHtml(companyName)}</span>
+              <span class="biz-owned-meta">${escapeHtml(typeLabel)} · ${escapeHtml(def.name)}</span>
+              <span class="biz-owned-loc">${escapeHtml(owned.property.name)} · ${escapeHtml(owned.cityObj.name)}, ${escapeHtml(owned.country.name)}</span>
+            </span>
+            <span class="biz-owned-tenure">${tenureLabel}</span>
+          </div>
+        </div>
+        <button class="btn btn-wide btn-gold" data-manage="${def.id}" type="button">Manage Business ›</button>
       </div>`;
   }
 
@@ -2040,7 +2106,7 @@ const Businesses = (() => {
    *  directly, without needing a real fetch() of img/map/world-map.svg or a
    *  live DOM. */
   function _worldMapMarkers() {
-    return allOwnedMapProperties().map((o) => ({ bizId: o.bizId, idx: o.idx, lat: o.property.lat, lon: o.property.lon, ...projectLatLon(o.property.lat, o.property.lon) }));
+    return allOwnedMapProperties().map((o) => ({ bizId: o.bizId, idx: o.idx, lat: o.property.lat, lon: o.property.lon, ...projectLatLon(o.property.lat, o.property.lon, o.country.id) }));
   }
   function _mapPropertyDetailHTML(bizId, idx) {
     const saved = mapPropertyDetail;

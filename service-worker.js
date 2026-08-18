@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v114'; // v114: World Map plots every owned property as a real, clickable marker (hand-placed lat/lon per property, detail popup on tap); business list cards drop Income/Startup boxes; Manage Business is Coming Soon for Supermarket Chains
+const CACHE_NAME = 'tycoon-v115'; // v115: fixed World Map marker projection (per-country calibration + wider real spread so same-city properties are visibly distinct); cleaner pin design; thinner non-scaling country highlight; marker tap shows a compact company-identity card; Manage Business is a real focused property screen again with an actual recurring rent-vs-buy choice
 
 const ASSETS = [
   'index.html',
