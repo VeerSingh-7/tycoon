@@ -213,6 +213,7 @@ const Invest = (() => {
     else if (a === 'tax') { view.mode = 'tax'; destroyChart(); render(); setScroll(0); }
     else if (a === 'training') { view.mode = 'training'; destroyChart(); render(); setScroll(0); }
     else if (a === 'shop') { view.mode = 'shop'; destroyChart(); render(); setScroll(0); }
+    else if (a === 'suppliers') { view.mode = 'suppliers'; destroyChart(); render(); setScroll(0); }
     else if (a === 'hub') { view.mode = 'hub'; destroyChart(); render(); setScroll(0); }
     else if (a === 'open') { view.scrollY = getScroll(); view.returnTo = view.mode === 'portfolio' ? 'portfolio' : 'list'; view.mode = 'detail'; view.assetId = id; view.tf = MARKET.DEFAULT_TF; destroyChart(); render(); setScroll(0); }
     // From a detail, go back to wherever it was opened from (Portfolio or
@@ -239,6 +240,7 @@ const Invest = (() => {
     else if (view.mode === 'tax') renderMountedScreen(Tax);
     else if (view.mode === 'training') renderMountedScreen(Training);
     else if (view.mode === 'shop') renderMountedScreen(Shop);
+    else if (view.mode === 'suppliers') renderSuppliers();
     else if (view.mode === 'detail') renderDetail();
     else if (view.mode === 'portfolio') renderPortfolio();
     else renderList();
@@ -288,7 +290,26 @@ const Invest = (() => {
         <path d="M10 15 L30 15 L28 33 L12 33 Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/>
         <path d="M14 15 C14 10 16 7 20 7 C24 7 26 10 26 15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
         <path d="M20 20 L20 28 M16 24 L20 20 L24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    suppliers: `<svg viewBox="0 0 40 40" class="hub-logo-svg" aria-hidden="true">
+        <path d="M4 13 L22 13 L22 27 L4 27 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M22 18 L30 18 L36 24 L36 27 L22 27 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/>
+        <circle cx="12" cy="30" r="3.2" fill="none" stroke="currentColor" stroke-width="2.4"/>
+        <circle cx="30" cy="30" r="3.2" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>`,
   };
+
+  // Procedurally-named supplier businesses — only one exists for now (real
+  // contracts/deals aren't wired up yet, see js/businesses.js's own
+  // "Suppliers" placeholder on the setup wizard), but named/described via a
+  // real generator (seededFraction, same deterministic-but-varied pattern
+  // used throughout js/data/properties.js) rather than a single hardcoded
+  // string, so adding more later is just adding more seeds.
+  const SUPPLIER_NAME_LEAD = ['Golden Harvest', 'Union', 'Northfield', 'Coastal', 'Ironbridge', 'Meridian', 'Anchor', 'Prime', 'Fairground', 'Silverline'];
+  const SUPPLIER_NAME_TAIL = ['Wholesale Co.', 'Distributors', 'Supply Co.', 'Trading Group', 'Provisions Ltd.'];
+  function generateSupplierName(seed) {
+    const lead = SUPPLIER_NAME_LEAD[Math.floor(seededFraction(seed + '_lead') * SUPPLIER_NAME_LEAD.length)];
+    const tail = SUPPLIER_NAME_TAIL[Math.floor(seededFraction(seed + '_tail') * SUPPLIER_NAME_TAIL.length)];
+    return lead + ' ' + tail;
+  }
 
   function hubCard(act, title, sub) {
     return `
@@ -313,6 +334,7 @@ const Invest = (() => {
       ${hubCard('tax', 'Tax &amp; Treasury', 'Manage corporate tax rates, deductions, and audits')}
       ${hubCard('training', 'Training &amp; Development', "Train your employees — sharpen their skills and boost their performance")}
       ${hubCard('shop', 'Shop &amp; Upgrades', 'Premium upgrades, cosmetics, and boosts for your empire')}
+      ${hubCard('suppliers', 'Suppliers', 'Wholesale contracts and stock deals for your businesses')}
     `;
   }
 
@@ -347,6 +369,28 @@ const Invest = (() => {
         <p>${desc}</p>
         <p class="muted">This service is on the way.</p>
       </div>
+    `;
+  }
+
+  /** Suppliers — just one procedurally-named/described listing for now (no
+   *  real contracts/pricing yet, same as the Supermarket Chain setup
+   *  wizard's own "Suppliers" placeholder step, js/businesses.js), reusing
+   *  the same .hub-card look as the Services hub itself rather than the
+   *  generic Coming Soon screen, since there IS a real (if inert) listing
+   *  to show. More suppliers = more generateSupplierName seeds later. */
+  function renderSuppliers() {
+    const name = generateSupplierName('supplier_1');
+    container.innerHTML = `
+      <button class="back-link" data-act="hub">‹ Services</button>
+      <div class="section-head"><h2>Suppliers</h2></div>
+      <div class="card hub-card" style="cursor:default">
+        <span class="hub-logo">${HUB_ICONS.suppliers}</span>
+        <span class="hub-text">
+          <span class="hub-title">${name}</span>
+          <span class="hub-sub">Supermarket Chain business supplier — wholesale groceries, produce, and everyday stock</span>
+        </span>
+      </div>
+      <p class="muted" style="text-align:center;font-size:12px;margin-top:6px">Real contracts and more suppliers are on the way.</p>
     `;
   }
 
@@ -945,7 +989,7 @@ const Invest = (() => {
     // Static hub / coming-soon service screens — nothing to update.
     if (view.mode === 'hub' || view.mode === 'marketing' || view.mode === 'hiring' ||
         view.mode === 'banking' || view.mode === 'legal' || view.mode === 'tax' ||
-        view.mode === 'training' || view.mode === 'shop') return;
+        view.mode === 'training' || view.mode === 'shop' || view.mode === 'suppliers') return;
 
     // Portfolio page: patch owned rows' value + P/L in place each tick (the
     // numbers only actually change on each asset's own staggered ~15s phase).

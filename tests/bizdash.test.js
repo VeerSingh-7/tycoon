@@ -346,6 +346,25 @@ for (const def of BUSINESS_DEFS) {
   // Stocks segment still works normally (regression: the new segment didn't break the others).
   container._listeners.click({ target: fakeTarget('seg', 'stock') });
   check('Stocks segment still renders a real asset list', stubEl('mktBody').innerHTML.includes('asset-list'));
+
+  // Back to the hub, then into the new Suppliers category.
+  container._listeners.click({ target: fakeTarget('hub') });
+  check('Services hub now lists a Suppliers card', container.innerHTML.includes('Suppliers'));
+  container._listeners.click({ target: fakeTarget('suppliers') });
+  check('Suppliers screen shows a real, non-empty generated business name', (function () {
+    const m = container.innerHTML.match(/hub-title">([^<]+)</);
+    return !!m && m[1].trim().length > 0;
+  })());
+  check('Suppliers screen describes it as a Supermarket Chain supplier', /Supermarket Chain[^<]*supplier/i.test(container.innerHTML));
+  check('Suppliers screen has no undefined/NaN leaking in', !/undefined|NaN/.test(container.innerHTML));
+  check('Suppliers screen has a back link to Services', container.innerHTML.includes('‹ Services'));
+
+  // The generated name is stable across visits (same seed every time).
+  const firstName = (container.innerHTML.match(/hub-title">([^<]+)</) || [])[1];
+  container._listeners.click({ target: fakeTarget('hub') });
+  container._listeners.click({ target: fakeTarget('suppliers') });
+  const secondName = (container.innerHTML.match(/hub-title">([^<]+)</) || [])[1];
+  check('the generated supplier name is stable across repeat visits (seeded, not random)', firstName === secondName);
 })();
 
 /* ===================== E) Supermarket Chain: one catalog row, repeatable purchase ===================== */

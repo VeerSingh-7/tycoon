@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v115'; // v115: fixed World Map marker projection (per-country calibration + wider real spread so same-city properties are visibly distinct); cleaner pin design; thinner non-scaling country highlight; marker tap shows a compact company-identity card; Manage Business is a real focused property screen again with an actual recurring rent-vs-buy choice
+const CACHE_NAME = 'tycoon-v116'; // v116: new "Suppliers" category on the Invest tab's Services hub, showing one procedurally-named/described supplier business
 
 const ASSETS = [
   'index.html',
