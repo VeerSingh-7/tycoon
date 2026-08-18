@@ -60,6 +60,13 @@ const Businesses = (() => {
   let propertiesOpen = false; // Properties overlay — a read-only browser of every property in the game
   let propertiesBrowse = null; // { countryId, city, countryDropdownOpen, viewPropertyId } while Properties is open
   let setupFlow = null; // { bizId, step, countryId, city, tierId } — Start Business property-picker, or null when closed
+  // Lightweight browse-and-deposit screen for properties 2-16 of an
+  // ALREADY-OPEN chain — unlike setupFlow this skips straight to browsing
+  // (no store type / signature / review repeat, the chain's brand is
+  // already set). { bizId, countryId, city, countryDropdownOpen,
+  // viewPropertyId }, or null when closed. Opened from the dedicated
+  // page's Properties card (see propertyOverviewHTML / openAddProperty).
+  let addPropertyFlow = null;
   // A single signature for "what's actually in the DOM right now" across every
   // overlay (map/properties/setup) — render() only touches innerHTML when
   // this changes, never on a bare periodic tick. Without this, ui.js's
@@ -169,95 +176,119 @@ const Businesses = (() => {
     return !!getFavorites()[favoriteKey(property, cityName)];
   }
 
-  /** Is THIS SPECIFIC property (city + country + slug, not slug alone) the
-   *  one biz.property records? propertySlug is derived from the name only,
+  /** Is THIS SPECIFIC property (city + country + slug, not slug alone)
+   *  among biz.properties? propertySlug is derived from the name only,
    *  and a few property names repeat across different cities in the
    *  catalog — matching on slug alone would make every property sharing
    *  that name show as "owned" the moment any one of them was purchased.
    *  Business-level state (getBiz(id).level) is deliberately NOT part of
-   *  this check either — it's a single flag for the whole business, not
+   *  this check either — it's a single counter for the whole business, not
    *  per-property, so using it here would make every property in the
    *  entire catalog read as purchased once the business owned any one of
    *  them. */
   function isOwnedProperty(biz, property, cityObj, country) {
-    return !!(biz.property
-      && biz.property.propertyId === propertySlug(property.name)
-      && biz.property.city === cityObj.name
-      && biz.property.countryId === country.id);
+    return biz.properties.some((p) =>
+      p.propertyId === propertySlug(property.name) && p.city === cityObj.name && p.countryId === country.id);
   }
 
-  /** Looks up the actual property record (name/sqft/desc + its city/country)
-   *  a business's biz.property points at, for display on its "My
-   *  Businesses" card — null if this business has no catalog or hasn't
-   *  set one up yet. */
-  function resolveOwnedProperty(bizId) {
+  /** Looks up the actual property records (name/sqft/desc + its
+   *  city/country, plus the raw biz.properties entry itself) every
+   *  property in biz.properties points at, for display on the "My
+   *  Businesses" card and the dedicated page's Properties list — an empty
+   *  array if this business has no catalog or hasn't set one up yet.
+   *  Order matches biz.properties (insertion order — oldest first). */
+  function resolveOwnedProperties(bizId) {
     const biz = getBiz(bizId);
-    if (!biz.property || !hasPropertyCatalog(bizId)) return null;
+    if (!biz.properties.length || !hasPropertyCatalog(bizId)) return [];
     const catalog = BUSINESS_PROPERTIES[bizId];
-    const country = catalog.countries.find((c) => c.id === biz.property.countryId);
-    if (!country) return null;
-    const cityObj = country.cities.find((c) => c.name === biz.property.city);
-    if (!cityObj) return null;
-    const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === biz.property.propertyId);
-    if (storeIndex < 0) return null;
-    return { property: cityObj.properties[storeIndex], cityObj, country, storeIndex };
+    const out = [];
+    for (const raw of biz.properties) {
+      const country = catalog.countries.find((c) => c.id === raw.countryId);
+      if (!country) continue;
+      const cityObj = country.cities.find((c) => c.name === raw.city);
+      if (!cityObj) continue;
+      const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === raw.propertyId);
+      if (storeIndex < 0) continue;
+      out.push({ property: cityObj.properties[storeIndex], cityObj, country, storeIndex, raw });
+    }
+    return out;
   }
 
-  /** "Buy It Outright" — converts a deposit-paying tenant into a full
-   *  owner. Charges the business's own next-level cost (the SAME lever
-   *  every other purchase in this game uses) and bumps biz.level along
-   *  with it — buying outright is a bigger commitment than the initial
-   *  deposit, so a further real cost + income bump feels earned; staying
-   *  a renter costs nothing further, same as the property has always been
-   *  flavor rather than its own separate charge. */
-  function buyPropertyOutright(bizId) {
+  /** "Buy It Outright" — converts ONE deposit-paying tenant property into a
+   *  full owner. key is "bizId:index" (index into that business's
+   *  biz.properties array — stable at render time since properties are
+   *  only ever appended/never reordered). Charges the business's own
+   *  next-level cost (the SAME lever every other purchase in this game
+   *  uses) and bumps biz.level along with it — buying outright is a
+   *  bigger commitment than the initial deposit, so a further real cost +
+   *  income bump feels earned; staying a renter costs nothing further,
+   *  same as the property has always been flavor rather than its own
+   *  separate charge. */
+  function buyPropertyOutright(key) {
+    const sep = key.lastIndexOf(':');
+    const bizId = key.slice(0, sep);
+    const idx = parseInt(key.slice(sep + 1), 10);
     const biz = getBiz(bizId);
-    if (!biz.property || biz.property.tenure === 'purchase') return false;
+    const target = biz.properties[idx];
+    if (!target || target.tenure === 'purchase') return false;
     if (!buyBusinessLevel(bizId)) return false;
-    biz.property.tenure = 'purchase';
+    target.tenure = 'purchase';
     saveGame();
     return true;
   }
 
-  /** The Property card shown on a business's dedicated page (js/bizdash.js
-   *  Overview tab) once it's actually open — a compact recap (reusing the
-   *  exact same thumb/name/type/location markup as the "My Businesses"
-   *  list card, for visual consistency) plus, while still just renting,
-   *  the "Buy It Outright" action. Once purchased, the card is read-only —
-   *  there's nothing further to decide. */
+  /** The Properties card shown on a business's dedicated page (js/bizdash.js
+   *  Overview tab) once it's actually open — one compact recap per owned
+   *  property (reusing the exact same thumb/name/type/location markup as
+   *  the "My Businesses" list card, for visual consistency), each with its
+   *  own "Buy It Outright" action while still renting (purchased ones are
+   *  read-only — nothing further to decide), plus an "Add Property" button
+   *  (js/businesses.js openAddProperty) while the chain has room left. */
   function propertyOverviewHTML(def, biz) {
-    const owned = resolveOwnedProperty(def.id);
-    if (!owned) return '';
-    const isPurchased = biz.property.tenure === 'purchase';
-    const cost = businessNextCost(def);
-    const canBuy = state.balance >= cost;
+    const owned = resolveOwnedProperties(def.id);
+    if (!owned.length) return '';
     const companyName = (biz.brand && biz.brand.companyName) || def.name;
     const typeLabel = biz.brand && biz.brand.storeType
       ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || 'General')
       : 'General';
+    const cost = businessNextCost(def);
+    const canBuy = state.balance >= cost;
 
-    return `
-      <div class="card">
-        <div class="card-title">Property</div>
+    const cardsHTML = owned.map((o, idx) => {
+      const isPurchased = o.raw.tenure === 'purchase';
+      return `
         <div class="biz-owned-strip" style="margin-top:10px">
           <span class="biz-owned-thumb">
             <span class="biz-owned-thumb-fallback" aria-hidden="true">🏪</span>
-            <img class="biz-owned-thumb-img" src="${propertyImagePath(owned.cityObj.name, owned.storeIndex)}" alt=""
+            <img class="biz-owned-thumb-img" src="${propertyImagePath(o.cityObj.name, o.storeIndex)}" alt=""
               loading="lazy" onerror="this.style.opacity='0'">
           </span>
           <span class="biz-owned-info">
             <span class="biz-owned-name">${escapeHtml(companyName)}</span>
             <span class="biz-owned-meta">${escapeHtml(typeLabel)} · ${escapeHtml(def.name)}</span>
-            <span class="biz-owned-loc">${escapeHtml(owned.property.name)} · ${escapeHtml(owned.cityObj.name)}, ${escapeHtml(owned.country.name)}</span>
+            <span class="biz-owned-loc">${escapeHtml(o.property.name)} · ${escapeHtml(o.cityObj.name)}, ${escapeHtml(o.country.name)}</span>
           </span>
           <span class="biz-owned-tenure">${isPurchased ? 'Owned' : 'Rented'}</span>
         </div>
         ${isPurchased ? `
-          <div class="progress-caption" style="text-align:left;margin-top:10px">Fully paid off — this property is yours outright.</div>` : `
-          <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy-outright="${def.id}" type="button" ${canBuy ? '' : 'disabled'}>
+          <div class="progress-caption" style="text-align:left;margin-top:6px">Fully paid off — this property is yours outright.</div>` : `
+          <button class="btn btn-wide ${canBuy ? 'btn-gold' : ''}" data-buy-outright="${def.id}:${idx}" type="button" ${canBuy ? '' : 'disabled'}>
             Buy It Outright · ${formatMoney(cost)}</button>
           <div class="progress-caption" style="text-align:left;margin-top:6px">Or keep renting — there's no ongoing cost either way for now.</div>`}
-      </div>`;
+      `;
+    }).join('');
+
+    const addHTML = owned.length < MAX_PROPERTIES_PER_CHAIN
+      ? `<button class="btn btn-wide" data-add-property="${def.id}" type="button" style="margin-top:12px">+ Add Property · ${owned.length}/${MAX_PROPERTIES_PER_CHAIN}</button>`
+      : `<div class="progress-caption" style="text-align:left;margin-top:10px">All ${MAX_PROPERTIES_PER_CHAIN} property slots filled for this chain.</div>`;
+
+    return `
+      <div class="card">
+        <div class="card-title">Properties · ${owned.length}/${MAX_PROPERTIES_PER_CHAIN}</div>
+        ${cardsHTML}
+      </div>
+      ${addHTML}
+    `;
   }
 
   /** Toggles the favorite flag and patches the DOM directly instead of
@@ -437,6 +468,7 @@ const Businesses = (() => {
     propertiesOpen = false;
     propertiesBrowse = null;
     setupFlow = null;
+    addPropertyFlow = null;
     lastRenderKey = null;
     openMenuId = null;
     render();
@@ -459,6 +491,7 @@ const Businesses = (() => {
     }
 
     if (setupFlow) { onSetupClick(e); return; }
+    if (addPropertyFlow) { onAddPropertyClick(e); return; }
     if (propertiesOpen) { onPropertiesClick(e); return; }
 
     const btn = e.target.closest('button');
@@ -551,6 +584,13 @@ const Businesses = (() => {
         // on the signature helpers below).
         if (setupFlow.step === 'signature') setupSignatureCanvas();
       }
+      return;
+    }
+    if (addPropertyFlow) {
+      const desired = 'addprop:' + addPropertyFlow.bizId + ':' + addPropertyFlow.countryId + ':' + addPropertyFlow.city
+        + ':' + addPropertyFlow.countryDropdownOpen + ':' + addPropertyFlow.viewPropertyId;
+      if (lastRenderKey !== desired) container.innerHTML = addPropertyHTML();
+      lastRenderKey = desired;
       return;
     }
     lastRenderKey = null;
@@ -679,6 +719,130 @@ const Businesses = (() => {
       </div>`;
   }
 
+  /* --------------------- Add Property (already-open chain) -------------- */
+  // Properties 2-16 of a chain that's already open skip the 4-stage wizard
+  // entirely (per the confirmed design: the brand — store type, company
+  // name, signature — is already set for the chain, so re-running Details/
+  // Signature/Review would just be repeating the same answers). This is
+  // just: browse (reusing the exact same header/row/listing markup as the
+  // setup wizard and the read-only Properties browser) -> tap a property ->
+  // Pay Deposit -> pushed straight onto biz.properties, screen closes back
+  // to the dedicated page immediately.
+
+  /** Entry point — called from BizDash (the "+ Add Property" button on its
+   *  Properties card, see propertyOverviewHTML). Closes BizDash (its own
+   *  fixed-position overlay would otherwise sit on top of this screen) and
+   *  opens the browse screen inside the Business tab's own container. */
+  function openAddProperty(bizId) {
+    const firstCountry = BUSINESS_PROPERTIES[bizId].countries[0];
+    addPropertyFlow = {
+      bizId, countryId: firstCountry.id, city: firstCountry.cities[0].name,
+      countryDropdownOpen: false, viewPropertyId: null,
+    };
+    if (typeof BizDash !== 'undefined') BizDash.close();
+    render();
+  }
+
+  function onAddPropertyClick(e) {
+    const btn = e.target.closest('button');
+    if (!btn || btn.disabled) return;
+    const d = btn.dataset;
+
+    if (d.bizNav === 'closeAddProperty') { addPropertyFlow = null; render(); return; }
+    if (d.setupBack !== undefined) { addPropertyFlow.viewPropertyId = null; render(); return; }
+    if (d.setupCountryToggle !== undefined) { addPropertyFlow.countryDropdownOpen = !addPropertyFlow.countryDropdownOpen; render(); return; }
+    if (d.setupCountry) {
+      const country = BUSINESS_PROPERTIES[addPropertyFlow.bizId].countries.find((c) => c.id === d.setupCountry);
+      addPropertyFlow.countryId = d.setupCountry;
+      addPropertyFlow.city = country.cities[0].name;
+      addPropertyFlow.countryDropdownOpen = false;
+      render();
+      return;
+    }
+    if (d.setupCity) { addPropertyFlow.city = d.setupCity; addPropertyFlow.countryDropdownOpen = false; render(); return; }
+    if (d.setupProperty) { addPropertyFlow.viewPropertyId = d.setupProperty; render(); return; }
+    if (d.addPropertyDeposit !== undefined) {
+      const def = BUSINESS_BY_ID[addPropertyFlow.bizId];
+      const biz = getBiz(def.id);
+      if (biz.properties.length >= MAX_PROPERTIES_PER_CHAIN) return;
+      const catalog = BUSINESS_PROPERTIES[def.id];
+      const country = catalog.countries.find((c) => c.id === addPropertyFlow.countryId);
+      const cityObj = country.cities.find((c) => c.name === addPropertyFlow.city);
+      const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === addPropertyFlow.viewPropertyId);
+      const property = cityObj.properties[storeIndex];
+      if (isOwnedProperty(biz, property, cityObj, country)) return; // already owns this exact one — button shouldn't be reachable, cheap insurance
+      if (!buyBusinessLevel(def.id)) return;
+      biz.properties.push({ countryId: country.id, city: cityObj.name, propertyId: addPropertyFlow.viewPropertyId, tenure: 'rent' });
+      saveGame();
+      UI.renderBalance();
+      addPropertyFlow = null;
+      render(); // back to the business list underneath
+      if (typeof BizDash !== 'undefined') BizDash.open(def.id); // land back on the dedicated page — the new property is now visible in its Properties list
+      return;
+    }
+  }
+
+  function addPropertyHTML() {
+    const def = BUSINESS_BY_ID[addPropertyFlow.bizId];
+    const catalog = BUSINESS_PROPERTIES[def.id];
+    const country = catalog.countries.find((c) => c.id === addPropertyFlow.countryId);
+    const cityObj = country.cities.find((c) => c.name === addPropertyFlow.city) || country.cities[0];
+    const biz = getBiz(def.id);
+    const atCap = biz.properties.length >= MAX_PROPERTIES_PER_CHAIN;
+
+    let body;
+    if (addPropertyFlow.viewPropertyId) {
+      const storeIndex = cityObj.properties.findIndex((p) => propertySlug(p.name) === addPropertyFlow.viewPropertyId);
+      const property = cityObj.properties[storeIndex];
+      const already = isOwnedProperty(biz, property, cityObj, country);
+      const cost = businessNextCost(def);
+      const canBuy = state.balance >= cost && !atCap && !already;
+
+      let actionsHTML;
+      if (already) {
+        actionsHTML = `
+          <div class="card" style="margin-top:6px">
+            <div class="card-title">Already Owned</div>
+            <div class="progress-caption" style="text-align:left;margin-top:4px">${escapeHtml(def.name)} already operates out of this property.</div>
+          </div>`;
+      } else if (atCap) {
+        actionsHTML = `
+          <div class="card" style="margin-top:6px">
+            <div class="card-title">Chain Full</div>
+            <div class="progress-caption" style="text-align:left;margin-top:4px">${escapeHtml(def.name)} already has ${MAX_PROPERTIES_PER_CHAIN} properties — the max per chain.</div>
+          </div>`;
+      } else {
+        actionsHTML = `
+          <button class="btn btn-wide ${canBuy ? 'btn-deposit' : ''}" data-add-property-deposit type="button" ${canBuy ? '' : 'disabled'}>
+            Pay Deposit · ${formatMoney(cost)}</button>`;
+      }
+      body = propertyListingHTML(def, property, cityObj, country, storeIndex, actionsHTML);
+    } else {
+      const otherCountries = catalog.countries.filter((c) => c.id !== country.id);
+      body = `
+        ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, addPropertyFlow.countryDropdownOpen)}
+        <div class="biz-list">
+          ${cityObj.properties.map((p, i) => propertyRowHTML(p, cityObj.name, i)).join('')}
+        </div>`;
+    }
+
+    const closeOrBackBtn = addPropertyFlow.viewPropertyId
+      ? `<button class="icon-btn" data-setup-back type="button" aria-label="Back">‹</button>`
+      : `<button class="icon-btn" data-biz-nav="closeAddProperty" type="button" aria-label="Close">✕</button>`;
+
+    return `
+      <div class="bizd-screen">
+        <div class="bizd-head">
+          ${closeOrBackBtn}
+          <div class="bizd-id">
+            <div class="bizd-co-name">Add Property</div>
+            <div class="bizd-co-sub">${escapeHtml(def.name)} · ${biz.properties.length}/${MAX_PROPERTIES_PER_CHAIN}</div>
+          </div>
+        </div>
+        ${body}
+      </div>`;
+  }
+
   /* ------------------------- Business setup flow ------------------------ */
   // A multi-STAGE wizard for a business with its own property catalog
   // (js/data/properties.js) — SETUP_STAGES lists the stages: "Business
@@ -719,6 +883,11 @@ const Businesses = (() => {
     { id: 'signature', label: 'Signature' },
     { id: 'review', label: 'Review & Confirm' },
   ];
+
+  // Each Supermarket Chain instance (supermarket_1.._6) can hold at most
+  // this many properties — enforced in propertyOverviewHTML (Add Property
+  // button hides at the cap) and openAddProperty's deposit handler.
+  const MAX_PROPERTIES_PER_CHAIN = 16;
 
   const STORE_TYPES = [
     { id: 'jewellery', label: 'Jewellery' },
@@ -855,7 +1024,7 @@ const Businesses = (() => {
       const cost = businessNextCost(BUSINESS_BY_ID[setupFlow.bizId]); // capture BEFORE buying — the level-0 cost is what's actually charged
       if (buyBusinessLevel(setupFlow.bizId)) {
         const biz = getBiz(setupFlow.bizId);
-        biz.property = { countryId: setupFlow.countryId, city: setupFlow.city, propertyId: setupFlow.propertyId, tenure: 'rent' };
+        biz.properties.push({ countryId: setupFlow.countryId, city: setupFlow.city, propertyId: setupFlow.propertyId, tenure: 'rent' });
         saveGame();
         setupFlow.tenure = 'rent';
         setupFlow.amountSpent = cost; // shown as the setup cost on the Review page — businessNextCost(def) would return a different (higher) number once level > 0
@@ -958,16 +1127,20 @@ const Businesses = (() => {
     const country = catalog.countries.find((c) => c.id === setupFlow.countryId);
     const cityObj = country.cities.find((c) => c.name === setupFlow.city) || country.cities[0];
     const otherCountries = catalog.countries.filter((c) => c.id !== country.id);
-    // A deposit already paid this session (biz.property set, wizard still
-    // open) — highlight its row/city/country green so backing out to browse
-    // doesn't lose track of which property still needs Step 3.
+    // A deposit already paid this session (biz.properties has an entry,
+    // wizard still open) — highlight its row/city/country green so backing
+    // out to browse doesn't lose track of which property still needs Step
+    // 3. The wizard only ever adds one property per session (onSetupClick's
+    // d.setupRent guard blocks a second deposit once level > 0), so the
+    // last entry is always the one this session just added.
     const biz = getBiz(def.id);
-    const pending = biz.property ? { countryId: biz.property.countryId, city: biz.property.city } : null;
+    const pendingProp = biz.properties.length ? biz.properties[biz.properties.length - 1] : null;
+    const pending = pendingProp ? { countryId: pendingProp.countryId, city: pendingProp.city } : null;
     return `
       ${propertyBrowseHeaderHTML(country, otherCountries, cityObj, setupFlow.countryDropdownOpen, pending)}
       <div class="biz-list">
         ${cityObj.properties.map((p, i) => propertyRowHTML(p, cityObj.name, i,
-          !!(pending && pending.countryId === country.id && pending.city === cityObj.name && biz.property.propertyId === propertySlug(p.name)))).join('')}
+          !!(pending && pending.countryId === country.id && pending.city === cityObj.name && pendingProp.propertyId === propertySlug(p.name)))).join('')}
       </div>`;
   }
 
@@ -1053,7 +1226,7 @@ const Businesses = (() => {
     const cost = businessNextCost(def);
     const canBuy = state.balance >= cost;
     const biz = getBiz(def.id);
-    // Only THIS property is "started" if it's the one biz.property actually
+    // Only THIS property is "started" if it's one biz.properties actually
     // records — level > 0 alone would say every property is bought the
     // moment any one of them is (see isOwnedProperty's comment).
     const started = isOwnedProperty(biz, property, cityObj, country);
@@ -1071,7 +1244,7 @@ const Businesses = (() => {
       actionsHTML = `
         <div class="card" style="margin-top:6px">
           <div class="card-title">Already Open Elsewhere</div>
-          <div class="progress-caption" style="text-align:left;margin-top:4px">${escapeHtml(def.name)} already operates out of a different property — only one location is supported for now.</div>
+          <div class="progress-caption" style="text-align:left;margin-top:4px">${escapeHtml(def.name)} already has its first property set from this setup — once it's open, add more (up to ${MAX_PROPERTIES_PER_CHAIN}) from its Manage page.</div>
         </div>`;
     } else {
       // Only a deposit at setup time now — Buy Now/full purchase moved to
@@ -1674,9 +1847,30 @@ const Businesses = (() => {
 
   function businessCardHTML(def, level) {
     const biz = getBiz(def.id);
-    if (biz.level === 0 && level < def.unlockLevel) return lockedCardHTML(def);
-    if (biz.level === 0) return availableCardHTML(def);
+    if (biz.level === 0) {
+      const chainLock = supermarketChainLock(def);
+      if (chainLock) return chainLockedCardHTML(def, chainLock);
+      if (level < def.unlockLevel) return lockedCardHTML(def);
+      return availableCardHTML(def);
+    }
     return ownedCardHTML(def, biz);
+  }
+
+  /* Supermarket Chains 2-6 stay locked until the chain before them is
+   * actually open (a property deposited on) — chain slots unlock one at a
+   * time instead of all at once. Returns the previous chain's def to point
+   * the locked card at, or null if this def isn't a gated later chain (or
+   * its predecessor is already open). */
+  function supermarketChainLock(def) {
+    if (!def.chainIndex || def.chainIndex <= 1) return null;
+    const prevDef = BUSINESS_BY_ID['supermarket_' + (def.chainIndex - 1)];
+    if (!prevDef || getBiz(prevDef.id).level > 0) return null;
+    return prevDef;
+  }
+
+  /* "Chain 2/6" — the only UI that spells out the 6-chain cap. */
+  function chainBadgeHTML(def) {
+    return def.chainIndex ? `<span class="biz-chain-badge">Chain ${def.chainIndex}/${SUPERMARKET_CHAIN_COUNT}</span>` : '';
   }
 
   /* Locked: shown dimmed with its unlock requirement — a visible next goal. */
@@ -1687,11 +1881,30 @@ const Businesses = (() => {
           <div class="biz-title-wrap">
             <div class="biz-name">${def.name}</div>
             <div class="biz-blurb">${def.blurb}</div>
+            ${chainBadgeHTML(def)}
           </div>
           <div class="lock-tag">🔒 Lv ${def.unlockLevel}</div>
         </div>
         <div class="progress-caption">Unlocks at player level ${def.unlockLevel}
           (${formatMoney(xpForLevel(def.unlockLevel))} lifetime earnings) · startup ${formatMoney(def.baseCost)}</div>
+      </div>`;
+  }
+
+  /* Locked because the previous Supermarket Chain slot isn't open yet — a
+   * different reason than a player-level gate, so it gets its own message
+   * instead of reusing lockedCardHTML's "Unlocks at player level" caption. */
+  function chainLockedCardHTML(def, prevDef) {
+    return `
+      <div class="card biz-card biz-locked">
+        <div class="biz-head">
+          <div class="biz-title-wrap">
+            <div class="biz-name">${def.name}</div>
+            <div class="biz-blurb">${def.blurb}</div>
+            ${chainBadgeHTML(def)}
+          </div>
+          <div class="lock-tag">🔒 Chain ${def.chainIndex}</div>
+        </div>
+        <div class="progress-caption">Opens once ${prevDef.name} is up and running</div>
       </div>`;
   }
 
@@ -1706,6 +1919,7 @@ const Businesses = (() => {
           <div class="biz-title-wrap">
             <div class="biz-name">${def.name}</div>
             <div class="biz-blurb">${def.blurb}</div>
+            ${chainBadgeHTML(def)}
           </div>
         </div>
         <div class="biz-stats">
@@ -1729,14 +1943,16 @@ const Businesses = (() => {
     const net = businessIncomePerSec(def);
     const menuOpen = openMenuId === def.id;
     const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
-    const owned = resolveOwnedProperty(def.id);
+    const ownedProperties = resolveOwnedProperties(def.id);
 
-    const propertyStripHTML = owned ? (() => {
+    const propertyStripHTML = ownedProperties.length ? (() => {
+      const owned = ownedProperties[0]; // most cards fit one row — the rest are on the dedicated page's Properties list
       const companyName = (biz.brand && biz.brand.companyName) || def.name;
       const typeLabel = biz.brand && biz.brand.storeType
         ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || 'General')
         : 'General';
-      const tenureLabel = biz.property.tenure === 'purchase' ? 'Owned' : 'Rented';
+      const tenureLabel = owned.raw.tenure === 'purchase' ? 'Owned' : 'Rented';
+      const moreLabel = ownedProperties.length > 1 ? ` · +${ownedProperties.length - 1} more` : '';
       return `
         <div class="biz-owned-strip">
           <span class="biz-owned-thumb">
@@ -1747,7 +1963,7 @@ const Businesses = (() => {
           <span class="biz-owned-info">
             <span class="biz-owned-name">${escapeHtml(companyName)}</span>
             <span class="biz-owned-meta">${escapeHtml(typeLabel)} · ${escapeHtml(def.name)}</span>
-            <span class="biz-owned-loc">${escapeHtml(owned.property.name)} · ${escapeHtml(owned.cityObj.name)}, ${escapeHtml(owned.country.name)}</span>
+            <span class="biz-owned-loc">${escapeHtml(owned.property.name)} · ${escapeHtml(owned.cityObj.name)}, ${escapeHtml(owned.country.name)}${moreLabel}</span>
           </span>
           <span class="biz-owned-tenure">${tenureLabel}</span>
         </div>`;
@@ -1767,6 +1983,8 @@ const Businesses = (() => {
           <div class="biz-title-wrap">
             <div class="biz-name">${def.name}</div>
             <div class="biz-blurb">${def.blurb}</div>
+            ${chainBadgeHTML(def)}
+            ${ownedProperties.length ? `<span class="biz-chain-badge">${ownedProperties.length}/${MAX_PROPERTIES_PER_CHAIN} properties</span>` : ''}
           </div>
           <div class="biz-level">Lv ${biz.level}</div>
         </div>
@@ -1830,5 +2048,5 @@ const Businesses = (() => {
 
   // staffHTML/upgradesHTML are exported so the dedicated business page
   // (js/bizdash.js) can reuse them exactly as-is — no re-derived logic.
-  return { mount, render, staffHTML, upgradesHTML, propertyOverviewHTML, buyPropertyOutright };
+  return { mount, render, staffHTML, upgradesHTML, propertyOverviewHTML, buyPropertyOutright, openAddProperty };
 })();

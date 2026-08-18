@@ -23,34 +23,50 @@
  * Logistics & Warehousing.
  * ========================================================================= */
 
-const BUSINESS_DEFS = [
-  {
-    id: 'supermarket',
-    name: 'Supermarket Chain',
+// Up to 6 independent Supermarket Chains, unlocked one at a time (chain N+1
+// only shows once chain N is actually owned — see businessCardHTML/
+// lockedCardHTML in businesses.js). Each is a FULLY independent business —
+// its own level, staff, upgrades, income, and dedicated BizDash page — that
+// happens to share the same catalog/config as every other chain. Generated
+// from one template instead of hand-duplicated 6x; chainIndex marks which
+// slot a def is (1-6); js/data/properties.js registers the SAME
+// BUSINESS_PROPERTIES.supermarket catalog under every chain id, so every
+// chain's property browser draws from one shared catalog.
+const SUPERMARKET_CHAIN_COUNT = 6;
+const SUPERMARKET_CHAIN_TEMPLATE = {
+  icon: '🛍️',
+  blurb: 'Stores, suppliers, and private labels — grocery at scale.',
+  unlockLevel: 1,
+  baseCost: 4900,
+  costMultiplier: 1.15,
+  baseIncome: 8,
+  // Negotiate supplier deals: better terms unlock as the chain grows.
+  mechanic: {
+    type: 'tierPick',
     icon: '🛍️',
-    blurb: 'Stores, suppliers, and private labels — grocery at scale.',
-    unlockLevel: 1,
-    baseCost: 4900,
-    costMultiplier: 1.15,
-    baseIncome: 8,
-    // Negotiate supplier deals: better terms unlock as the chain grows.
-    mechanic: {
-      type: 'tierPick',
-      icon: '🛍️',
-      label: 'Supplier Deals',
-      tiers: [
-        { name: 'Local Suppliers',        mult: 1.0, requiresLevel: 1 },
-        { name: 'Regional Contracts',     mult: 1.4, requiresLevel: 15 },
-        { name: 'National Buying Power',  mult: 2.0, requiresLevel: 40 },
-      ],
-    },
-    staffRoles: ['Cashier', 'Stock Worker', 'Store Manager', 'Buyer', 'Warehouse Worker', 'Delivery Driver', 'Regional Manager'],
-    upgrades: [
-      { id: 'super_selfcheck', name: 'Self-Checkout', desc: 'Serve more shoppers ×2 income', requiresLevel: 10, cost: 245000,     multiplier: 2 },
-      { id: 'super_label',     name: 'Private Label',  desc: 'Higher margins ×3 income',    requiresLevel: 40, cost: 5880000,    multiplier: 3 },
-      { id: 'super_chain',     name: 'National Chain',  desc: 'Stores everywhere ×5 income', requiresLevel: 75, cost: 122500000,  multiplier: 5 },
+    label: 'Supplier Deals',
+    tiers: [
+      { name: 'Local Suppliers',        mult: 1.0, requiresLevel: 1 },
+      { name: 'Regional Contracts',     mult: 1.4, requiresLevel: 15 },
+      { name: 'National Buying Power',  mult: 2.0, requiresLevel: 40 },
     ],
   },
+  staffRoles: ['Cashier', 'Stock Worker', 'Store Manager', 'Buyer', 'Warehouse Worker', 'Delivery Driver', 'Regional Manager'],
+  upgrades: [
+    { id: 'super_selfcheck', name: 'Self-Checkout', desc: 'Serve more shoppers ×2 income', requiresLevel: 10, cost: 245000,     multiplier: 2 },
+    { id: 'super_label',     name: 'Private Label',  desc: 'Higher margins ×3 income',    requiresLevel: 40, cost: 5880000,    multiplier: 3 },
+    { id: 'super_chain',     name: 'National Chain',  desc: 'Stores everywhere ×5 income', requiresLevel: 75, cost: 122500000,  multiplier: 5 },
+  ],
+};
+const SUPERMARKET_CHAIN_DEFS = Array.from({ length: SUPERMARKET_CHAIN_COUNT }, (_, i) => ({
+  ...SUPERMARKET_CHAIN_TEMPLATE,
+  id: 'supermarket_' + (i + 1),
+  name: 'Supermarket Chain ' + (i + 1),
+  chainIndex: i + 1,
+}));
+
+const BUSINESS_DEFS = [
+  ...SUPERMARKET_CHAIN_DEFS,
   {
     id: 'entvenue',
     name: 'Entertainment Venue Company',

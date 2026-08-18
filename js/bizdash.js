@@ -57,6 +57,7 @@ const BizDash = (() => {
 
     if (d.bizdClose !== undefined) { close(); return; }
     if (d.bizdTab) { dash.tab = d.bizdTab; render(); return; }
+    if (d.addProperty) { Businesses.openAddProperty(d.addProperty); return; }
 
     let changed = false;
     if (d.upgrade) changed = buyBusinessUpgrade(d.biz, d.upgrade);

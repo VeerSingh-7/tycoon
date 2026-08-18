@@ -50,7 +50,15 @@ function getBiz(id) {
   // Patch records from older shapes so new fields always exist.
   if (biz.staff == null) biz.staff = 0;
   if (!biz.mech) biz.mech = {};
-  if (biz.property === undefined) biz.property = null; // { countryId, city, propertyId, tenure } chosen at setup, or null
+  if (biz.properties === undefined) {
+    // Older saves recorded one property as biz.property (a single
+    // { countryId, city, propertyId, tenure } object, or null) — fold it
+    // into the new capped array (up to 16 per Supermarket Chain, see
+    // js/businesses.js MAX_PROPERTIES_PER_CHAIN) so nobody loses a
+    // property they already paid for.
+    biz.properties = biz.property ? [biz.property] : [];
+    delete biz.property;
+  }
   if (biz.brand === undefined) biz.brand = null; // { storeType, companyName, signature } chosen at setup, or null
   return biz;
 }
@@ -195,6 +203,11 @@ function buyBusinessLevel(id) {
   if (biz.level === 0) {
     if (playerLevel() < def.unlockLevel) return false;
     if (usedSlots() >= maxSlots()) return false;
+    // Supermarket Chains 2-6 stay locked until the chain before them is
+    // open — same defense-in-depth as the unlockLevel check above (the UI
+    // already hides the purchase button too, see businesses.js
+    // supermarketChainLock/chainLockedCardHTML).
+    if (def.chainIndex > 1 && getBiz('supermarket_' + (def.chainIndex - 1)).level === 0) return false;
   }
   const cost = businessNextCost(def);
   if (state.balance < cost) return false;

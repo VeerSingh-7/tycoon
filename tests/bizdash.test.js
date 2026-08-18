@@ -199,7 +199,7 @@ for (const def of BUSINESS_DEFS) {
   check('document.body.style.overflow is restored on close', document.body.style.overflow === '');
 })();
 
-/* ===================== C2) Overview's Property card + "Buy It Outright" ===================== */
+/* ===================== C2) Overview's Properties card + "Buy It Outright" ===================== */
 (function () {
   const created = [];
   globalThis.document = {
@@ -217,39 +217,76 @@ for (const def of BUSINESS_DEFS) {
   state = defaultState();
   state.balance = 1e15;
   state.totalEarned = 1e20;
-  buyBusinessLevel('supermarket');
-  const biz = getBiz('supermarket');
+  buyBusinessLevel('supermarket_1');
+  const biz = getBiz('supermarket_1');
   const uk = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'uk');
   const london = uk.cities.find((c) => c.name === 'London');
   const riverside = london.properties[0]; // "Riverside Market"
-  biz.property = { countryId: 'uk', city: 'London', propertyId: propertySlug(riverside.name), tenure: 'rent' };
+  const oxford = london.properties[1];
+  biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(riverside.name), tenure: 'rent' });
   biz.brand = { storeType: 'grocery', companyName: 'Fresh Co' };
 
-  BizDash.open('supermarket');
+  BizDash.open('supermarket_1');
   const el = created[created.length - 1];
-  check('Overview shows a Property card once biz.property is set', el.innerHTML.includes('Riverside Market') && el.innerHTML.includes('Fresh Co'));
-  check('the Property card shows the store type and business type', el.innerHTML.includes('Grocery') && el.innerHTML.includes('Supermarket Chain'));
-  check('while renting, the card offers Buy It Outright with a real cost', /data-buy-outright="supermarket"/.test(el.innerHTML) && el.innerHTML.includes('Buy It Outright'));
+  check('Overview shows a Properties card once biz.properties has an entry', el.innerHTML.includes('Riverside Market') && el.innerHTML.includes('Fresh Co'));
+  check('the property card shows the store type and business type', el.innerHTML.includes('Grocery') && el.innerHTML.includes('Supermarket Chain 1'));
+  check('while renting, the card offers Buy It Outright with a real cost, keyed "bizId:index"', /data-buy-outright="supermarket_1:0"/.test(el.innerHTML) && el.innerHTML.includes('Buy It Outright'));
   check('tenure reads Rented before buying outright', el.innerHTML.includes('>Rented<'));
+  check('the Properties card shows a 1/16 count', el.innerHTML.includes('Properties · 1/16'));
+  check('the Add Property button is offered (under the 16 cap)', /data-add-property="supermarket_1"/.test(el.innerHTML));
 
   const balBefore = state.balance;
   const levelBefore = biz.level;
-  el._listeners.click({ target: fakeBtn({ buyOutright: 'supermarket' }) });
+  el._listeners.click({ target: fakeBtn({ buyOutright: 'supermarket_1:0' }) });
   check('Buy It Outright charges real money', state.balance < balBefore);
   check('Buy It Outright bumps the business level (same lever as every other purchase)', biz.level === levelBefore + 1);
-  check('the property record now reads purchase, not rent', biz.property.tenure === 'purchase');
+  check('the property record now reads purchase, not rent', biz.properties[0].tenure === 'purchase');
 
   const rerendered = created[created.length - 1];
-  check('Overview re-renders showing Owned instead of Rented, with no further action offered', rerendered.innerHTML.includes('>Owned<')
+  check('Overview re-renders showing Owned instead of Rented, with no further action offered for that property', rerendered.innerHTML.includes('>Owned<')
     && !rerendered.innerHTML.includes('Buy It Outright') && rerendered.innerHTML.includes('Fully paid off'));
+
+  // A second property, added directly (simulating openAddProperty's deposit
+  // push) — the list and count grow, and each property's Buy It Outright
+  // targets ONLY its own index.
+  biz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(oxford.name), tenure: 'rent' });
+  BizDash.close();
+  BizDash.open('supermarket_1');
+  const twoEl = created[created.length - 1];
+  check('Properties card now shows 2/16 and both properties', twoEl.innerHTML.includes('Properties · 2/16')
+    && twoEl.innerHTML.includes('Riverside Market') && twoEl.innerHTML.includes(oxford.name));
+  check('only the still-renting 2nd property offers Buy It Outright, at its own index 1', /data-buy-outright="supermarket_1:1"/.test(twoEl.innerHTML)
+    && !/data-buy-outright="supermarket_1:0"/.test(twoEl.innerHTML));
 
   BizDash.close();
 
-  // A business with no property catalog gets no Property card at all.
+  // A business with no property catalog gets no Properties card at all.
   buyBusinessLevel('hotels');
   BizDash.open('hotels');
   const hotelsEl = created[created.length - 1];
-  check('a business without a property catalog shows no Property card', !hotelsEl.innerHTML.includes('class="card-title">Property<'));
+  check('a business without a property catalog shows no Properties card', !hotelsEl.innerHTML.includes('card-title">Properties'));
+  BizDash.close();
+
+  // At the 16-property cap, Add Property is replaced by a "slots filled" message.
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  buyBusinessLevel('supermarket_1');
+  const fullBiz = getBiz('supermarket_1');
+  let added = 0;
+  outer:
+  for (const c of uk.cities) {
+    for (const p of c.properties) {
+      fullBiz.properties.push({ countryId: 'uk', city: c.name, propertyId: propertySlug(p.name), tenure: 'rent' });
+      added++;
+      if (added >= 16) break outer;
+    }
+  }
+  check('sanity: pushed exactly 16 properties', fullBiz.properties.length === 16);
+  BizDash.open('supermarket_1');
+  const fullEl = created[created.length - 1];
+  check('at the 16-property cap, Add Property is no longer offered', !/data-add-property="supermarket_1"/.test(fullEl.innerHTML));
+  check('at the cap, a "slots filled" message shows instead', fullEl.innerHTML.includes('slots filled'));
   BizDash.close();
 })();
 

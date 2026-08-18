@@ -42,17 +42,27 @@ function approx(a, b, tol) { return Math.abs(a - b) <= Math.abs(b) * (tol == nul
 
 state = defaultState();
 
-/* ===================== A) Catalog shape (all 14, Batches 1-3) ===================== */
-check('BUSINESS_DEFS has all 14 businesses', BUSINESS_DEFS.length === 14);
+/* ===================== A) Catalog shape (19: 13 Batches 1-3 + 6 Supermarket Chains) ===================== */
+check('BUSINESS_DEFS has all 19 businesses (13 + 6 Supermarket Chain slots)', BUSINESS_DEFS.length === 19);
 check('all 11 removed ids are gone', ['retail','taxi','restaurant','clothing','transport','construction','bank','oil','it','sports','airline'].every((id) => !BUSINESS_BY_ID[id]));
 check('automotive/hotels/energy/space all present', ['automotive','hotels','energy','space'].every((id) => !!BUSINESS_BY_ID[id]));
 check('ecommerce/mining/railway/media/gamestudio all present', ['ecommerce','mining','railway','media','gamestudio'].every((id) => !!BUSINESS_BY_ID[id]));
-check('pharma/supermarket/entvenue/airport/logistics all present', ['pharma','supermarket','entvenue','airport','logistics'].every((id) => !!BUSINESS_BY_ID[id]));
+check('pharma/entvenue/airport/logistics all present', ['pharma','entvenue','airport','logistics'].every((id) => !!BUSINESS_BY_ID[id]));
+check('all 6 supermarket_1..6 chain slots present, chainIndex 1-6', [1,2,3,4,5,6].every((i) => BUSINESS_BY_ID['supermarket_' + i] && BUSINESS_BY_ID['supermarket_' + i].chainIndex === i));
+check('bare "supermarket" id no longer exists (replaced by supermarket_1..6)', !BUSINESS_BY_ID['supermarket']);
+check('every chain shares the same property catalog object', [1,2,3,4,5,6].every((i) => BUSINESS_PROPERTIES['supermarket_' + i] === BUSINESS_PROPERTIES.supermarket));
 check('no duplicate ids', new Set(BUSINESS_DEFS.map((d) => d.id)).size === BUSINESS_DEFS.length);
-check('no duplicate upgrade ids across the whole catalog', (function () {
+check('no duplicate upgrade ids across the whole catalog, outside the (intentionally-shared) Supermarket Chain template', (function () {
   const seen = new Set(); let dup = false;
-  for (const def of BUSINESS_DEFS) for (const up of def.upgrades) { if (seen.has(up.id)) dup = true; seen.add(up.id); }
+  for (const def of BUSINESS_DEFS) {
+    if (def.chainIndex > 1) continue; // chains 2-6 intentionally reuse chain 1's upgrade ids — biz.upgrades is scoped per business id (getBiz(id).upgrades), so a shared id across chains is safe
+    for (const up of def.upgrades) { if (seen.has(up.id)) dup = true; seen.add(up.id); }
+  }
   return !dup;
+})());
+check('every Supermarket Chain shares identical upgrade ids with chain 1 (by design — one shared template)', (function () {
+  const chain1Ids = BUSINESS_BY_ID['supermarket_1'].upgrades.map((u) => u.id).join(',');
+  return [2, 3, 4, 5, 6].every((i) => BUSINESS_BY_ID['supermarket_' + i].upgrades.map((u) => u.id).join(',') === chain1Ids);
 })());
 for (const def of BUSINESS_DEFS) {
   check(def.id + ' has 3 named upgrades at 10/40/75', def.upgrades.length === 3 &&
@@ -65,6 +75,12 @@ for (const def of BUSINESS_DEFS) {
   state = defaultState();
   state.balance = 1e15;
   state.totalEarned = 1e20; // clears every unlockLevel gate
+  if (def.chainIndex > 1) {
+    // Chains 2-6 stay locked until the chain before them is open (see
+    // engine.js buyBusinessLevel's chainIndex gate) — open every prior
+    // chain slot first so this def's own test below isn't blocked by it.
+    for (let ci = 1; ci < def.chainIndex; ci++) buyBusinessLevel('supermarket_' + ci);
+  }
   const before = businessIncomePerSec(def);
   check(def.id + ' produces $0 at level 0', before === 0);
   for (let i = 0; i < 12; i++) buyBusinessLevel(def.id);
@@ -217,16 +233,31 @@ for (const def of BUSINESS_DEFS) {
   check('gamestudio: shipping a game pays out', collected && state.balance > before);
 })();
 
-// supermarket: tierPick, same handler as entvenue but different data/theme.
+// supermarket_1 (Chain 1): tierPick, same handler as entvenue but different data/theme.
 (function () {
   state = defaultState();
   state.balance = 1e15;
   state.totalEarned = 1e20;
-  for (let i = 0; i < 20; i++) buyBusinessLevel('supermarket');
-  const before = businessIncomePerSec(BUSINESS_BY_ID['supermarket']);
-  Mechanics.action('supermarket', 'tier', '1');
-  const after = businessIncomePerSec(BUSINESS_BY_ID['supermarket']);
-  check('supermarket: better supplier tier increases income', after > before);
+  for (let i = 0; i < 20; i++) buyBusinessLevel('supermarket_1');
+  const before = businessIncomePerSec(BUSINESS_BY_ID['supermarket_1']);
+  Mechanics.action('supermarket_1', 'tier', '1');
+  const after = businessIncomePerSec(BUSINESS_BY_ID['supermarket_1']);
+  check('supermarket_1: better supplier tier increases income', after > before);
+})();
+
+// Supermarket Chains unlock sequentially: chain 2 can't be bought until
+// chain 1 is actually open, engine-enforced (js/engine.js buyBusinessLevel)
+// as defense-in-depth behind the UI gate (js/businesses.js
+// supermarketChainLock/chainLockedCardHTML).
+(function () {
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  check('supermarket_2 cannot be bought before supermarket_1 is open', buyBusinessLevel('supermarket_2') === false);
+  check('supermarket_2 still at level 0 after the blocked attempt', getBiz('supermarket_2').level === 0);
+  check('supermarket_1 opens freely (chain 1 has no predecessor)', buyBusinessLevel('supermarket_1') === true);
+  check('supermarket_2 can now be bought once supermarket_1 is open', buyBusinessLevel('supermarket_2') === true);
+  check('supermarket_4 still blocked — chains 2 is open but 3 is not', buyBusinessLevel('supermarket_4') === false);
 })();
 
 // entvenue: tierPick.
@@ -358,6 +389,50 @@ check('mission_success_5 achievement added, reads space mission counter', !!ACHI
   check('a save with no removed businesses is undisturbed (balance unchanged)', migratedClean.balance === 999);
   check('a save with no removed businesses gets no buyout notice', !migratedClean.businessBuyoutNotice);
   check('a save with no removed businesses keeps its new-era business untouched', migratedClean.businesses.hotels.level === 3);
+})();
+
+/* ===================== E2) Real-save migration (v26 -> v27): supermarket -> supermarket_1 ===================== */
+(function () {
+  // A pre-6-chains save: one 'supermarket' business with real progress
+  // (level, staff, an upgrade, a tierPick mech choice) and an owned
+  // property under the old singular biz.property shape.
+  const oldSave = {
+    version: 26,
+    balance: 5000,
+    businesses: {
+      supermarket: {
+        level: 22, staff: 3, upgrades: { super_selfcheck: true }, mech: { tier: 1 },
+        property: { countryId: 'uk', city: 'London', propertyId: 'the-old-shop', tenure: 'rent' },
+        brand: { storeType: 'grocery', companyName: 'Old Shop Ltd', signature: 'sig-data' },
+      },
+      hotels: { level: 3, upgrades: {}, staff: 0, mech: {} },
+    },
+  };
+  const migrated = migrate(JSON.parse(JSON.stringify(oldSave)));
+  check('v27 migration bumps version to latest', migrated.version === SAVE_VERSION);
+  check('v27 migration moves supermarket into the supermarket_1 slot', !!migrated.businesses.supermarket_1);
+  check('v27 migration removes the old bare supermarket key', migrated.businesses.supermarket === undefined);
+  check('v27 migration keeps level/staff/upgrades intact', migrated.businesses.supermarket_1.level === 22
+    && migrated.businesses.supermarket_1.staff === 3 && migrated.businesses.supermarket_1.upgrades.super_selfcheck === true);
+  check('v27 migration keeps the mech tier choice intact', migrated.businesses.supermarket_1.mech.tier === 1);
+  check('v27 migration keeps the old single-property record as-is (getBiz folds it into an array lazily on next access)',
+    migrated.businesses.supermarket_1.property && migrated.businesses.supermarket_1.property.propertyId === 'the-old-shop');
+  check('v27 migration keeps brand intact', migrated.businesses.supermarket_1.brand.companyName === 'Old Shop Ltd');
+  check('v27 migration leaves unrelated businesses untouched', migrated.businesses.hotels.level === 3);
+
+  // getBiz() then folds that old biz.property into the new biz.properties
+  // array the first time this business record is actually touched.
+  state = defaultState();
+  state.businesses = migrated.businesses;
+  const biz = getBiz('supermarket_1');
+  check('getBiz folds the migrated single property into biz.properties', Array.isArray(biz.properties) && biz.properties.length === 1
+    && biz.properties[0].propertyId === 'the-old-shop' && biz.property === undefined);
+
+  // A save with no supermarket business at all sees zero disruption.
+  const cleanSave2 = { version: 26, balance: 42, businesses: { hotels: { level: 1, upgrades: {}, staff: 0, mech: {} } } };
+  const migratedClean2 = migrate(JSON.parse(JSON.stringify(cleanSave2)));
+  check('v27 migration on a save with no supermarket business is a no-op', migratedClean2.businesses.supermarket_1 === undefined
+    && migratedClean2.businesses.hotels.level === 1);
 })();
 
 // A second real save owning ALL 11 removed businesses at once (deep progress:

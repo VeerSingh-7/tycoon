@@ -165,6 +165,16 @@ const BUSINESS_PROPERTIES = {
   },
 };
 
+// Every one of the 6 independent Supermarket Chain instances (see
+// js/data/businesses.js SUPERMARKET_CHAIN_DEFS) shares this exact same
+// catalog — same 96 properties, same countries/cities. Registering the
+// SAME object reference under each chain's own id means every existing
+// BUSINESS_PROPERTIES[bizId]/hasPropertyCatalog(bizId) call site keeps
+// working completely unchanged for chain ids too.
+for (let i = 1; i <= SUPERMARKET_CHAIN_COUNT; i++) {
+  BUSINESS_PROPERTIES['supermarket_' + i] = BUSINESS_PROPERTIES.supermarket;
+}
+
 /** True if this business has a property catalog to choose from during setup. */
 function hasPropertyCatalog(bizId) {
   return !!BUSINESS_PROPERTIES[bizId];

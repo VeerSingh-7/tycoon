@@ -99,7 +99,7 @@ function stubEl(id) {
   state.balance = 1e15;
   state.totalEarned = 1e20;
   for (const def of BUSINESS_DEFS) buyBusinessLevel(def.id);
-  check('all 14 Business tab defs still exist and are untouched', BUSINESS_DEFS.length === 14);
+  check('all 19 Business tab defs still exist and are untouched (13 + 6 Supermarket Chain slots)', BUSINESS_DEFS.length === 19);
   check('Business tab businesses are still ownable/leveled normally (unaffected by this change)', BUSINESS_DEFS.some((d) => getBiz(d.id).level > 0));
 })();
 

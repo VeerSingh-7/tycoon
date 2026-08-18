@@ -116,7 +116,15 @@ const SAVE_KEY = 'tycoon_save_v1';
 //          fed the Legacy-point formula) is dropped too. Businesses/cash
 //          from a past prestige are NOT retroactively restored — only the
 //          ongoing multiplier and the ability to prestige again go away.
-const SAVE_VERSION = 26;
+// v27: Supermarket Chain became 6 independent, sequentially-unlocked chain
+//      slots (supermarket_1.._6) instead of one single 'supermarket'
+//      business, each able to hold up to 16 properties (biz.properties,
+//      an array — see js/engine.js getBiz for the biz.property -> array
+//      fold, handled lazily and needing no version bump of its own). An
+//      existing 'supermarket' record just moves to the 'supermarket_1'
+//      slot below — same level/staff/upgrades/mech/brand/properties, only
+//      the id changes, so it becomes Chain 1 with nothing lost.
+const SAVE_VERSION = 27;
 
 // Buyout data for v22 -> v23 migration (see below). Copied from the removed
 // businesses' definitions so the refund math matches exactly what players
@@ -541,6 +549,17 @@ function migrate(loaded) {
     delete loaded.prestiges;
     delete loaded.runEarned;
     loaded.version = 26;
+  }
+  // v26 -> v27: move an existing single 'supermarket' business record into
+  // the new 'supermarket_1' slot (see the SAVE_VERSION comment above) —
+  // same level/staff/upgrades/mech/brand/properties, just under its new
+  // id, so it becomes Chain 1 with nothing lost.
+  if (loaded.version < 27) {
+    if (loaded.businesses && loaded.businesses.supermarket && !loaded.businesses.supermarket_1) {
+      loaded.businesses.supermarket_1 = loaded.businesses.supermarket;
+    }
+    if (loaded.businesses) delete loaded.businesses.supermarket;
+    loaded.version = 27;
   }
   return loaded;
 }

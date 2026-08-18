@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v111'; // v111: setup only takes a deposit now (Buy It Outright moved to the business's own page); green "deposit pending" highlighting
+const CACHE_NAME = 'tycoon-v112'; // v112: Supermarket Chain is now 6 independent, sequentially-unlocked chain slots, each holding up to 16 properties (Add Property flow + per-property Buy It Outright on the dedicated page)
 
 const ASSETS = [
   'index.html',
