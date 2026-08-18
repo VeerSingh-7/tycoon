@@ -524,7 +524,8 @@ for (const def of BUSINESS_DEFS) {
   Businesses.render();
   container._listeners.click({ target: fakeBizBtn({ bizNav: 'mine' }) });
   check('"My Businesses" owned cards show no "Net income" stat either', !container.innerHTML.includes('>Net income<'));
-  check('"My Businesses" owned cards still show Manage Business', container.innerHTML.includes('Manage Business'));
+  check('"My Businesses" owned cards are themselves the Manage tap target (no separate button)', /data-manage="hotels"/.test(container.innerHTML)
+    && !container.innerHTML.includes('Manage Business'));
 })();
 
 /* ===================== H) World Map property markers ===================== */
@@ -803,6 +804,82 @@ for (const def of BUSINESS_DEFS) {
   dashEl._listeners.click({ target: fakeBtn({ openStore: 'supermarket_1:0' }) });
   check('tapping a property row in the real Manage Business screen opens its Store Overview', document.body.children.length === 2
     && document.body.children[1].innerHTML.includes('Riverside Market'));
+})();
+
+/* ===================== L) Redesigned owned-business card ===================== */
+(function () {
+  function bizStubContainer() {
+    return {
+      innerHTML: '', _listeners: {},
+      addEventListener(type, fn) { this._listeners[type] = fn; },
+      removeEventListener() {},
+      querySelector() { return null; }, querySelectorAll() { return []; },
+    };
+  }
+  function fakeBizBtn(dataset) { return { closest: () => ({ dataset, disabled: false }) }; }
+  globalThis.document = {
+    getElementById: () => null,
+    createElement: () => ({ style: {}, addEventListener() {} }),
+    body: { style: {} },
+    querySelector: () => null, querySelectorAll: () => [],
+  };
+
+  state = defaultState();
+  state.balance = 1e15;
+  state.totalEarned = 1e20;
+  buyBusinessLevel('supermarket_1');
+  const chainBiz = getBiz('supermarket_1');
+  const uk = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'uk');
+  const london = uk.cities.find((c) => c.name === 'London');
+  chainBiz.properties.push({ countryId: 'uk', city: 'London', propertyId: propertySlug(london.properties[0].name), tenure: 'rent' });
+  chainBiz.brand = { storeType: 'jewellery', companyName: 'Singh' };
+  buyBusinessLevel('entvenue');
+
+  const container = bizStubContainer();
+  Businesses.mount(container);
+  container._listeners.click({ target: fakeBizBtn({ bizNav: 'mine' }) });
+  const html = container.innerHTML;
+
+  check('the old "Lv X" level badge is gone from owned cards', !html.includes('class="biz-level"'));
+  check('the old "Chain X/6" progress indicator is gone from owned cards', !html.includes('chains open') && !html.includes('biz-chain-badge'));
+  check('no per-second income figure appears on the Supermarket Chain card itself (the header total above the list is a separate, pre-existing summary)',
+    !html.slice(html.indexOf('Singh'), html.indexOf('Singh') + 900).includes('/s<'));
+
+  check('Supermarket Chain 1 (has a type + properties) shows its real company name and type pill', html.includes('>Singh<') && html.includes('>Jewellery<'));
+  check('Supermarket Chain 1 shows a real Properties stat (1/16)', html.includes('>1/16<'));
+  check('Supermarket Chain 1 shows a Value stat with a real, non-zero figure', (function () {
+    const idx = html.indexOf('Singh');
+    const chunk = html.slice(idx, idx + 900);
+    const labelIdx = chunk.indexOf('biz-card-stat-label">Value<');
+    if (labelIdx < 0) return false;
+    const valueIdx = chunk.indexOf('biz-card-stat-value">', labelIdx);
+    const value = chunk.slice(valueIdx + 'biz-card-stat-value">'.length, chunk.indexOf('<', valueIdx + 'biz-card-stat-value">'.length));
+    return value !== '$0.00' && value.length > 0;
+  })());
+  check('Value matches the same businessSpentOnLevels figure the Sell menu already uses', html.includes('>' + formatMoney(businessSpentOnLevels(BUSINESS_BY_ID['supermarket_1'])) + '<'));
+
+  check('Entertainment Venue Company (no type, no properties) shows the Value stat alone', (function () {
+    const idx = html.indexOf('Entertainment Venue Company');
+    if (idx < 0) return false;
+    const chunk = html.slice(idx - 300, idx + 700);
+    return chunk.includes('biz-card-stat-label">Value<') && !chunk.includes('biz-card-stat-label">Properties<') && !/biz-card-type-pill/.test(chunk.slice(0, 400));
+  })());
+
+  check('each business type gets its own distinct gradient tile class', html.includes('biz-logo-tile-supermarket') && html.includes('biz-logo-tile-entvenue'));
+  check('the whole card (not a separate button) is the real Manage tap target', /data-manage="supermarket_1"/.test(html) && /data-manage="entvenue"/.test(html));
+
+  // Tapping the card still opens the right business's real dedicated page.
+  globalThis.document = {
+    createElement: (tag) => ({ tagName: tag, className: '', innerHTML: '', _listeners: {}, addEventListener(type, fn) { this._listeners[type] = fn; }, remove() {} }),
+    body: { children: [], appendChild(el) { this.children.push(el); }, style: {} },
+  };
+  container._listeners.click({ target: fakeBizBtn({ manage: 'entvenue' }) });
+  check('tapping the card opens that exact business’s Manage page', document.body.children.length === 1 && document.body.children[0].innerHTML.includes('Entertainment Venue Company'));
+
+  // The kebab (⋮) Sell menu stays independently clickable and doesn't trigger navigation.
+  const beforeMenuClick = document.body.children.length;
+  container._listeners.click({ target: fakeBizBtn({ bizMenu: 'entvenue' }) });
+  check('the ⋮ menu button toggles independently of the card tap (no extra Manage page opened)', document.body.children.length === beforeMenuClick);
 })();
 
 console.log('');

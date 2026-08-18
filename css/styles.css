@@ -332,7 +332,60 @@ html, body {
 .biz-title-wrap { flex: 1; min-width: 0; }
 .biz-name { font-weight: 800; font-size: 16px; }
 .biz-blurb { font-size: 12px; color: var(--muted); }
-.biz-level { font-size: 12px; font-weight: 700; color: var(--gold); white-space: nowrap; margin-right: 22px; }
+
+/* Owned-business compact card (js/businesses.js ownedCardHTML) — a logo
+   tile + name/type + Properties/Value stat strip + chevron, the whole
+   card itself the tap target (Manage). Locked/available/not-yet-owned
+   cards are untouched and keep using .biz-head/.biz-name/.biz-blurb above. */
+.biz-card-tap {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer;
+}
+.biz-logo-tile {
+  flex-shrink: 0; width: 56px; height: 56px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+.biz-logo-icon { font-size: 26px; line-height: 1; filter: saturate(0) brightness(10); }
+.biz-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.biz-card-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.biz-card-name { font-weight: 800; font-size: 15.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.biz-card-type-pill {
+  flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: var(--muted);
+  background: var(--bg-elev-2); border: 1px solid var(--line);
+  padding: 2px 8px; border-radius: 999px;
+}
+.biz-card-stats { display: flex; align-items: center; gap: 12px; }
+.biz-card-stat { display: flex; flex-direction: column; gap: 1px; }
+.biz-card-stat-label { font-size: 10px; color: var(--muted); font-weight: 600; }
+.biz-card-stat-value { font-size: 13px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+.biz-card-divider { width: 1px; height: 22px; background: var(--line); flex-shrink: 0; }
+.biz-card-chevron { flex-shrink: 0; font-size: 22px; color: var(--muted); line-height: 1; }
+
+.biz-card:has(.biz-card-tap) { transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease; }
+.biz-card:has(.biz-card-tap):hover, .biz-card:has(.biz-card-tap:active) {
+  transform: translateY(-1px); box-shadow: 0 4px 14px var(--shadow); border-color: var(--text);
+}
+
+/* Per-business-type gradient (one per CATEGORY — all 6 Supermarket Chains
+   share this one). Deliberate, scoped color exceptions to the app's
+   monochrome+gold baseline — distinguishing business types in a scrolling
+   list is the explicit point, not decoration. */
+.biz-logo-tile-supermarket { background: linear-gradient(135deg, #F5B342, #C6811C); }
+.biz-logo-tile-entvenue    { background: linear-gradient(135deg, #F472B6, #BE185D); }
+.biz-logo-tile-logistics   { background: linear-gradient(135deg, #2DD4BF, #0F766E); }
+.biz-logo-tile-pharma      { background: linear-gradient(135deg, #F87171, #B91C1C); }
+.biz-logo-tile-airport     { background: linear-gradient(135deg, #60A5FA, #1D4ED8); }
+.biz-logo-tile-ecommerce   { background: linear-gradient(135deg, #FB923C, #C2410C); }
+.biz-logo-tile-mining      { background: linear-gradient(135deg, #B08968, #6B4A2F); }
+.biz-logo-tile-railway     { background: linear-gradient(135deg, #818CF8, #4338CA); }
+.biz-logo-tile-media       { background: linear-gradient(135deg, #C084FC, #7E22CE); }
+.biz-logo-tile-gamestudio  { background: linear-gradient(135deg, #E879F9, #A21CAF); }
+.biz-logo-tile-automotive  { background: linear-gradient(135deg, #22D3EE, #0E7490); }
+.biz-logo-tile-hotels      { background: linear-gradient(135deg, #34D399, #047857); }
+.biz-logo-tile-energy      { background: linear-gradient(135deg, #FDE047, #CA8A04); }
+.biz-logo-tile-space       { background: linear-gradient(135deg, #64748B, #1E293B); }
 
 /* Small "Chain 2/6" / "5/16 properties" pills — the only UI that spells out
    the Supermarket Chain caps (6 chains, 16 properties each) so it's visible

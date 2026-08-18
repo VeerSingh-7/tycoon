@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v117'; // v117: new Store Overview + Performance pages for every owned Supermarket Chain property (health ring, capacity gauge, weekly traffic chart, Satisfaction/Promotion/Security/Revenue categories with animated bars and an expenses accordion) — tap any property in the Properties list to open it
+const CACHE_NAME = 'tycoon-v118'; // v118: redesigned owned-business card — gradient logo tile per business type, name + type pill, Properties/Value stat strip, whole card tappable; removed the Lv badge, Chain X/Y indicator, and per-second income figure
 
 const ASSETS = [
   'index.html',

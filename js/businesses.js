@@ -2239,38 +2239,53 @@ const Businesses = (() => {
    * The ⋮ menu is a quick Sell shortcut right on the card, in addition to
    * the same sell option already on the dedicated page's Overview tab —
    * both call the same sellBusiness() at the same 25%-of-spend refund. */
+  /** Which of the 14 gradient tiles (css/styles.css .biz-logo-tile-*) this
+   *  business uses — one per CATEGORY, not per chain instance, so all 6
+   *  Supermarket Chains share the same tile and stay visually grouped
+   *  while reading as distinct from every other business type. */
+  function businessCategory(def) {
+    return def.chainIndex ? 'supermarket' : def.id;
+  }
+
   function ownedCardHTML(def, biz) {
     const menuOpen = openMenuId === def.id;
     const refund = SELL_REFUND_RATE * businessSpentOnLevels(def);
     const ownedProperties = resolveOwnedProperties(def.id);
-
-    const propertyStripHTML = ownedProperties.length ? (() => {
-      const owned = ownedProperties[0]; // most cards fit one row — the rest are on the dedicated page's Properties list
-      const companyName = (biz.brand && biz.brand.companyName) || def.name;
-      const typeLabel = biz.brand && biz.brand.storeType
-        ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || 'General')
-        : 'General';
-      const tenureLabel = owned.raw.tenure === 'purchase' ? 'Owned' : 'Rented';
-      const moreLabel = ownedProperties.length > 1 ? ` · +${ownedProperties.length - 1} more` : '';
-      return `
-        <div class="biz-owned-strip">
-          <span class="biz-owned-thumb">
-            <span class="biz-owned-thumb-fallback" aria-hidden="true">🏪</span>
-            <img class="biz-owned-thumb-img" src="${propertyImagePath(owned.cityObj.name, owned.storeIndex)}" alt=""
-              loading="lazy" onerror="this.style.opacity='0'">
-          </span>
-          <span class="biz-owned-info">
-            <span class="biz-owned-name">${escapeHtml(companyName)}</span>
-            <span class="biz-owned-meta">${escapeHtml(typeLabel)} · ${escapeHtml(def.name)}</span>
-            <span class="biz-owned-loc">${escapeHtml(owned.property.name)} · ${escapeHtml(owned.cityObj.name)}, ${escapeHtml(owned.country.name)}${moreLabel}</span>
-          </span>
-          <span class="biz-owned-tenure">${tenureLabel}</span>
-        </div>`;
-    })() : '';
+    const companyName = (biz.brand && biz.brand.companyName) || def.name;
+    // Only chain businesses ever set biz.brand (via the setup wizard) — no
+    // brand means no store type, so the pill is omitted entirely rather
+    // than showing a fake "General" default.
+    const typeLabel = biz.brand && biz.brand.storeType
+      ? ((STORE_TYPES.find((t) => t.id === biz.brand.storeType) || {}).label || '')
+      : '';
+    // "Value" reuses the exact same total-spend figure the Sell Business
+    // menu already bases its 25% refund on (businessSpentOnLevels) — every
+    // property deposit/buyout already runs through buyBusinessLevel, so
+    // this already accounts for a chain's full property investment too,
+    // not just a separate new metric invented for this card.
+    const value = businessSpentOnLevels(def);
 
     return `
       <div class="card biz-card">
-        <button class="biz-menu-btn" data-biz-menu="${def.id}" type="button" aria-label="${def.name} options">${DOTS_ICON}</button>
+        <button class="biz-card-tap" data-manage="${def.id}" type="button" aria-label="Manage ${escapeAttr(companyName)}">
+          <span class="biz-logo-tile biz-logo-tile-${businessCategory(def)}">
+            <span class="biz-logo-icon" aria-hidden="true">${def.icon || '🏢'}</span>
+          </span>
+          <span class="biz-card-body">
+            <span class="biz-card-top">
+              <span class="biz-card-name">${escapeHtml(companyName)}</span>
+              ${typeLabel ? `<span class="biz-card-type-pill">${escapeHtml(typeLabel)}</span>` : ''}
+            </span>
+            <span class="biz-card-stats">
+              ${ownedProperties.length ? `
+                <span class="biz-card-stat"><span class="biz-card-stat-label">Properties</span><span class="biz-card-stat-value">${ownedProperties.length}/${MAX_PROPERTIES_PER_CHAIN}</span></span>
+                <span class="biz-card-divider"></span>` : ''}
+              <span class="biz-card-stat"><span class="biz-card-stat-label">Value</span><span class="biz-card-stat-value">${formatMoney(value)}</span></span>
+            </span>
+          </span>
+          <span class="biz-card-chevron" aria-hidden="true">›</span>
+        </button>
+        <button class="biz-menu-btn" data-biz-menu="${def.id}" type="button" aria-label="${escapeAttr(def.name)} options">${DOTS_ICON}</button>
         ${menuOpen ? `
           <div class="biz-menu-pop">
             <button class="biz-menu-item" data-sell="${def.id}" type="button">
@@ -2278,19 +2293,6 @@ const Businesses = (() => {
               <span class="biz-menu-item-sub">${formatMoney(refund)} refund (25%)</span>
             </button>
           </div>` : ''}
-        <div class="biz-head">
-          <div class="biz-title-wrap">
-            <div class="biz-name">${def.name}</div>
-            <div class="biz-blurb">${def.blurb}</div>
-            ${chainBadgeHTML(def)}
-            ${ownedProperties.length ? `<span class="biz-chain-badge">${ownedProperties.length}/${MAX_PROPERTIES_PER_CHAIN} properties</span>` : ''}
-          </div>
-          <div class="biz-level">Lv ${biz.level}</div>
-        </div>
-
-        ${propertyStripHTML}
-
-        <button class="btn btn-wide biz-manage-btn" data-manage="${def.id}">Manage Business ›</button>
       </div>`;
   }
 
