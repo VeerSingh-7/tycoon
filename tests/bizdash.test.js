@@ -667,8 +667,9 @@ for (const def of BUSINESS_DEFS) {
   check('netProfit = monthly revenue - totalExpenses', m0a.revenue.netProfit === m0a.revenue.monthly - m0a.revenue.totalExpenses);
   check('one of the expense line items is the property’s own real monthlyRent', m0a.revenue.expenses.some((e) => e.label === 'Rent' && e.amount === d0.financials.monthlyRent));
 
-  check('traffic series has 7 days, today/yesterday match the last two entries', m0a.traffic.series.length === 7
-    && m0a.traffic.today === m0a.traffic.series[6] && m0a.traffic.yesterday === m0a.traffic.series[5]);
+  check('traffic has a 24-hour breakdown for yesterday, and total is the sum of those hours', m0a.traffic.hourly.length === 24
+    && m0a.traffic.total === m0a.traffic.hourly.reduce((s, v) => s + v, 0));
+  check('every hourly traffic figure is non-negative', m0a.traffic.hourly.every((v) => v >= 0));
 })();
 
 /* ===================== J) StorePage: Store Overview + Performance ===================== */
@@ -709,7 +710,23 @@ for (const def of BUSINESS_DEFS) {
   check('Overview shows the real property name and company name', el.innerHTML.includes('Riverside Market') && el.innerHTML.includes('Singh'));
   check('Overview shows the tenure chip matching this property’s real tenure (Rented)', el.innerHTML.includes('>Rented<'));
   check('Overview shows a real Health number matching propertyMetrics', el.innerHTML.includes('store-health-badge-num">' + propertyMetrics(riverside, 'London', 0).health + '<'));
-  check('Overview has the Capacity and Weekly Traffic cards', el.innerHTML.includes('Capacity') && el.innerHTML.includes('Weekly Traffic'));
+  check('Overview has all 4 tab pills and defaults to Summary (Yesterday’s Traffic)', el.innerHTML.includes('>Summary<') && el.innerHTML.includes('>Schedule<')
+    && el.innerHTML.includes('>Inventory<') && el.innerHTML.includes('>Marketing<') && el.innerHTML.includes('Yesterday'));
+
+  // Tab switching within Overview (Summary/Schedule/Inventory/Marketing).
+  el._listeners.click({ target: fakeBtn({ storeTab: 'schedule' }) });
+  const schedEl = created[created.length - 1];
+  check('Schedule tab shows real operating hours for this property’s tier', schedEl.innerHTML.includes('Operating Hours'));
+
+  el._listeners.click({ target: fakeBtn({ storeTab: 'inventory' }) });
+  const invEl = created[created.length - 1];
+  check('Inventory tab shows the property’s real amenities and the Capacity ring', invEl.innerHTML.includes('Amenities') && invEl.innerHTML.includes('Capacity'));
+
+  el._listeners.click({ target: fakeBtn({ storeTab: 'marketing' }) });
+  const mktEl = created[created.length - 1];
+  check('Marketing tab is a condensed snapshot, not the Performance Promotion bars', mktEl.innerHTML.includes('Marketing Snapshot') && !mktEl.innerHTML.includes('Loyalty Program'));
+
+  el._listeners.click({ target: fakeBtn({ storeTab: 'summary' }) });
 
   // Health badge tap -> Performance.
   el._listeners.click({ target: fakeBtn({ storeNav: 'performance' }) });
@@ -728,13 +745,14 @@ for (const def of BUSINESS_DEFS) {
   const revEl = created[created.length - 1];
   check('switching to the Revenue category shows a real monthly figure and an expenses accordion', revEl.innerHTML.includes('Monthly Revenue') && revEl.innerHTML.includes('Expenses ·'));
 
-  // Tab row: back to Overview.
-  el._listeners.click({ target: fakeBtn({ storeView: 'overview' }) });
-  check('the Overview/Performance tab row can navigate back to Overview', created[created.length - 1].innerHTML.includes('Weekly Traffic'));
+  // Performance's own back control returns to Overview (does not close the whole screen).
+  el._listeners.click({ target: fakeBtn({ storeNav: 'back' }) });
+  check('Performance’s back control returns to Overview, not a full close', created[created.length - 1].innerHTML.includes('Yesterday')
+    && document.body.children.length === 1);
 
   // Expenses accordion state (logic-level — see the real headless-browser
   // check for the actual CSS class/visual confirmation).
-  el._listeners.click({ target: fakeBtn({ storeView: 'performance' }) });
+  el._listeners.click({ target: fakeBtn({ storeNav: 'performance' }) });
   el._listeners.click({ target: fakeBtn({ storeCat: 'revenue' }) });
   check('expenses start collapsed', StorePage._state().expensesOpen === false);
   el._listeners.click({ target: fakeBtn({ storeExpensesToggle: '' }) });

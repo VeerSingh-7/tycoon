@@ -357,12 +357,23 @@ function metricScore(seed, base, spread) {
 
 const CONDITION_BASE = { Good: 62, Excellent: 76, Premium: 90 };
 
+// A typical retail hourly footfall shape (24 weights, midnight-first) — near
+// zero overnight, ramping through the morning, peaking at lunch and again in
+// the early evening. Normalized (divided by its own sum) so it distributes
+// whatever "yesterday" total a property lands on across the day without
+// needing per-property tuning.
+const HOURLY_TRAFFIC_SHAPE = [
+  0.5, 0.3, 0.2, 0.2, 0.4, 1.0, 2.5, 4.5, 5.5, 5.0, 4.8, 5.5,
+  7.5, 7.0, 5.5, 5.0, 4.8, 5.2, 6.5, 7.0, 6.0, 4.5, 3.0, 1.5,
+];
+const HOURLY_SHAPE_SUM = HOURLY_TRAFFIC_SHAPE.reduce((sum, w) => sum + w, 0);
+
 /** Full operational metrics for one property: satisfaction/promotion/
  *  security sub-scores (+ their category averages), composite Health
  *  (average of those three category averages — deliberately NOT including
- *  revenue), capacity, a 7-day traffic series, and a revenue/expense
- *  breakdown. storeIndex/cityName match propertyDetails()'s own signature
- *  so callers can reuse the exact same tier/seed derivation. */
+ *  revenue), capacity, yesterday's hourly traffic breakdown, and a revenue/
+ *  expense breakdown. storeIndex/cityName match propertyDetails()'s own
+ *  signature so callers can reuse the exact same tier/seed derivation. */
 function propertyMetrics(property, cityName, storeIndex) {
   const tier = STORE_TIERS[storeIndex];
   const seed = propertySlug(property.name) + '_' + cityName;
@@ -405,16 +416,19 @@ function propertyMetrics(property, cityName, storeIndex) {
   const occupancyPct = metricScore(seed + '_occ', 62, 22);
   const capacityCurrent = Math.round(capacityMax * occupancyPct / 100);
 
-  // Traffic: a 7-day series oscillating +/-25% around the property's own
+  // Traffic: yesterday's total oscillates +/-25% around the property's own
   // already-generated dailyTraffic figure (propertyDetails' stats.dailyTraffic),
-  // so the two numbers always agree with each other. Day 6 (last) = "today";
-  // day 5 = "yesterday".
-  const trafficSeries = [];
-  for (let i = 0; i < 7; i++) {
-    trafficSeries.push(Math.round(d.stats.dailyTraffic * (0.75 + seededFraction(seed + '_traf' + i) * 0.5)));
-  }
-  const trafficToday = trafficSeries[6];
-  const trafficYesterday = trafficSeries[5];
+  // so the two numbers always agree with each other; that total is then
+  // spread across 24 hours using the shared HOURLY_TRAFFIC_SHAPE curve, with
+  // a small seeded jitter per hour so the line isn't a perfectly smooth
+  // scaled copy of the shape. "Total" (shown on the card) is the actual sum
+  // of the rounded hourly figures, not the pre-rounding target.
+  const yesterdayTarget = Math.round(d.stats.dailyTraffic * (0.75 + seededFraction(seed + '_ytraf') * 0.5));
+  const trafficHourly = HOURLY_TRAFFIC_SHAPE.map((weight, hour) => {
+    const jitter = 0.85 + seededFraction(seed + '_trafhr' + hour) * 0.3;
+    return Math.max(0, Math.round(yesterdayTarget * (weight / HOURLY_SHAPE_SUM) * jitter));
+  });
+  const trafficTotal = trafficHourly.reduce((sum, v) => sum + v, 0);
 
   // Revenue: monthly figure reuses financials.expectedAnnualRevenue/12 (the
   // same yield estimate already shown on the listing page) so numbers never
@@ -442,7 +456,7 @@ function propertyMetrics(property, cityName, storeIndex) {
     security: { score: security, cctvOwned, cctvTotal, doorAlarmOwned, doorAlarmTotal, guardAssigned },
     health,
     capacity: { current: capacityCurrent, max: capacityMax },
-    traffic: { series: trafficSeries, today: trafficToday, yesterday: trafficYesterday },
+    traffic: { hourly: trafficHourly, total: trafficTotal },
     revenue: { monthly: monthlyRevenue, expenses, totalExpenses, netProfit },
   };
 }

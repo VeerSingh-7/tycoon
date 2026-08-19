@@ -2345,5 +2345,5 @@ const Businesses = (() => {
 
   // staffHTML/upgradesHTML are exported so the dedicated business page
   // (js/bizdash.js) can reuse them exactly as-is — no re-derived logic.
-  return { mount, render, staffHTML, upgradesHTML, propertyOverviewHTML, buyPropertyOutright, openAddProperty, resolveOwnedProperties, _worldMapMarkers, _mapPropertyDetailHTML };
+  return { mount, render, staffHTML, upgradesHTML, propertyOverviewHTML, buyPropertyOutright, openAddProperty, resolveOwnedProperties, STORE_TYPES, _worldMapMarkers, _mapPropertyDetailHTML };
 })();

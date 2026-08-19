@@ -874,26 +874,39 @@ button.biz-rent-buy-option:disabled { cursor: default; opacity: 0.55; }
   border-radius: 0 0 var(--radius) var(--radius);
 }
 .store-hero-art { position: absolute; inset: 0; }
-.store-hero-art svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.store-hero-watermark {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 150px; line-height: 1; opacity: 0.16; pointer-events: none;
+}
 .store-hero-scrim {
   position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.05) 40%, rgba(0, 0, 0, 0.75) 100%);
 }
+/* Frosted-glass treatment for every control overlaid on the hero — fixed
+   rgba/white regardless of theme (like the hero gradient itself), since
+   these sit on a colored image-like area, not the app's own surfaces. */
+.store-hero-close, .store-chip, .store-health-badge {
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
 .store-hero-close {
   position: absolute; top: calc(env(safe-area-inset-top) + 10px); left: 10px; z-index: 2;
-  background: rgba(0, 0, 0, 0.4); color: #fff;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; cursor: pointer;
 }
+.store-hero-close:active { transform: scale(0.92); }
 .store-chip {
   position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 84px; z-index: 2;
-  font-size: 10.5px; font-weight: 800; letter-spacing: 0.3px; color: #fff;
-  background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.3px;
   padding: 5px 10px; border-radius: 999px;
 }
 .store-health-badge {
   position: absolute; top: calc(env(safe-area-inset-top) + 8px); right: 10px; z-index: 2;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  width: 52px; height: 52px; border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5); border: 1.5px solid var(--gold); color: #fff; cursor: pointer;
+  width: 52px; height: 52px; border-radius: 50%; cursor: pointer;
 }
 .store-health-badge:active { transform: scale(0.94); }
 .store-health-badge-num { font-size: 17px; font-weight: 800; line-height: 1; }
@@ -902,32 +915,47 @@ button.biz-rent-buy-option:disabled { cursor: default; opacity: 0.55; }
 .store-hero-title { font-size: 20px; font-weight: 800; line-height: 1.15; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4); }
 .store-hero-loc { font-size: 12.5px; opacity: 0.9; margin-top: 3px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4); }
 
+.store-owner-caption { font-size: 11.5px; color: var(--muted); font-weight: 600; margin: -6px 2px 10px; }
+
 .store-rating-row {
   display: flex; align-items: center; gap: 6px; padding: 0 2px; margin-bottom: 12px;
 }
-.store-stars { color: var(--gold); font-size: 16px; letter-spacing: 1px; }
+.store-stars { display: inline-flex; align-items: center; gap: 1px; color: var(--gold); }
+.store-star { width: 16px; height: 16px; display: block; }
 .store-rating-num { font-size: 13px; font-weight: 800; }
 .store-rating-count { font-size: 12px; color: var(--muted); }
 
-.store-manage-btn { margin-bottom: 16px; }
+.store-manage-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; margin-bottom: 16px;
+  background: var(--accent-bg); color: var(--accent-text);
+  border: none; border-radius: 12px; padding: 13px 16px;
+  font-size: 14.5px; font-weight: 800; font-family: inherit; cursor: pointer;
+  box-shadow: 0 4px 16px var(--accent-glow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.store-manage-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+.store-manage-btn:active { transform: scale(0.97) translateY(0); }
+.store-manage-arrow { font-size: 15px; }
 
-.store-tab-row {
-  display: flex; gap: 6px; margin-bottom: 14px;
-  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px; padding: 4px;
-}
+.store-tab-row { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; }
 .store-tab {
-  flex: 1; background: none; border: none; border-radius: 9px;
-  color: var(--muted); font-size: 13px; font-weight: 700; font-family: inherit;
-  padding: 9px 4px; cursor: pointer; transition: all 0.15s;
+  flex: 1; background: none; border: 1px solid transparent; border-radius: 999px;
+  color: var(--muted); font-size: 12.5px; font-weight: 700; font-family: inherit;
+  padding: 9px 6px; cursor: pointer; transition: all 0.15s; white-space: nowrap;
 }
-.store-tab.is-active { background: var(--bg-elev-2); color: var(--gold); }
+.store-tab.is-active { background: var(--surface); border-color: var(--border); color: var(--text); }
 
 .store-ring-row { display: flex; align-items: center; gap: 20px; margin-top: 6px; }
 .store-ring-wrap { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
 .store-health-ring-wrap { width: 160px; height: 160px; margin: 0 auto; }
 .store-ring { width: 100%; height: 100%; display: block; }
-.store-ring-track { stroke: var(--bg-elev-2); }
+.store-ring-track { stroke: var(--border); }
 .store-ring-fill { stroke: var(--gold); transition: stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1); }
+/* Capacity ring only — a property-scoped accent (reuses the same fixed
+   teal already used for the property listing accent palette), distinct
+   from the app's monochrome gold/accent-bg used everywhere else. */
+.store-capacity-ring .store-ring-fill { stroke: var(--color-2); }
 .store-ring-center {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center;
@@ -937,7 +965,7 @@ button.biz-rent-buy-option:disabled { cursor: default; opacity: 0.55; }
 .store-legend-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
 .store-legend-row b { color: var(--text); font-weight: 800; margin-left: 2px; }
 .store-legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-.store-legend-dot-fill { background: var(--gold); }
+.store-legend-dot-fill { background: var(--color-2); }
 .store-legend-dot-track { background: var(--bg-elev-2); border: 1px solid var(--line); }
 
 .store-alert-inline, .store-tip-inline {
@@ -946,10 +974,25 @@ button.biz-rent-buy-option:disabled { cursor: default; opacity: 0.55; }
 .store-alert-inline { background: rgba(226, 102, 90, 0.12); border: 1px solid rgba(226, 102, 90, 0.3); color: var(--text); }
 .store-tip-inline { background: var(--gold-glow); border: 1px solid var(--gold-deep); color: var(--text); }
 
+.store-traffic-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.store-traffic-total { text-align: right; flex-shrink: 0; }
+.store-traffic-total-label { display: block; font-size: 10.5px; color: var(--muted); font-weight: 700; letter-spacing: 0.3px; }
+.store-traffic-total-val { display: block; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .store-traffic-chart { width: 100%; height: 110px; display: block; margin-top: 8px; }
 .store-chart-grid { stroke: var(--chart-grid); stroke-width: 1; stroke-dasharray: 3 3; }
-.store-traffic-legend { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: var(--muted); }
-.store-traffic-legend b { color: var(--text); font-weight: 800; margin-left: 4px; }
+
+.store-sched-hours { font-size: 18px; font-weight: 800; }
+.store-sched-sub { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+.store-amenity-list { display: flex; flex-direction: column; gap: 10px; }
+.store-amenity-row { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; }
+.store-amenity-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-2); flex-shrink: 0; }
+
+.store-mkt-score-row { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 10px; }
+.store-mkt-score { font-size: 30px; font-weight: 800; line-height: 1; }
+.store-mkt-tier { font-size: 12.5px; color: var(--muted); font-weight: 700; }
+.store-mkt-note { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.store-mkt-note b { color: var(--text); }
 
 .store-health-hero { text-align: center; margin: 8px 0 16px; }
 .store-health-hero-num { font-size: 30px; font-weight: 800; line-height: 1; }
