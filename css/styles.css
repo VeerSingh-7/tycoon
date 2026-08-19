@@ -1023,7 +1023,7 @@ button.biz-rent-buy-option:disabled { cursor: default; opacity: 0.55; }
 .store-perf-back .store-icon { width: 18px; height: 18px; }
 
 .store-health-hero {
-  margin: 20px 0 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  margin: 0 0 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
   padding: 26px 22px; display: flex; align-items: center; gap: 22px;
 }
 .store-health-status { font-size: 16px; font-weight: 800; margin-bottom: 5px; }

@@ -715,6 +715,10 @@ for (const def of BUSINESS_DEFS) {
   check('Overview shows a real Health number matching propertyMetrics', el.innerHTML.includes('store-health-badge-num">' + propertyMetrics(riverside, 'London', 0).health + '%<'));
   check('Overview has all 4 tab pills and defaults to Summary (Yesterday’s Traffic)', el.innerHTML.includes('>Summary<') && el.innerHTML.includes('>Schedule<')
     && el.innerHTML.includes('>Inventory<') && el.innerHTML.includes('>Marketing<') && el.innerHTML.includes('Yesterday'));
+  check('Summary tab shows Capacity, then Traffic, then the Health Score card, in that order',
+    el.innerHTML.indexOf('Hourly Capacity') < el.innerHTML.indexOf('Yesterday') && el.innerHTML.indexOf('Yesterday') < el.innerHTML.indexOf('Health Score'));
+  check('the Health Score card in Summary shows the same real composite score as the hero badge',
+    el.innerHTML.includes('store-health-ring-num">' + propertyMetrics(riverside, 'London', 0).health + '%<'));
 
   // Tab switching within Overview (Summary/Schedule/Inventory/Marketing).
   el._listeners.click({ target: fakeBtn({ storeTab: 'schedule' }) });
@@ -734,7 +738,8 @@ for (const def of BUSINESS_DEFS) {
   // Health badge tap -> Performance.
   el._listeners.click({ target: fakeBtn({ storeNav: 'performance' }) });
   const perfEl = created[created.length - 1];
-  check('tapping the Health badge navigates to Performance', perfEl.innerHTML.includes('Performance Overview') && perfEl.innerHTML.includes('store-cat-tabs') && perfEl.innerHTML.includes('SCORE'));
+  check('tapping the Health badge navigates to Performance', perfEl.innerHTML.includes('Performance Overview') && perfEl.innerHTML.includes('store-cat-tabs'));
+  check('Performance opens straight into the category switcher, with no duplicate Health Score summary at its top', !perfEl.innerHTML.includes('SCORE') && !perfEl.innerHTML.includes('store-health-hero'));
   check('Performance defaults to the Satisfaction category', perfEl.innerHTML.includes('Customer Service'));
 
   // Category switching.

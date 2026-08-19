@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v120'; // v120: Store Overview + Performance ported line-for-line from store-pages-reworked.html — fixed-gradient hero with i-store watermark, real icon-symbol library, star-count rating, Performance page built for the first time (health hero, Satisfaction/Promotion/Security/Revenue category switcher, Expenses Breakdown accordion), wired to real per-property data
+const CACHE_NAME = 'tycoon-v121'; // v121: moved the Performance page's health summary card (ring + status + reason) into Store Overview's Summary tab, below Yesterday's Traffic; Performance now opens straight into the Satisfaction/Promotion/Security/Revenue switcher, reached via the Health badge or by scrolling Summary
 
 const ASSETS = [
   'index.html',

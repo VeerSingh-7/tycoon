@@ -15,13 +15,18 @@
  *   overview    — hero (fixed gradient + i-store watermark + scrim, frosted
  *                 back button/tenure chip, health badge inline with the
  *                 title), star rating, solid Manage button, a
- *                 Summary/Schedule/Inventory/Marketing pill tab row
- *   performance — health hero card (ring + status + description), the
- *                 Satisfaction/Promotion/Security/Revenue category
- *                 switcher, all four panels, and the Expenses Breakdown
- *                 accordion — reached ONLY via the hero's Health badge,
- *                 its own back control returns to Overview for the SAME
- *                 property (matches the reference's switchView() exactly)
+ *                 Summary/Schedule/Inventory/Marketing pill tab row; the
+ *                 Summary tab itself is Capacity -> Yesterday's Traffic ->
+ *                 the health summary card (ring + status + description,
+ *                 see healthSummaryCardHTML — shared with Performance so
+ *                 both places render the exact same component)
+ *   performance — opens straight into the Satisfaction/Promotion/Security/
+ *                 Revenue category switcher, all four panels, and the
+ *                 Expenses Breakdown accordion (no health summary at its
+ *                 top anymore — that now lives in Summary) — reached via
+ *                 the hero's Health badge OR by scrolling Summary, its own
+ *                 back control returns to Overview for the SAME property
+ *                 (matches the reference's switchView() intent)
  *
  * All the underlying numbers come from js/data/properties.js
  * propertyMetrics() — deterministic/seeded per property, no new persisted
@@ -234,7 +239,7 @@ const StorePage = (() => {
     if (tab === 'schedule') return scheduleCardHTML(c);
     if (tab === 'inventory') return inventoryCardHTML(c);
     if (tab === 'marketing') return marketingCardHTML(c);
-    return capacityCardHTML(c.metrics) + trafficCardHTML(c.metrics); // 'summary'
+    return capacityCardHTML(c.metrics) + trafficCardHTML(c.metrics) + healthSummaryCardHTML(c.metrics); // 'summary'
   }
 
   /** SVG ring gauge — a track circle plus a fill circle whose
@@ -406,19 +411,15 @@ const StorePage = (() => {
     return `${capped} ${names.length === 2 ? 'are' : 'is'} dragging this store down — start with staffing.`;
   }
 
-  function performanceHTML(c) {
-    const { metrics, owned } = c;
+  /** The health hero — ring + status label + one-line reason. Lives on the
+   *  Summary tab (below Yesterday's Traffic); Performance opens straight
+   *  into the category switcher instead of repeating it. Kept as its own
+   *  function so the health badge's tap-through to Performance and this
+   *  inline card can never drift out of sync with each other. */
+  function healthSummaryCardHTML(metrics) {
     const status = healthStatus(metrics.health);
     return `
-      ${ICON_SPRITE}
-      <div class="bizd-head">
-        <button class="store-perf-back" data-store-nav="back" type="button" aria-label="Back to Overview">${iconUse('i-chevron-left')}</button>
-        <div class="bizd-id">
-          <div class="bizd-co-name">${escapeHtml(owned.property.name)}</div>
-          <div class="bizd-co-sub">Performance Overview</div>
-        </div>
-      </div>
-
+      <div class="store-section-divider"><div class="store-section-dot"></div><div class="store-section-label">Health Score</div></div>
       <div class="store-health-hero">
         <div class="store-ring-wrap store-health-ring-wrap">
           ${ringSVG(metrics.health, 104, 44, 9, status.colorVar, 'store-health-ring')}
@@ -427,6 +428,19 @@ const StorePage = (() => {
         <div class="store-health-copy">
           <div class="store-health-status" style="color:${status.colorVar};">${status.label}</div>
           <div class="store-health-desc">${healthDescHTML(metrics)}</div>
+        </div>
+      </div>`;
+  }
+
+  function performanceHTML(c) {
+    const { metrics, owned } = c;
+    return `
+      ${ICON_SPRITE}
+      <div class="bizd-head">
+        <button class="store-perf-back" data-store-nav="back" type="button" aria-label="Back to Overview">${iconUse('i-chevron-left')}</button>
+        <div class="bizd-id">
+          <div class="bizd-co-name">${escapeHtml(owned.property.name)}</div>
+          <div class="bizd-co-sub">Performance Overview</div>
         </div>
       </div>
 
