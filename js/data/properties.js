@@ -388,12 +388,17 @@ function propertyMetrics(property, cityName, storeIndex) {
   const cleanliness = metricScore(seed + '_cln', conditionBase + 2, 10);
   const satisfaction = Math.round((customerService + pricing + interior + cleanliness) / 4);
 
+  // Capacity's occupancy fraction is computed here (rather than down by the
+  // rest of the capacity block) because Promotion's Traffic Index reuses it
+  // directly — a store that's genuinely busy relative to its own floor size
+  // IS a real traffic signal, not a separate invented number.
+  const occupancyPct = metricScore(seed + '_occ', 62, 22);
+
   // Promotion: how actively this specific store is marketed locally —
   // independent of the chain-wide Marketing & Growth service (js/marketing.js).
-  const localMarketing = metricScore(seed + '_lm', 45, 25);
-  const loyaltyProgram = metricScore(seed + '_lp', 40, 25);
-  const socialReach = metricScore(seed + '_sr', 35, 25);
-  const promotion = Math.round((localMarketing + loyaltyProgram + socialReach) / 3);
+  const trafficIndex = occupancyPct;
+  const marketing = metricScore(seed + '_lm', 45, 25);
+  const promotion = Math.round((trafficIndex + marketing) / 2);
 
   // Security: real equipment counts (owned vs. a tier-scaled total), not
   // just an abstract percentage — bigger/higher-tier stores warrant (and
@@ -411,9 +416,8 @@ function propertyMetrics(property, cityName, storeIndex) {
 
   // Capacity: max reuses the exact same sqft/100 figure already shown on
   // the property's own listing page (propertyListingHTML's "Customer
-  // Capacity" stat) — current is a seeded occupancy fraction of that max.
+  // Capacity" stat) — current applies the occupancy fraction computed above.
   const capacityMax = Math.round(property.sqft / 100);
-  const occupancyPct = metricScore(seed + '_occ', 62, 22);
   const capacityCurrent = Math.round(capacityMax * occupancyPct / 100);
 
   // Traffic: yesterday's total oscillates +/-25% around the property's own
@@ -452,7 +456,7 @@ function propertyMetrics(property, cityName, storeIndex) {
 
   return {
     satisfaction: { score: satisfaction, customerService, pricing, interior, cleanliness },
-    promotion: { score: promotion, localMarketing, loyaltyProgram, socialReach },
+    promotion: { score: promotion, trafficIndex, marketing },
     security: { score: security, cctvOwned, cctvTotal, doorAlarmOwned, doorAlarmTotal, guardAssigned },
     health,
     capacity: { current: capacityCurrent, max: capacityMax },

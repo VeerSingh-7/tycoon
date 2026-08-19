@@ -7,7 +7,7 @@
  * (js/chart.js) — no CDN, no external dependencies.
  * ========================================================================= */
 
-const CACHE_NAME = 'tycoon-v119'; // v119: Store Overview page correction pass — fixed swapped hero title/subtitle, gradient+watermark hero with frosted-glass controls, real SVG star icons, solid Manage button, 4-tab Summary/Schedule/Inventory/Marketing row (Performance now reached only via the Health badge), teal Capacity ring, and an hourly "Yesterday's Traffic" chart replacing the old weekly one
+const CACHE_NAME = 'tycoon-v120'; // v120: Store Overview + Performance ported line-for-line from store-pages-reworked.html — fixed-gradient hero with i-store watermark, real icon-symbol library, star-count rating, Performance page built for the first time (health hero, Satisfaction/Promotion/Security/Revenue category switcher, Expenses Breakdown accordion), wired to real per-property data
 
 const ASSETS = [
   'index.html',

@@ -661,6 +661,9 @@ for (const def of BUSINESS_DEFS) {
 
   check('security counts stay within their own totals', m0a.security.cctvOwned <= m0a.security.cctvTotal && m0a.security.doorAlarmOwned <= m0a.security.doorAlarmTotal);
 
+  check('promotion.trafficIndex reuses the same occupancy fraction as capacity (0-100)', m0a.promotion.trafficIndex >= 0 && m0a.promotion.trafficIndex <= 100);
+  check('promotion.score = average of trafficIndex and marketing', m0a.promotion.score === Math.round((m0a.promotion.trafficIndex + m0a.promotion.marketing) / 2));
+
   const d0 = propertyDetails(p0, 'London', 0);
   check('revenue.monthly reuses the exact same expectedAnnualRevenue/12 already shown on the listing page', m0a.revenue.monthly === Math.round(d0.financials.expectedAnnualRevenue / 12));
   check('revenue expenses sum to totalExpenses exactly', m0a.revenue.expenses.reduce((s, e) => s + e.amount, 0) === m0a.revenue.totalExpenses);
@@ -707,9 +710,9 @@ for (const def of BUSINESS_DEFS) {
   StorePage.open('supermarket_1', 0);
   check('StorePage.open() appends one real screen to the page', document.body.children.length === 1);
   const el = created[created.length - 1];
-  check('Overview shows the real property name and company name', el.innerHTML.includes('Riverside Market') && el.innerHTML.includes('Singh'));
-  check('Overview shows the tenure chip matching this property’s real tenure (Rented)', el.innerHTML.includes('>Rented<'));
-  check('Overview shows a real Health number matching propertyMetrics', el.innerHTML.includes('store-health-badge-num">' + propertyMetrics(riverside, 'London', 0).health + '<'));
+  check('Overview shows the real property name as its title', el.innerHTML.includes('Riverside Market'));
+  check('Overview shows the tenure chip matching this property’s real tenure (RENTED)', el.innerHTML.includes('>RENTED<'));
+  check('Overview shows a real Health number matching propertyMetrics', el.innerHTML.includes('store-health-badge-num">' + propertyMetrics(riverside, 'London', 0).health + '%<'));
   check('Overview has all 4 tab pills and defaults to Summary (Yesterday’s Traffic)', el.innerHTML.includes('>Summary<') && el.innerHTML.includes('>Schedule<')
     && el.innerHTML.includes('>Inventory<') && el.innerHTML.includes('>Marketing<') && el.innerHTML.includes('Yesterday'));
 
@@ -731,7 +734,7 @@ for (const def of BUSINESS_DEFS) {
   // Health badge tap -> Performance.
   el._listeners.click({ target: fakeBtn({ storeNav: 'performance' }) });
   const perfEl = created[created.length - 1];
-  check('tapping the Health badge navigates to Performance', perfEl.innerHTML.includes('Health Score') && perfEl.innerHTML.includes('store-cat-tabs'));
+  check('tapping the Health badge navigates to Performance', perfEl.innerHTML.includes('Performance Overview') && perfEl.innerHTML.includes('store-cat-tabs') && perfEl.innerHTML.includes('SCORE'));
   check('Performance defaults to the Satisfaction category', perfEl.innerHTML.includes('Customer Service'));
 
   // Category switching.
@@ -743,7 +746,7 @@ for (const def of BUSINESS_DEFS) {
 
   el._listeners.click({ target: fakeBtn({ storeCat: 'revenue' }) });
   const revEl = created[created.length - 1];
-  check('switching to the Revenue category shows a real monthly figure and an expenses accordion', revEl.innerHTML.includes('Monthly Revenue') && revEl.innerHTML.includes('Expenses ·'));
+  check('switching to the Revenue category shows a real monthly figure and an expenses accordion', revEl.innerHTML.includes(formatMoney(m.revenue.monthly)) && revEl.innerHTML.includes('Expenses Breakdown'));
 
   // Performance's own back control returns to Overview (does not close the whole screen).
   el._listeners.click({ target: fakeBtn({ storeNav: 'back' }) });
@@ -769,9 +772,9 @@ for (const def of BUSINESS_DEFS) {
   StorePage.open('supermarket_1', 1);
   const el2 = created[created.length - 1];
   check('a different owned property opens its own distinct Store Overview', el2.innerHTML.includes('East London Fresh') && !el2.innerHTML.includes('Riverside Market'));
-  check('the second property shows its own real tenure (Owned, not Rented)', el2.innerHTML.includes('>Owned<') && !el2.innerHTML.includes('>Rented<'));
+  check('the second property shows its own real tenure (OWNED, not RENTED)', el2.innerHTML.includes('>OWNED<') && !el2.innerHTML.includes('>RENTED<'));
   const health2 = propertyMetrics(eastLondon, 'London', 5).health;
-  check('the second property shows its own real, distinct Health number', el2.innerHTML.includes('store-health-badge-num">' + health2 + '<') && health2 !== propertyMetrics(riverside, 'London', 0).health);
+  check('the second property shows its own real, distinct Health number', el2.innerHTML.includes('store-health-badge-num">' + health2 + '%<') && health2 !== propertyMetrics(riverside, 'London', 0).health);
 
   // A third owned property, in a different country entirely.
   const au = BUSINESS_PROPERTIES.supermarket.countries.find((c) => c.id === 'au');
